@@ -6,7 +6,7 @@
 
 **Architecture:** The existing sidecar (`agent-bridge/src/`) is deeply coupled to `@anthropic-ai/claude-agent-sdk`. Rather than rewrite it, we add a thin `ProviderSession` interface and two adapters: `anthropic.ts` wraps the existing `OrbitAgent` unchanged in behavior, and `openai.ts` is a new minimal adapter using the `openai` npm package. `SessionManager.createSession` dispatches based on a new `provider` field in `SessionConfig`. The Rust side resolves the active provider + credentials from `ProviderAuthState` and passes both across the stdin JSON protocol.
 
-**Tech Stack:** TypeScript (`agent-bridge`), `openai` (v5.x), existing `@anthropic-ai/claude-agent-sdk`; Rust (`solo-desktop` Tauri commands, `solo-auth` credentials); Tauri IPC; OpenAI Responses API (streaming SSE).
+**Tech Stack:** TypeScript (`agent-bridge`), `openai` (v5.x), existing `@anthropic-ai/claude-agent-sdk`; Rust (`coltide-desktop` Tauri commands, `coltide-auth` credentials); Tauri IPC; OpenAI Responses API (streaming SSE).
 
 ## v1 Scope — What This Plan Delivers
 
@@ -130,7 +130,7 @@ export interface ProviderSession {
 - [ ] **Step 2: Confirm it compiles (no implementation yet — just types)**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth/agent-bridge
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth/agent-bridge
 bun run build 2>&1 | tail -5
 ```
 
@@ -139,7 +139,7 @@ Expected: clean typecheck. No emit files change outside `dist/providers/types.js
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 git add agent-bridge/src/providers/types.ts
 git commit -m "feat(agent-bridge): ProviderSession interface + event shape
 
@@ -218,10 +218,10 @@ Open `agent-bridge/src/session-manager.ts`. Find the `SessionConfig` interface (
 - [ ] **Step 3: Confirm both sides compile**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
-cargo check -p solo-desktop 2>&1 | tail -10 || echo "expected to fail if dist/ is absent"
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
+cargo check -p coltide-desktop 2>&1 | tail -10 || echo "expected to fail if dist/ is absent"
 mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html
-cargo check -p solo-desktop 2>&1 | tail -10
+cargo check -p coltide-desktop 2>&1 | tail -10
 rm -rf apps/desktop/dist
 git checkout -- apps/desktop/src-tauri/gen/ 2>/dev/null || true
 cd agent-bridge && bun run build 2>&1 | tail -5
@@ -233,10 +233,10 @@ Expected: Rust and TS both compile cleanly. No runtime behavior has changed yet 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 git add apps/desktop/src-tauri/src/agent/protocol.rs \
         agent-bridge/src/session-manager.ts
-git commit -m "feat(solo-desktop,agent-bridge): SessionConfig gains provider + credentials
+git commit -m "feat(coltide-desktop,agent-bridge): SessionConfig gains provider + credentials
 
 Both optional for backward compatibility. Runtime semantics unchanged —
 existing callers continue to work. Sidecar dispatch logic comes in the
@@ -257,7 +257,7 @@ The existing `OrbitAgent` is complex and battle-tested. We do NOT rewrite it. We
 - [ ] **Step 1: Inspect the existing OrbitAgent shape**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 grep -n 'class OrbitAgent\|async sendMessage\|async interrupt\|async close\|async \*receiveResponse\|receiveResponse()' agent-bridge/src/agent.ts | head -20
 ```
 
@@ -383,7 +383,7 @@ export function getOrbitAgent(session: ProviderSession): OrbitAgent | undefined 
 - [ ] **Step 3: Confirm it compiles**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth/agent-bridge
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth/agent-bridge
 bun run build 2>&1 | tail -5
 ```
 
@@ -392,7 +392,7 @@ Expected: clean typecheck.
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 git add agent-bridge/src/providers/anthropic.ts
 git commit -m "feat(agent-bridge): Anthropic adapter wrapping OrbitAgent
 
@@ -416,7 +416,7 @@ Small standalone task — install the dependency and regenerate the lockfile.
 - [ ] **Step 1: Install the package**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth/agent-bridge
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth/agent-bridge
 bun add openai@^5.0.0
 cd ..
 ```
@@ -424,7 +424,7 @@ cd ..
 - [ ] **Step 2: Verify the install**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 grep -A 2 '"openai"' agent-bridge/package.json
 ```
 
@@ -433,7 +433,7 @@ Expected: `"openai": "^5.x.x"` (or similar) in the `dependencies` block.
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 git add agent-bridge/package.json bun.lock
 git commit -m "chore(agent-bridge): add openai dependency"
 ```
@@ -690,7 +690,7 @@ function translateEvent(event: ResponseStreamEvent): ProviderEvent | null {
 - [ ] **Step 2: Run typecheck**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth/agent-bridge
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth/agent-bridge
 bun run build 2>&1 | tail -15
 ```
 
@@ -705,7 +705,7 @@ type ResponseStreamEvent = Record<string, unknown>;
 - [ ] **Step 3: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 git add agent-bridge/src/providers/openai.ts
 git commit -m "feat(agent-bridge): OpenAI text-only provider adapter
 
@@ -729,7 +729,7 @@ Wire the two adapters into `SessionManager.createSession`. When `config.provider
 - [ ] **Step 1: Locate the existing createSession logic**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 grep -n 'async createSession\|new OrbitAgent\|OrbitAgent(\|class SessionManager' agent-bridge/src/session-manager.ts | head -10
 ```
 
@@ -909,7 +909,7 @@ For other methods (`setThinkingMode`, `setModel`, `setPlanMode`, `setAcceptMode`
 - [ ] **Step 5: Typecheck**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth/agent-bridge
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth/agent-bridge
 bun run build 2>&1 | tail -20
 ```
 
@@ -922,7 +922,7 @@ Resolve by grepping the existing file for the actual method names. Do NOT rename
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 git add agent-bridge/src/session-manager.ts
 git commit -m "feat(agent-bridge): dispatch OpenAI sessions in SessionManager
 
@@ -986,8 +986,8 @@ pub async fn agent_create_session(
                     .map_err(to_error)?;
 
                 if let Some(info) = resolved {
-                    // Determine if it's an OAuth token (SoloOAuth source) or an API key.
-                    use solo_auth::credentials::CredentialSource as CS;
+                    // Determine if it's an OAuth token (ColtIDEOAuth source) or an API key.
+                    use coltide_auth::credentials::CredentialSource as CS;
                     let account_id = provider_state
                         .credentials
                         .get_openai_account_id()
@@ -995,7 +995,7 @@ pub async fn agent_create_session(
                         .map_err(to_error)?;
 
                     config.credentials = Some(match info.source {
-                        CS::SoloOAuth => crate::agent::SessionCredentials::OAuth {
+                        CS::ColtIDEOAuth => crate::agent::SessionCredentials::OAuth {
                             token: info.api_key,
                             account_id,
                         },
@@ -1023,7 +1023,7 @@ pub async fn agent_create_session(
     }
 
     state.create_session(&session_id, Some(config)).map_err(to_error)?;
-    stats.record(solo_stats::StatsEvent::SessionCreated).await;
+    stats.record(coltide_stats::StatsEvent::SessionCreated).await;
     Ok(())
 }
 ```
@@ -1050,22 +1050,22 @@ pub use protocol::{SessionConfig, SessionCredentials};
 - [ ] **Step 4: Compile**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html
-cargo check -p solo-desktop 2>&1 | tail -15
+cargo check -p coltide-desktop 2>&1 | tail -15
 rm -rf apps/desktop/dist
 git checkout -- apps/desktop/src-tauri/gen/ 2>/dev/null || true
 ```
 
-Expected: clean compile (pre-existing dead_code warnings in `solo-embeddings` are unrelated).
+Expected: clean compile (pre-existing dead_code warnings in `coltide-embeddings` are unrelated).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 git add apps/desktop/src-tauri/src/agent_commands.rs \
         apps/desktop/src-tauri/src/agent/mod.rs
-git commit -m "feat(solo-desktop): agent_create_session resolves provider+credentials
+git commit -m "feat(coltide-desktop): agent_create_session resolves provider+credentials
 
 When the frontend creates a session without specifying provider or
 credentials, the Rust side reads the active provider from
@@ -1089,7 +1089,7 @@ Human-gated. Prove the routing works end-to-end against real APIs.
 - [ ] **Step 1: Launch ColtIDE from the worktree**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 bun run dev
 ```
 

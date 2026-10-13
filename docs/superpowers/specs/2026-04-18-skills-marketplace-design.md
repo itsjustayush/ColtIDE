@@ -3,8 +3,8 @@
 **Date:** 2026-04-18
 **Status:** Approved (brainstorming complete)
 **Author:** Sachin + Claude
-**Target repo:** `solo/` inside `Orbit_Main`
-**Separate repo to create:** `github.com/solo/skills-registry`
+**Target repo:** `coltide/` inside `Orbit_Main`
+**Separate repo to create:** `github.com/coltide/skills-registry`
 
 ## 1. Goal
 
@@ -14,7 +14,7 @@ Turn ColtIDE's placeholder `SkillsSection` in the vault sidebar into a full open
 
 | # | Decision |
 |---|---|
-| 1 | Registry lives in a public GitHub repo `github.com/solo/skills-registry`, catalog is static JSON. |
+| 1 | Registry lives in a public GitHub repo `github.com/coltide/skills-registry`, catalog is static JSON. |
 | 2 | Monorepo-of-skills model: registry repo contains both `registry.json` and every skill's files under `skills/<name>/`. |
 | 3 | Runtime: **hybrid**. Installed skills auto-injected into the system prompt. Marketplace search runs automatically on every user turn as a background UI concern (not a model tool) and surfaces suggestions above the input box with `[Download]` `[View skill]` `[Skip]`. |
 | 4 | Trust model: **markdown only**. No executable scripts or binaries. Claude Code-compatible skill format. |
@@ -24,8 +24,8 @@ Turn ColtIDE's placeholder `SkillsSection` in the vault sidebar into a full open
 ## 3. System architecture
 
 ```
-github.com/solo/solo                    ← the IDE (Tauri app)
-github.com/solo/skills-registry         ← public monorepo of all skills (MIT, PR-based)
+github.com/coltide/coltide                    ← the IDE (Tauri app)
+github.com/coltide/skills-registry         ← public monorepo of all skills (MIT, PR-based)
 ~/.coltide/skills/                         ← per-user installed skills on disk
 ```
 
@@ -58,7 +58,7 @@ skills_commands.rs
   ├─ skills_write_workspace_agents_md
   └─ skills_extract_bundled
 
-solo-embeddings crate (semantic search over registry)
+coltide-embeddings crate (semantic search over registry)
 reqwest HTTP client (registry fetch + tarball download)
 
 agent-bridge sidecar (Node.js)
@@ -79,7 +79,7 @@ into system prompt → model responds using skill.
 user message → skills_search_marketplace(message) → semantic search over cached registry
 embeddings → top hit above threshold + not already installed → BackendEvent::SkillsSuggestion
 → banner renders above input → user clicks Download → skills_install(id) fetches tarball
-from solo/skills-registry → writes to ~/.coltide/skills/<id>/ → workspace AGENTS.md
+from coltide/skills-registry → writes to ~/.coltide/skills/<id>/ → workspace AGENTS.md
 regenerated → next turn picks up new skill automatically.
 ```
 
@@ -88,7 +88,7 @@ regenerated → next turn picks up new skill automatically.
 ### Registry repo layout
 
 ```
-solo/skills-registry/
+coltide/skills-registry/
 ├── README.md
 ├── LICENSE                       MIT
 ├── CONTRIBUTING.md
@@ -118,10 +118,10 @@ solo/skills-registry/
       "version": "1.0.0",
       "description": "Build and refine user interfaces with Tailwind CSS...",
       "categories": ["design", "frontend"],
-      "author": "solo-team",
+      "author": "coltide-team",
       "license": "MIT",
       "path": "skills/ui",
-      "tarball_url": "https://codeload.github.com/solo/skills-registry/tar.gz/refs/heads/main?path=skills/ui",
+      "tarball_url": "https://codeload.github.com/coltide/skills-registry/tar.gz/refs/heads/main?path=skills/ui",
       "sha256": "...",
       "tags": ["tailwind", "ui", "design", "css"],
       "created_at": "2026-04-18",
@@ -139,7 +139,7 @@ name: ui
 version: 1.0.0
 description: Build and refine user interfaces with Tailwind CSS...
 categories: [design, frontend]
-author: solo-team
+author: coltide-team
 license: MIT
 tags: [tailwind, ui, css]
 ---
@@ -151,7 +151,7 @@ This skill helps you build user interfaces with Tailwind CSS...
 
 Required frontmatter: `name`, `description`. All other fields optional.
 
-### Protocol types (`crates/solo-protocol/src/lib.rs`, ts-rs derive)
+### Protocol types (`crates/colt-core/src/lib.rs`, ts-rs derive)
 
 ```rust
 #[derive(TS, Serialize, Deserialize, Clone, Debug)]
@@ -191,7 +191,7 @@ pub enum BackendEvent {
 }
 ```
 
-Run `bun run gen:bindings` from `solo/` after editing.
+Run `bun run gen:bindings` from `coltide/` after editing.
 
 ### On-disk installed layout
 
@@ -212,16 +212,16 @@ Run `bun run gen:bindings` from `solo/` after editing.
 ### Workspace-root `AGENTS.md` (auto-generated)
 
 ```markdown
-<!-- solo:begin -->
+<!-- coltide:begin -->
 # Installed ColtIDE Skills
 - **ui** — Build and refine UIs with Tailwind CSS.
 - **poetry-writer** — Generate and critique poetry in various forms.
 
 Full instructions at `~/.coltide/skills/<name>/AGENTS.md`.
-<!-- solo:end -->
+<!-- coltide:end -->
 ```
 
-If the root file already exists, ColtIDE replaces only the `<!-- solo:begin -->...<!-- solo:end -->` block. If it doesn't exist, ColtIDE creates the file with just that block.
+If the root file already exists, ColtIDE replaces only the `<!-- coltide:begin -->...<!-- coltide:end -->` block. If it doesn't exist, ColtIDE creates the file with just that block.
 
 ## 5. Runtime agent integration
 
@@ -246,7 +246,7 @@ for any skill that matches the current task.
 
 On every user message, the frontend dispatches `skills_search_marketplace(query=message, k=5, threshold=0.72)`:
 
-1. Rust command computes query embedding via `solo-embeddings`.
+1. Rust command computes query embedding via `coltide-embeddings`.
 2. Compares cosine similarity against pre-computed embeddings for every `registry.json` entry (cached on first registry fetch, re-computed when `version` changes).
 3. Filter: above threshold AND not already installed AND not dismissed this session.
 4. Emit `BackendEvent::SkillsSuggestion` with top 3 results.
@@ -313,7 +313,7 @@ On app launch and every 24h:
 
 ## 7. Security and safety
 
-- **No executable skill content.** Markdown + assets only. CI in `solo/skills-registry` rejects any `.sh`, `.py`, `.js`, `.ts`, `.exe`, ELF, Mach-O, PE.
+- **No executable skill content.** Markdown + assets only. CI in `coltide/skills-registry` rejects any `.sh`, `.py`, `.js`, `.ts`, `.exe`, ELF, Mach-O, PE.
 - **SHA-256 verification** on tarball download. Mismatch aborts install.
 - **Path traversal prevention.** Tarball entries normalized and constrained to `~/.coltide/skills/<id>/`; entries escaping the dir are rejected.
 - **Size limit.** 5 MB per skill tarball, enforced both CI-side and client-side.
@@ -337,7 +337,7 @@ On app launch and every 24h:
   - `test_extract_bundled_first_run_only`
   - `test_search_marketplace_threshold`
   - `test_origin_json_tracks_modifications`
-- `solo-embeddings::tests`: registry-entry embedding stability.
+- `coltide-embeddings::tests`: registry-entry embedding stability.
 
 ### Frontend (Vitest)
 
@@ -353,14 +353,14 @@ On app launch and every 24h:
 - First launch → bundled skill extracted; second launch → not re-extracted.
 - Type matching message → suggestion banner appears.
 
-### Registry CI (`solo/skills-registry` GitHub Actions)
+### Registry CI (`coltide/skills-registry` GitHub Actions)
 
 - Validate YAML frontmatter, required fields, no executables, unique name, dir-matches-name, size limit.
 - Regenerate `registry.json` on merge to `main`.
 
 ## 9. Open-source posture
 
-- `solo/skills-registry`: MIT, public, PR-based contributions.
+- `coltide/skills-registry`: MIT, public, PR-based contributions.
 - `CONTRIBUTING.md` documents authoring, required fields, banned content, review criteria.
 - `CODEOWNERS` routes category folders to domain reviewers.
 - Users/orgs can fork the registry and point ColtIDE at the fork via `settings.skills.registry_url`.

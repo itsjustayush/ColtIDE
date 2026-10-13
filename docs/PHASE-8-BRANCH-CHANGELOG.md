@@ -40,25 +40,25 @@ The OpenAI OAuth flow was upgraded to perform an **RFC 8693 token exchange** —
 
 ### Files & changes
 
-#### `crates/solo-agent/src/oauth/providers/openai.rs`
+#### `crates/colt-core/src/oauth/providers/openai.rs`
 
 | Function | Change |
 |----------|--------|
-| `OpenAIOAuthConfig::build_auth_url()` | Added `originator=solo_ide` parameter for attribution |
+| `OpenAIOAuthConfig::build_auth_url()` | Added `originator=coltide_ide` parameter for attribution |
 | `OpenAIOAuthConfig::exchange_code()` | After getting tokens, calls `obtain_api_key()` to exchange `id_token` → API key. Falls back to `access_token` if exchange fails. |
 | `OpenAIOAuthConfig::obtain_api_key()` | **NEW** — RFC 8693 token exchange: POSTs to token endpoint with `grant_type=urn:ietf:params:oauth:grant-type:token-exchange`, `subject_token=<id_token>`, `audience=https://api.openai.com/v1`. Returns API key. |
 | `OpenAIOAuthConfig::refresh_token()` | After refreshing, re-exchanges `id_token` for API key |
 | `TokenExchangeResponse` struct | **NEW** — Deserializes `{ access_token }` from exchange response |
-| Test `test_build_auth_url` | Updated to assert `originator=solo_ide` |
+| Test `test_build_auth_url` | Updated to assert `originator=coltide_ide` |
 
-#### `crates/solo-agent/src/credentials.rs`
+#### `crates/colt-core/src/credentials.rs`
 
 | Change | Details |
 |--------|---------|
 | `CredentialInfo` struct | Added `account_id: Option<String>` field |
 | All `CredentialInfo` construction sites (8 places) | Pass `account_id` — set from `OpenAIOAuthToken.account_id` for OpenAI OAuth, `None` for all others |
 
-#### `crates/solo-agent/src/openai.rs`
+#### `crates/colt-core/src/openai.rs`
 
 | Function | Change |
 |----------|--------|
@@ -69,7 +69,7 @@ The OpenAI OAuth flow was upgraded to perform an **RFC 8693 token exchange** —
 | `send_message()` | Sets `store: Some(false)` when `account_id.is_some()` to prevent conversation storage on OpenAI's side |
 | `stream_openai_response()` | Added `account_id` parameter; sends `ChatGPT-Account-ID` header when present |
 
-#### `crates/solo-agent/src/lib.rs`
+#### `crates/colt-core/src/lib.rs`
 
 | Change | Details |
 |--------|---------|
@@ -139,7 +139,7 @@ Added `cleanup_git_locks(&workspace_path)` at the start of `git_commit` to handl
 
 #### 4. `commits_ahead` — Protocol, Backend, Store, UI
 
-**Protocol** (`crates/solo-protocol/src/lib.rs`):
+**Protocol** (`crates/colt-core/src/lib.rs`):
 - Added `commits_ahead: Option<u32>` to `GitRepoStatus`
 
 **Backend** (`git_commands.rs` → `git_get_status`):
@@ -240,16 +240,16 @@ export const gitCreateBranch = (branchName: string) =>
 
 | # | File | Category |
 |---|------|----------|
-| 1 | `crates/solo-agent/src/oauth/providers/openai.rs` | OpenAI OAuth |
-| 2 | `crates/solo-agent/src/credentials.rs` | OpenAI OAuth |
-| 3 | `crates/solo-agent/src/openai.rs` | OpenAI OAuth |
-| 4 | `crates/solo-agent/src/lib.rs` | OpenAI OAuth |
+| 1 | `crates/colt-core/src/oauth/providers/openai.rs` | OpenAI OAuth |
+| 2 | `crates/colt-core/src/credentials.rs` | OpenAI OAuth |
+| 3 | `crates/colt-core/src/openai.rs` | OpenAI OAuth |
+| 4 | `crates/colt-core/src/lib.rs` | OpenAI OAuth |
 | 5 | `apps/desktop/src/components/settings/ClaudeLoginModal.tsx` | Claude CLI Auth |
 | 6 | `apps/desktop/src/components/settings/tabs/AITab.tsx` | Claude CLI Auth |
 | 7 | `apps/desktop/src-tauri/src/git_commands.rs` | Git Phase 8.5 |
 | 8 | `apps/desktop/src-tauri/src/lib.rs` | Git Phase 8.5 |
-| 9 | `crates/solo-protocol/src/lib.rs` | Git Phase 8.5 |
-| 10 | `crates/solo-protocol/apps/desktop/src/bindings/GitRepoStatus.ts` | Git Phase 8.5 (auto-gen) |
+| 9 | `crates/colt-core/src/lib.rs` | Git Phase 8.5 |
+| 10 | `crates/colt-core/apps/desktop/src/bindings/GitRepoStatus.ts` | Git Phase 8.5 (auto-gen) |
 | 11 | `apps/desktop/src/lib/tauri/git.ts` | Git Phase 8.5 |
 | 12 | `apps/desktop/src/stores/gitStore.ts` | Git Phase 8.5 |
 | 13 | `apps/desktop/src/components/source-control/SourceControlPanel.tsx` | Git Phase 8.5 |
@@ -323,7 +323,7 @@ export const gitCreateBranch = (branchName: string) =>
 - [ ] **store: false**: Verify API request body includes `"store": false` when using OAuth
 - [ ] **Token refresh**: Let token expire (or simulate) → verify auto-refresh + re-exchange
 - [ ] **Fallback**: If token exchange fails, verify it falls back to access_token with warning log
-- [ ] **originator param**: Verify OAuth URL contains `originator=solo_ide`
+- [ ] **originator param**: Verify OAuth URL contains `originator=coltide_ide`
 
 ### Claude Code CLI Auth
 

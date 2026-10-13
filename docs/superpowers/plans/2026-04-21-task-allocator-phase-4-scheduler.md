@@ -4,9 +4,9 @@
 
 **Goal:** Agent-tasks with a schedule fire automatically — daily/weekly/hourly presets or raw cron expressions. When the worktree+MAX_ACTIVE_SESSIONS=3 budget is full, scheduled fires queue and drain. On app launch, missed fires run once if the task has `catch_up_on_launch=true`.
 
-**Architecture:** Typed `Schedule` enum replaces `Option<Value>` on `Task`. New `solo-tasks::scheduler` module hosts a tokio-spawned loop that wakes every 15s, walks scheduled tasks, and dispatches fires via `ExecutorMap`. Rate-limit and event-hook scaffolding are installed; event-driven proactive planning activates in Phase 5 when a planner LLM exists. `croner` (maintained pure-Rust cron parser) computes next-fire from cron expressions.
+**Architecture:** Typed `Schedule` enum replaces `Option<Value>` on `Task`. New `coltide-tasks::scheduler` module hosts a tokio-spawned loop that wakes every 15s, walks scheduled tasks, and dispatches fires via `ExecutorMap`. Rate-limit and event-hook scaffolding are installed; event-driven proactive planning activates in Phase 5 when a planner LLM exists. `croner` (maintained pure-Rust cron parser) computes next-fire from cron expressions.
 
-**Tech Stack:** `croner = "2"` (new dep on solo-tasks), `tokio::time::interval`, `chrono` for UTC math. No UI framework changes.
+**Tech Stack:** `croner = "2"` (new dep on coltide-tasks), `tokio::time::interval`, `chrono` for UTC math. No UI framework changes.
 
 **Spec reference:** `docs/superpowers/specs/2026-04-21-task-allocator-design.md` §4 Scheduler, §4.3 concurrency, §4.4 catch-up, §5 `Schedule` enum.
 
@@ -15,14 +15,14 @@
 ## File map
 
 **Create (Rust):**
-- `crates/solo-tasks/src/scheduler.rs` — cron wheel + queue + catch-up.
-- `crates/solo-tasks/src/schedule_preview.rs` — pure fn returning next N fire times.
+- `crates/coltide-tasks/src/scheduler.rs` — cron wheel + queue + catch-up.
+- `crates/coltide-tasks/src/schedule_preview.rs` — pure fn returning next N fire times.
 
 **Modify (Rust):**
-- `crates/solo-protocol/src/lib.rs` — add `Schedule` enum + `PresetKind` + `EventKind`. Change `Task.schedule: Option<Schedule>`.
-- `crates/solo-tasks/Cargo.toml` — add `croner = "2"` and `chrono = { version = "0.4", features = ["serde"] }`.
-- `crates/solo-tasks/src/lib.rs` — export new modules.
-- `crates/solo-tasks/src/store.rs` — `update()` handles `patch.schedule`; new `list_scheduled()` query.
+- `crates/colt-core/src/lib.rs` — add `Schedule` enum + `PresetKind` + `EventKind`. Change `Task.schedule: Option<Schedule>`.
+- `crates/coltide-tasks/Cargo.toml` — add `croner = "2"` and `chrono = { version = "0.4", features = ["serde"] }`.
+- `crates/coltide-tasks/src/lib.rs` — export new modules.
+- `crates/coltide-tasks/src/store.rs` — `update()` handles `patch.schedule`; new `list_scheduled()` query.
 - `apps/desktop/src-tauri/src/task_commands.rs` — `task_schedule_preview` command.
 - `apps/desktop/src-tauri/src/task_executor.rs` — teach `ExecutorMap` to expose capacity (how many active runs) for scheduler queue gate.
 - `apps/desktop/src-tauri/src/lib.rs` — start scheduler on setup; register new command.
@@ -42,7 +42,7 @@
 
 ## Task 1 · Typed `Schedule` enum
 
-**File:** `crates/solo-protocol/src/lib.rs`
+**File:** `crates/colt-core/src/lib.rs`
 
 - [ ] **Step 1.1:** Before the `Task` struct, add:
 
@@ -97,11 +97,11 @@ with:
 
 - [ ] **Step 1.4:** `bun run gen:bindings`. Verify `Schedule.ts`, `PresetKind.ts`, `EventKind.ts` generated; `Task.ts`, `TaskPatch.ts` updated.
 
-- [ ] **Step 1.5:** `cargo check -p solo-protocol`.
+- [ ] **Step 1.5:** `cargo check -p colt-core`.
 
 - [ ] **Step 1.6:** Commit (force-add the new binding files):
 ```bash
-git add crates/solo-protocol/src/lib.rs apps/desktop/src/bindings/Schedule.ts apps/desktop/src/bindings/PresetKind.ts apps/desktop/src/bindings/EventKind.ts apps/desktop/src/bindings/Task.ts apps/desktop/src/bindings/TaskPatch.ts apps/desktop/src/bindings/index.ts
+git add crates/colt-core/src/lib.rs apps/desktop/src/bindings/Schedule.ts apps/desktop/src/bindings/PresetKind.ts apps/desktop/src/bindings/EventKind.ts apps/desktop/src/bindings/Task.ts apps/desktop/src/bindings/TaskPatch.ts apps/desktop/src/bindings/index.ts
 git commit -m "feat(protocol): typed Schedule enum (preset/cron/oneshot/event)"
 ```
 
@@ -110,24 +110,24 @@ git commit -m "feat(protocol): typed Schedule enum (preset/cron/oneshot/event)"
 ## Task 2 · Schedule deps + `schedule_preview`
 
 **Files:**
-- `crates/solo-tasks/Cargo.toml`
-- `crates/solo-tasks/src/schedule_preview.rs` (new)
-- `crates/solo-tasks/src/lib.rs`
+- `crates/coltide-tasks/Cargo.toml`
+- `crates/coltide-tasks/src/schedule_preview.rs` (new)
+- `crates/coltide-tasks/src/lib.rs`
 
-- [ ] **Step 2.1:** Append deps in `crates/solo-tasks/Cargo.toml` under `[dependencies]`:
+- [ ] **Step 2.1:** Append deps in `crates/coltide-tasks/Cargo.toml` under `[dependencies]`:
 ```toml
 croner = "2"
 chrono = { version = "0.4", features = ["serde"] }
 ```
 
-- [ ] **Step 2.2:** Create `crates/solo-tasks/src/schedule_preview.rs`:
+- [ ] **Step 2.2:** Create `crates/coltide-tasks/src/schedule_preview.rs`:
 
 ```rust
 //! Pure function: given a `Schedule`, return the next N fire times as UTC millis.
 
 use chrono::{DateTime, Datelike, TimeZone, Timelike, Utc, Weekday};
 use croner::Cron;
-use solo_protocol::{PresetKind, Schedule};
+use coltide_protocol::{PresetKind, Schedule};
 use crate::error::{TaskError, TaskResult};
 
 /// Compute the next `n` fire times from `now` (UTC millis).
@@ -264,24 +264,24 @@ mod tests {
 
     #[test]
     fn event_triggered_returns_empty() {
-        let s = Schedule::EventTriggered { event: solo_protocol::EventKind::AgentSessionEnded };
+        let s = Schedule::EventTriggered { event: coltide_protocol::EventKind::AgentSessionEnded };
         assert!(next_fires(&s, 0, 5).unwrap().is_empty());
     }
 }
 ```
 
-- [ ] **Step 2.3:** Register module in `crates/solo-tasks/src/lib.rs`:
+- [ ] **Step 2.3:** Register module in `crates/coltide-tasks/src/lib.rs`:
 ```rust
 pub mod schedule_preview;
 pub use schedule_preview::next_fires;
 ```
 
-- [ ] **Step 2.4:** `cargo test -p solo-tasks --lib` — expect 21 tests pass (16 prev + 5 new).
-`cargo clippy -p solo-tasks --all-targets -- -D warnings` — zero warnings.
+- [ ] **Step 2.4:** `cargo test -p coltide-tasks --lib` — expect 21 tests pass (16 prev + 5 new).
+`cargo clippy -p coltide-tasks --all-targets -- -D warnings` — zero warnings.
 
 - [ ] **Step 2.5:** Commit:
 ```bash
-git add crates/solo-tasks/Cargo.toml crates/solo-tasks/src/schedule_preview.rs crates/solo-tasks/src/lib.rs
+git add crates/coltide-tasks/Cargo.toml crates/coltide-tasks/src/schedule_preview.rs crates/coltide-tasks/src/lib.rs
 git commit -m "feat(tasks): schedule_preview (next N fires for preset/cron/oneshot)"
 ```
 
@@ -289,7 +289,7 @@ git commit -m "feat(tasks): schedule_preview (next N fires for preset/cron/onesh
 
 ## Task 3 · Store — `list_scheduled` + `update schedule`
 
-**File:** `crates/solo-tasks/src/store.rs`
+**File:** `crates/coltide-tasks/src/store.rs`
 
 - [ ] **Step 3.1:** In the `update()` method, after `patch.agent_config` handling (added in P3-T2), add:
 ```rust
@@ -320,7 +320,7 @@ pub fn list_scheduled(&self) -> TaskResult<Vec<Task>> {
 ```rust
 #[test]
 fn list_scheduled_returns_only_scheduled() {
-    use solo_protocol::{Schedule, PresetKind};
+    use coltide_protocol::{Schedule, PresetKind};
     let store = TaskStore::open_in_memory().unwrap();
     let _manual = store.create(draft("no schedule")).unwrap();
     let scheduled = store.create(draft("will run")).unwrap();
@@ -336,12 +336,12 @@ fn list_scheduled_returns_only_scheduled() {
 }
 ```
 
-- [ ] **Step 3.4:** `cargo test -p solo-tasks --lib` → 22 passing.
-`cargo clippy -p solo-tasks --all-targets -- -D warnings` clean.
+- [ ] **Step 3.4:** `cargo test -p coltide-tasks --lib` → 22 passing.
+`cargo clippy -p coltide-tasks --all-targets -- -D warnings` clean.
 
 - [ ] **Step 3.5:** Commit:
 ```bash
-git add crates/solo-tasks/src/store.rs
+git add crates/coltide-tasks/src/store.rs
 git commit -m "feat(tasks): store list_scheduled + schedule patch"
 ```
 
@@ -349,11 +349,11 @@ git commit -m "feat(tasks): store list_scheduled + schedule patch"
 
 ## Task 4 · `scheduler.rs` — cron wheel + catch-up
 
-**File:** `crates/solo-tasks/src/scheduler.rs` (new)
+**File:** `crates/coltide-tasks/src/scheduler.rs` (new)
 
-This module is pure scheduling logic. It does NOT spawn agent sessions directly — it emits "fire" callbacks that the Tauri layer converts into `task_run` invocations. Keeps solo-tasks free of Tauri dependencies.
+This module is pure scheduling logic. It does NOT spawn agent sessions directly — it emits "fire" callbacks that the Tauri layer converts into `task_run` invocations. Keeps coltide-tasks free of Tauri dependencies.
 
-- [ ] **Step 4.1:** Create `crates/solo-tasks/src/scheduler.rs`:
+- [ ] **Step 4.1:** Create `crates/coltide-tasks/src/scheduler.rs`:
 
 ```rust
 //! Scheduler — walks scheduled tasks every tick, fires any whose next_fire has passed.
@@ -366,7 +366,7 @@ This module is pure scheduling logic. It does NOT spawn agent sessions directly 
 
 use std::sync::Arc;
 
-use solo_protocol::{PresetKind, Schedule, Task};
+use coltide_protocol::{PresetKind, Schedule, Task};
 
 use crate::error::TaskResult;
 use crate::schedule_preview::next_fires;
@@ -403,14 +403,14 @@ impl Scheduler {
                 Ok(fires) if !fires.is_empty() => {
                     let new_next = fires[0];
                     let new_sched = advance_schedule(sched, new_next);
-                    let _ = self.store.update(&task.id, solo_protocol::TaskPatch {
+                    let _ = self.store.update(&task.id, coltide_protocol::TaskPatch {
                         schedule: Some(new_sched), ..Default::default()
                     });
                     out.push(FireOrder { task_id: task.id, scheduled_for_ms: current_fire });
                 }
                 _ => {
                     // No future fire (e.g., one-shot already consumed). Clear schedule.
-                    let _ = self.store.update(&task.id, solo_protocol::TaskPatch {
+                    let _ = self.store.update(&task.id, coltide_protocol::TaskPatch {
                         schedule: None, ..Default::default()
                     });
                     out.push(FireOrder { task_id: task.id, scheduled_for_ms: current_fire });
@@ -435,7 +435,7 @@ impl Scheduler {
             if let Ok(fires) = next_fires(sched, now_ms, 1) {
                 if let Some(new_next) = fires.first().copied() {
                     let new_sched = advance_schedule(sched, new_next);
-                    let _ = self.store.update(&task.id, solo_protocol::TaskPatch {
+                    let _ = self.store.update(&task.id, coltide_protocol::TaskPatch {
                         schedule: Some(new_sched), ..Default::default()
                     });
                 }
@@ -469,7 +469,7 @@ fn advance_schedule(s: &Schedule, new_next: i64) -> Schedule {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solo_protocol::{Executor, TaskDraft, TaskPatch, TaskPriority};
+    use coltide_protocol::{Executor, TaskDraft, TaskPatch, TaskPriority};
 
     fn agent_task(store: &TaskStore, title: &str) -> Task {
         store.create(TaskDraft {
@@ -513,7 +513,7 @@ mod tests {
 
     #[test]
     fn catch_up_fires_once_for_missed_preset() {
-        use solo_protocol::PresetKind;
+        use coltide_protocol::PresetKind;
         let store = Arc::new(TaskStore::open_in_memory().unwrap());
         let t = agent_task(&store, "missed daily");
         let now = 1_700_000_000_000; // arbitrary
@@ -554,18 +554,18 @@ mod tests {
 }
 ```
 
-- [ ] **Step 4.2:** Register in `crates/solo-tasks/src/lib.rs`:
+- [ ] **Step 4.2:** Register in `crates/coltide-tasks/src/lib.rs`:
 ```rust
 pub mod scheduler;
 pub use scheduler::{Scheduler, FireOrder};
 ```
 
-- [ ] **Step 4.3:** `cargo test -p solo-tasks --lib` — expect 26 tests (22 + 4 new).
-`cargo clippy -p solo-tasks --all-targets -- -D warnings` clean.
+- [ ] **Step 4.3:** `cargo test -p coltide-tasks --lib` — expect 26 tests (22 + 4 new).
+`cargo clippy -p coltide-tasks --all-targets -- -D warnings` clean.
 
 - [ ] **Step 4.4:** Commit:
 ```bash
-git add crates/solo-tasks/src/scheduler.rs crates/solo-tasks/src/lib.rs
+git add crates/coltide-tasks/src/scheduler.rs crates/coltide-tasks/src/lib.rs
 git commit -m "feat(tasks): scheduler with tick + catch-up (pure state machine)"
 ```
 
@@ -582,13 +582,13 @@ git commit -m "feat(tasks): scheduler with tick + catch-up (pure state machine)"
 ```rust
 #[tauri::command]
 pub async fn task_schedule_preview(
-    schedule: solo_protocol::Schedule,
+    schedule: coltide_protocol::Schedule,
 ) -> Result<Vec<i64>, String> {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| i64::try_from(d.as_millis()).unwrap_or(0))
         .unwrap_or(0);
-    solo_tasks::next_fires(&schedule, now_ms, 5).map_err(|e| e.to_string())
+    coltide_tasks::next_fires(&schedule, now_ms, 5).map_err(|e| e.to_string())
 }
 ```
 
@@ -608,7 +608,7 @@ tauri::async_runtime::spawn(async move {
         tracing::warn!("task scheduler: store unavailable");
         return;
     };
-    let sched = Arc::new(solo_tasks::Scheduler::new(store));
+    let sched = Arc::new(coltide_tasks::Scheduler::new(store));
 
     // Catch-up pass
     let now = std::time::SystemTime::now()
@@ -668,7 +668,7 @@ async fn dispatch_fire(app: &tauri::AppHandle, task_id: String) {
 }
 ```
 
-- [ ] **Step 5.3:** `cargo check -p solo-desktop-lib` — zero errors.
+- [ ] **Step 5.3:** `cargo check -p coltide-desktop-lib` — zero errors.
 
 - [ ] **Step 5.4:** Commit:
 ```bash
@@ -1011,7 +1011,7 @@ git commit -m "feat(tasks): Schedule tab in drawer + cadence grouping"
 - [ ] **Step 10.1:**
 ```bash
 cargo test --workspace --lib
-cargo clippy -p solo-tasks --all-targets -- -D warnings
+cargo clippy -p coltide-tasks --all-targets -- -D warnings
 bun run check
 ```
 

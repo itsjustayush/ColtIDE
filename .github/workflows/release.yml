@@ -27,11 +27,11 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
-      COLTIDE_COGNITO_DOMAIN: ${{ vars.SOLO_PROD_COGNITO_DOMAIN }}
-      COLTIDE_COGNITO_CLIENT_ID: ${{ vars.SOLO_PROD_COGNITO_CLIENT_ID }}
-      COLTIDE_AWS_REGION: ${{ vars.SOLO_PROD_AWS_REGION }}
-      COLTIDE_API_ENDPOINT: ${{ vars.SOLO_PROD_API_ENDPOINT }}
-      SOLO_VAULT_API_ENDPOINT: ${{ vars.SOLO_PROD_VAULT_API_ENDPOINT }}
+      COLTIDE_COGNITO_DOMAIN: ${{ vars.COLTIDE_PROD_COGNITO_DOMAIN }}
+      COLTIDE_COGNITO_CLIENT_ID: ${{ vars.COLTIDE_PROD_COGNITO_CLIENT_ID }}
+      COLTIDE_AWS_REGION: ${{ vars.COLTIDE_PROD_AWS_REGION }}
+      COLTIDE_API_ENDPOINT: ${{ vars.COLTIDE_PROD_API_ENDPOINT }}
+      COLTIDE_VAULT_API_ENDPOINT: ${{ vars.COLTIDE_PROD_VAULT_API_ENDPOINT }}
       RELEASE_INPUT_VERSION: ${{ github.event.inputs.version }}
 
     steps:
@@ -100,11 +100,11 @@ jobs:
 
       - name: Validate desktop auth config
         run: |
-          test -n "$COLTIDE_COGNITO_DOMAIN" || { echo "Missing SOLO_PROD_COGNITO_DOMAIN" >&2; exit 1; }
-          test -n "$COLTIDE_COGNITO_CLIENT_ID" || { echo "Missing SOLO_PROD_COGNITO_CLIENT_ID" >&2; exit 1; }
-          test -n "$COLTIDE_AWS_REGION" || { echo "Missing SOLO_PROD_AWS_REGION" >&2; exit 1; }
-          test -n "$COLTIDE_API_ENDPOINT" || { echo "Missing SOLO_PROD_API_ENDPOINT" >&2; exit 1; }
-          test -n "$SOLO_VAULT_API_ENDPOINT" || { echo "Missing SOLO_PROD_VAULT_API_ENDPOINT" >&2; exit 1; }
+          test -n "$COLTIDE_COGNITO_DOMAIN" || { echo "Missing COLTIDE_PROD_COGNITO_DOMAIN" >&2; exit 1; }
+          test -n "$COLTIDE_COGNITO_CLIENT_ID" || { echo "Missing COLTIDE_PROD_COGNITO_CLIENT_ID" >&2; exit 1; }
+          test -n "$COLTIDE_AWS_REGION" || { echo "Missing COLTIDE_PROD_AWS_REGION" >&2; exit 1; }
+          test -n "$COLTIDE_API_ENDPOINT" || { echo "Missing COLTIDE_PROD_API_ENDPOINT" >&2; exit 1; }
+          test -n "$COLTIDE_VAULT_API_ENDPOINT" || { echo "Missing COLTIDE_PROD_VAULT_API_ENDPOINT" >&2; exit 1; }
 
       - name: Prepare Apple notarization key
         run: |
@@ -146,7 +146,7 @@ jobs:
           brew list openssl@3 >/dev/null 2>&1 || brew install openssl@3
 
           APP_PATH="target/aarch64-apple-darwin/release/bundle/macos/ColtIDE.app"
-          BIN_PATH="$APP_PATH/Contents/MacOS/solo-desktop"
+          BIN_PATH="$APP_PATH/Contents/MacOS/coltide-desktop"
           FRAMEWORKS="$APP_PATH/Contents/Frameworks"
           RELEASE_DIR="target/aarch64-apple-darwin/release"
 
@@ -262,7 +262,7 @@ jobs:
 
           APP_PATH="target/aarch64-apple-darwin/release/bundle/macos/ColtIDE.app"
           STAGING="$RUNNER_TEMP/dmg-staging"
-          DMG_NAME="Solo_${VERSION}_aarch64.dmg"
+          DMG_NAME="ColtIDE_${VERSION}_aarch64.dmg"
           DMG_PATH="$RUNNER_TEMP/$DMG_NAME"
 
           mkdir -p "$STAGING"
@@ -330,7 +330,7 @@ jobs:
             --arg notes "$NOTES" \
             --arg pub_date "$PUB_DATE" \
             --arg signature "$SIGNATURE" \
-            --arg url "https://github.com/ColtIDE-UDE/solo-releases/releases/download/${TAG_NAME}/ColtIDE.app.tar.gz" \
+            --arg url "https://github.com/ColtIDE-UDE/coltide-releases/releases/download/${TAG_NAME}/ColtIDE.app.tar.gz" \
             '{
               version: $version,
               notes: $notes,
@@ -345,7 +345,7 @@ jobs:
 
           cat dist/latest.json
 
-      - name: Publish release to solo-releases
+      - name: Publish release to coltide-releases
         run: |
           TAG_NAME="v${VERSION}"
           NOTES=$(git tag -l --format='%(contents)' "$TAG_NAME")
@@ -354,7 +354,7 @@ jobs:
           fi
 
           GH_TOKEN="$RELEASE_PAT" gh release create "$TAG_NAME" \
-            --repo ColtIDE-UDE/solo-releases \
+            --repo ColtIDE-UDE/coltide-releases \
             --title "ColtIDE v$VERSION" \
             --notes "$NOTES" \
             "dist/$DMG_NAME" \

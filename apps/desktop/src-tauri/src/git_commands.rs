@@ -8,8 +8,8 @@ use git2::{
     build::CheckoutBuilder, Cred, CredentialType, Delta, DiffOptions, FetchOptions, IndexAddOption,
     MergeOptions, PushOptions, RemoteCallbacks, Repository, ResetType, Signature, StatusOptions,
 };
-use solo_fs::{git_watcher, SharedGitRefWatcher};
-use solo_protocol::{
+use coltide_fs::{git_watcher, SharedGitRefWatcher};
+use coltide_protocol::{
     BackendEvent, BranchInfo, DiffHunk, DiffLine, FileDiff, GitChangedFile, GitChangesResponse,
     GitChangesSummary, GitFileDiffResponse, GitFileStatus, GitMergeResult, GitPullResponse,
     GitPushResponse, GitRepoStatus, GitStashPopResult, StashEntry,
@@ -517,7 +517,7 @@ pub async fn git_push(
     if let Ok(ref response) = result {
         if response.commits_count > 0 {
             stats
-                .record(solo_stats::StatsEvent::CommitsPushed {
+                .record(coltide_stats::StatsEvent::CommitsPushed {
                     count: response.commits_count.try_into().unwrap_or(u32::MAX),
                 })
                 .await;
@@ -575,7 +575,7 @@ pub async fn git_pull(
 			};
 
 			// Check last synced SHA
-			let last_synced_ref = format!("refs/solo/last-github-integ/{}", branch);
+			let last_synced_ref = format!("refs/coltide/last-github-integ/{}", branch);
 			let last_synced_oid = repo.refname_to_id(&last_synced_ref).ok();
 
 			// If already synced and not force reset, skip
@@ -614,7 +614,7 @@ pub async fn git_pull(
 			let mut had_stash = false;
 			let sig = repo
 				.signature()
-				.or_else(|_| Signature::now("ColtIDE User", "solo@local"))
+				.or_else(|_| Signature::now("ColtIDE User", "coltide@local"))
 				.map_err(|e| format!("Failed to create signature: {}", e))?;
 
 			// Check for changes — scope the borrow so `statuses` is dropped before stash_save
@@ -1514,7 +1514,7 @@ pub async fn git_commit(
 
         let sig = repo
             .signature()
-            .or_else(|_| Signature::now("ColtIDE User", "solo@local"))
+            .or_else(|_| Signature::now("ColtIDE User", "coltide@local"))
             .map_err(|e| format!("Failed to create signature: {}", e))?;
 
         let tree_oid = index
@@ -2001,7 +2001,7 @@ pub async fn git_merge(
 
         let sig = repo
             .signature()
-            .or_else(|_| Signature::now("ColtIDE User", "solo@local"))
+            .or_else(|_| Signature::now("ColtIDE User", "coltide@local"))
             .map_err(|e| format!("Failed to create signature: {}", e))?;
 
         let head_commit = repo
@@ -2054,7 +2054,7 @@ pub async fn git_stash(
 
         let sig = repo
             .signature()
-            .or_else(|_| Signature::now("ColtIDE User", "solo@local"))
+            .or_else(|_| Signature::now("ColtIDE User", "coltide@local"))
             .map_err(|e| format!("Failed to create signature: {}", e))?;
 
         let msg = message.as_deref().unwrap_or("Stash from ColtIDE");
@@ -2160,11 +2160,11 @@ pub async fn git_stash_list(
 #[tauri::command]
 pub async fn github_start_auth(
     state: State<'_, crate::provider_commands::ProviderAuthState>,
-) -> Result<solo_auth::OAuthFlowResult, String> {
+) -> Result<coltide_auth::OAuthFlowResult, String> {
     info!("Starting GitHub OAuth flow");
 
     let (result, oauth_state) =
-        solo_auth::GitHubOAuthConfig::build_auth_url().map_err(|e| e.to_string())?;
+        coltide_auth::GitHubOAuthConfig::build_auth_url().map_err(|e| e.to_string())?;
 
     state
         .oauth_pending
@@ -2195,7 +2195,7 @@ pub async fn github_complete_auth(
         return Err("GitHub OAuth state has expired".to_string());
     }
 
-    let token = solo_auth::GitHubOAuthConfig::exchange_code(&code)
+    let token = coltide_auth::GitHubOAuthConfig::exchange_code(&code)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -2332,7 +2332,7 @@ pub async fn github_get_token(
 
     // Keep the local vault in sync for sign-out cleanup and any legacy code
     // paths, while still treating the cloud row as the source of truth here.
-    let oauth_token = solo_auth::OAuthToken::new(
+    let oauth_token = coltide_auth::OAuthToken::new(
         body.access_token.clone(),
         None,
         365 * 24 * 60 * 60,
@@ -2399,10 +2399,10 @@ pub async fn github_disconnect(
 
 /// Start GitHub Device Flow — returns user_code and verification_uri for display
 #[tauri::command]
-pub async fn github_start_device_auth() -> Result<solo_protocol::GitHubDeviceCodeResponse, String> {
+pub async fn github_start_device_auth() -> Result<coltide_protocol::GitHubDeviceCodeResponse, String> {
     info!("Starting GitHub Device Flow");
 
-    let response = solo_auth::GitHubOAuthConfig::start_device_flow()
+    let response = coltide_auth::GitHubOAuthConfig::start_device_flow()
         .await
         .map_err(|e| {
             error!("GitHub Device Flow start failed: {}", e);
@@ -2414,7 +2414,7 @@ pub async fn github_start_device_auth() -> Result<solo_protocol::GitHubDeviceCod
         response.user_code
     );
 
-    Ok(solo_protocol::GitHubDeviceCodeResponse {
+    Ok(coltide_protocol::GitHubDeviceCodeResponse {
         user_code: response.user_code,
         verification_uri: response.verification_uri,
         device_code: response.device_code,
@@ -2428,8 +2428,8 @@ pub async fn github_start_device_auth() -> Result<solo_protocol::GitHubDeviceCod
 pub async fn github_poll_device_auth(
     device_code: String,
     state: State<'_, crate::provider_commands::ProviderAuthState>,
-) -> Result<solo_protocol::GitHubDevicePollResult, String> {
-    let result = solo_auth::GitHubOAuthConfig::poll_device_token(&device_code)
+) -> Result<coltide_protocol::GitHubDevicePollResult, String> {
+    let result = coltide_auth::GitHubOAuthConfig::poll_device_token(&device_code)
         .await
         .map_err(|e| {
             error!("GitHub Device Flow poll failed: {}", e);
@@ -2437,19 +2437,19 @@ pub async fn github_poll_device_auth(
         })?;
 
     match result {
-        solo_auth::DevicePollResult::Complete(token) => {
+        coltide_auth::DevicePollResult::Complete(token) => {
             state
                 .credentials
                 .set_github_oauth_token(token)
                 .await
                 .map_err(|e| e.to_string())?;
             info!("GitHub Device Flow token stored successfully");
-            Ok(solo_protocol::GitHubDevicePollResult::Complete)
+            Ok(coltide_protocol::GitHubDevicePollResult::Complete)
         }
-        solo_auth::DevicePollResult::Pending => Ok(solo_protocol::GitHubDevicePollResult::Pending),
-        solo_auth::DevicePollResult::Expired => Ok(solo_protocol::GitHubDevicePollResult::Expired),
-        solo_auth::DevicePollResult::Error(msg) => {
-            Ok(solo_protocol::GitHubDevicePollResult::Error { message: msg })
+        coltide_auth::DevicePollResult::Pending => Ok(coltide_protocol::GitHubDevicePollResult::Pending),
+        coltide_auth::DevicePollResult::Expired => Ok(coltide_protocol::GitHubDevicePollResult::Expired),
+        coltide_auth::DevicePollResult::Error(msg) => {
+            Ok(coltide_protocol::GitHubDevicePollResult::Error { message: msg })
         }
     }
 }

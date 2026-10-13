@@ -261,7 +261,7 @@ function buildCardTree(payload: CardPayload): Node {
         el(
           "span",
           { fontSize: 18, color: "rgba(255,255,255,0.45)" },
-          "solo.dev",
+          "coltide.dev",
         ),
         el(
           "span",

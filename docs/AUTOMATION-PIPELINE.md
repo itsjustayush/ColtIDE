@@ -12,10 +12,10 @@
 5. Worktrees auto-cleanup when work is marked "Done" (branch stays on GitHub)
 6. The user stays in the loop: feedback, confirmations, status updates
 
-**Target repo**: `https://github.com/ColtIDE-UDE/solo` (private, org members only)
+**Target repo**: `https://github.com/ColtIDE-UDE/coltide` (private, org members only)
 **Notifications**: GitHub-native only (no Slack for now)
 
-**Key discovery**: ColtIDE already has a **complete worktree system** — 11 Tauri commands, `solo-git` crate (~40KB), Zustand store, event streaming, agent binding. The automation layer extends this existing infrastructure.
+**Key discovery**: ColtIDE already has a **complete worktree system** — 11 Tauri commands, `coltide-git` crate (~40KB), Zustand store, event streaming, agent binding. The automation layer extends this existing infrastructure.
 
 ---
 
@@ -61,7 +61,7 @@
 Linear's native GitHub integration handles bidirectional sync.
 
 **Steps**:
-1. Linear Settings → Integrations → GitHub → Authorize on `ColtIDE-UDE/solo`
+1. Linear Settings → Integrations → GitHub → Authorize on `ColtIDE-UDE/coltide`
 2. Enable "GitHub Issues Sync" for the ColtIDE team
 3. Map: GitHub `open` → Linear `Triage`, GitHub `closed` → Linear `Done`
 4. Labels + comments sync bidirectionally
@@ -71,7 +71,7 @@ Linear's native GitHub integration handles bidirectional sync.
 
 ### Phase B: GitHub Workflow Files (4 files)
 
-All workflows live in the `ColtIDE-UDE/solo` repo at `.github/workflows/`.
+All workflows live in the `ColtIDE-UDE/coltide` repo at `.github/workflows/`.
 
 #### B1: `claude-triage.yml` — Auto-categorize new issues
 - **Trigger**: `issues: [opened]`
@@ -97,7 +97,7 @@ All workflows live in the `ColtIDE-UDE/solo` repo at `.github/workflows/`.
 - **Timeout**: `timeout-minutes: 30`
 
 #### B3: `claude-review.yml` — Auto-review PRs
-- **Trigger**: `pull_request: [opened, synchronize]` on paths `solo/**`
+- **Trigger**: `pull_request: [opened, synchronize]` on paths `coltide/**`
 - **Purpose**: Code review against ColtIDE conventions (IPC pattern, Tailwind v4, design system)
 - **Sticky comment** (updates one comment, no spam) + inline comments
 - **Loop prevention**: Skip reviews on PRs authored by `claude[bot]` to prevent infinite loops
@@ -132,7 +132,7 @@ All workflows live in the `ColtIDE-UDE/solo` repo at `.github/workflows/`.
 
 ### Phase D: CLAUDE.md CI Agent Section
 
-Add to `solo/CLAUDE.md` — section guiding the GitHub Actions agent:
+Add to `coltide/CLAUDE.md` — section guiding the GitHub Actions agent:
 - Branch naming: `claude/fix-<num>-<desc>`, `claude/feat-<num>-<desc>`
 - PR format: `[#<issue>] <Title>`, body with `Fixes #<num>`
 - Verification checklist (cargo check/clippy/fmt/typecheck)
@@ -168,12 +168,12 @@ This extends ColtIDE's **existing worktree system** to support issue-driven agen
 
 | Component | File | Status |
 |-----------|------|--------|
-| `WorktreeManager` | `crates/solo-git/src/lib.rs` (~40KB) | Complete |
+| `WorktreeManager` | `crates/coltide-git/src/lib.rs` (~40KB) | Complete |
 | `WorktreeState` | `src-tauri/src/worktree_commands.rs` | Complete (11 commands) |
 | `useWorktreeStore` | `src/stores/worktreeStore.ts` | Complete |
 | `worktree.*` IPC wrappers | `src/lib/tauri/worktree.ts` | Complete |
 | Event stream | `src/hooks/useWorktreeStream.ts` | Complete |
-| Protocol types | `crates/solo-protocol/src/lib.rs` | Complete (`CreateWorktreeRequest` has `base: Option<String>`) |
+| Protocol types | `crates/colt-core/src/lib.rs` | Complete (`CreateWorktreeRequest` has `base: Option<String>`) |
 | Agent binding | `worktree_bind_agent` / `worktree_unbind_agent` | Complete |
 | Setup commands | `worktree_set_setup_commands` | Complete |
 | Persistence | `~/.coltide/worktrees/{repo}/worktrees.json` | Complete |
@@ -427,12 +427,12 @@ When the agent works on an issue locally:
 | `.github/workflows/claude-interactive.yml` | CREATE |
 | `.github/ISSUE_TEMPLATE/bug_report.yml` | CREATE |
 | `.github/ISSUE_TEMPLATE/feature_request.yml` | CREATE |
-| `CLAUDE.md` (in ColtIDE-UDE/solo repo) | MODIFY — add CI Agent Context section |
+| `CLAUDE.md` (in ColtIDE-UDE/coltide repo) | MODIFY — add CI Agent Context section |
 
 ### Local (ColtIDE) — Future Phase
 | File | Action |
 |------|--------|
-| `crates/solo-protocol/src/lib.rs` | MODIFY — add `IssueWorkSession`, `IssueWorkStatus` types |
+| `crates/colt-core/src/lib.rs` | MODIFY — add `IssueWorkSession`, `IssueWorkStatus` types |
 | `apps/desktop/src-tauri/src/issue_commands.rs` | CREATE — issue lifecycle commands |
 | `apps/desktop/src-tauri/src/lib.rs` | MODIFY — register IssueState + commands |
 | `apps/desktop/src/lib/tauri/issue.ts` | CREATE — IPC wrappers |
@@ -445,14 +445,14 @@ When the agent works on an issue locally:
 ### Safety Improvements (Recommended)
 | File | Action |
 |------|--------|
-| `crates/solo-git/src/config.rs` | MODIFY — atomic writes + backup |
+| `crates/coltide-git/src/config.rs` | MODIFY — atomic writes + backup |
 | `apps/desktop/src-tauri/src/worktree_commands.rs` | MODIFY — crash recovery, orphan detection |
 | `apps/desktop/src-tauri/src/git_commands.rs` | MODIFY — remove token from URL, use credential helper |
 
 ### Documentation
 | File | Action |
 |------|--------|
-| `solo/docs/AUTOMATION-PIPELINE.md` | CREATE — this plan document |
+| `coltide/docs/AUTOMATION-PIPELINE.md` | CREATE — this plan document |
 
 ---
 

@@ -98,7 +98,7 @@ This project extends ColtIDE with a **Vault** — a cloud-backed knowledge store
 ### S3 Bucket Structure
 
 ```
-solo-vault-{env}/
+coltide-vault-{env}/
   users/
     {cognito_user_id}/
       global/                    ← user-scoped (available in all projects)
@@ -276,8 +276,8 @@ In `agent-bridge/src/agent.ts`:
 ### New Files
 
 ```
-solo/
-├── crates/solo-protocol/src/lib.rs          ← Add VaultEntry, VaultChunk types
+coltide/
+├── crates/colt-core/src/lib.rs          ← Add VaultEntry, VaultChunk types
 ├── apps/desktop/src-tauri/src/
 │   ├── vault_commands.rs                    ← 8 Tauri commands
 │   ├── session_sync_commands.rs             ← 4 Tauri commands
@@ -324,7 +324,7 @@ session_sync_delete(session_id)                   → ()
 ### Data Model
 
 ```
-Table: solo-sessions
+Table: coltide-sessions
   PK: user_id (String)
   SK: session_id (String)
 

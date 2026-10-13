@@ -12,7 +12,7 @@ import { Construct } from "constructs";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
-import type { SoloStageConfig } from "./config.js";
+import type { ColtIDEStageConfig } from "./config.js";
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,8 +27,8 @@ function resolveEntryPath(entryPath: string): string {
   return abs;
 }
 
-export interface SoloApiStackProps extends cdk.StackProps {
-  readonly config: SoloStageConfig;
+export interface ColtIDEApiStackProps extends cdk.StackProps {
+  readonly config: ColtIDEStageConfig;
   readonly userPool: cognito.UserPool;
   readonly userPoolClient: cognito.UserPoolClient;
   readonly statsTable: dynamodb.Table;
@@ -44,10 +44,10 @@ export interface SoloApiStackProps extends cdk.StackProps {
   readonly connectorsDeleteTokenFn?: lambda.IFunction;
 }
 
-export class SoloApiStack extends cdk.Stack {
+export class ColtIDEApiStack extends cdk.Stack {
   public readonly httpApi: apigw.HttpApi;
 
-  constructor(scope: Construct, id: string, props: SoloApiStackProps) {
+  constructor(scope: Construct, id: string, props: ColtIDEApiStackProps) {
     super(scope, id, props);
     const {
       config,
@@ -60,7 +60,7 @@ export class SoloApiStack extends cdk.Stack {
     } = props;
 
     this.httpApi = new apigw.HttpApi(this, "HttpApi", {
-      apiName: `solo-api-${config.stage}`,
+      apiName: `coltide-api-${config.stage}`,
       description: `ColtIDE HTTP API (${config.stage})`,
       corsPreflight: {
         allowOrigins: ["*"],
@@ -99,7 +99,7 @@ export class SoloApiStack extends cdk.Stack {
       entryPath: string,
       opts: Partial<lambdaNodejs.NodejsFunctionProps> = {},
     ): lambdaNodejs.NodejsFunction => {
-      const functionName = `solo-${name}-${config.stage}`;
+      const functionName = `coltide-${name}-${config.stage}`;
       const logGroup = new logs.LogGroup(this, `${name}LogGroup`, {
         logGroupName: `/aws/lambda/${functionName}`,
         retention: logs.RetentionDays.TWO_WEEKS,
@@ -232,7 +232,7 @@ export class SoloApiStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "ApiEndpoint", {
       value: this.httpApi.apiEndpoint,
-      exportName: `solo-${config.stage}-api-endpoint`,
+      exportName: `coltide-${config.stage}-api-endpoint`,
     });
   }
 }

@@ -10,7 +10,7 @@
 ## Table of Contents
 
 1. [Executive Summary](#1-executive-summary)
-2. [Why This Fits ColtIDE](#2-why-this-fits-solo)
+2. [Why This Fits ColtIDE](#2-why-this-fits-coltide)
 3. [Current Repo Context and Constraints](#3-current-repo-context-and-constraints)
 4. [Problem Statement](#4-problem-statement)
 5. [Product Goals and Non-Goals](#5-product-goals-and-non-goals)
@@ -20,7 +20,7 @@
 9. [Service-by-Service Breakdown](#9-service-by-service-breakdown)
 10. [Data Model](#10-data-model)
 11. [API Surface](#11-api-surface)
-12. [Desktop Integration in ColtIDE](#12-desktop-integration-in-solo-ide)
+12. [Desktop Integration in ColtIDE](#12-desktop-integration-in-coltide-ide)
 13. [Ingestion and Retrieval Flows](#13-ingestion-and-retrieval-flows)
 14. [Nice-to-Have Extensions](#14-nice-to-have-extensions)
 15. [Team Allocation and Separate Repo Strategy](#15-team-allocation-and-separate-repo-strategy)
@@ -91,7 +91,7 @@ From the existing ColtIDE repository:
 - there is a native desktop app in `apps/desktop`
 - the historical Bun/Hono `server/` backend has been removed from the active desktop path
 - agent communication now flows through the Tauri Rust bridge and Node `agent-bridge` sidecar
-- there is already a `solo-auth` crate and desktop auth plumbing
+- there is already a `coltide-auth` crate and desktop auth plumbing
 - the current auth path is product-adjacent but not yet a full cloud identity and authorization platform
 - the current server is primarily agent-focused, not a multi-tenant application backend
 

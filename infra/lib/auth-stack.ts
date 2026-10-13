@@ -9,7 +9,7 @@ import { Construct } from "constructs";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
-import type { SoloStageConfig } from "./config.js";
+import type { ColtIDEStageConfig } from "./config.js";
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -24,21 +24,21 @@ function resolveEntryPath(entryPath: string): string {
   return abs;
 }
 
-export interface SoloAuthStackProps extends cdk.StackProps {
-  readonly config: SoloStageConfig;
+export interface ColtIDEAuthStackProps extends cdk.StackProps {
+  readonly config: ColtIDEStageConfig;
   readonly githubOidcIssuerUrl?: string;
   readonly githubTokensTableName?: string;
   readonly githubPendingTableName?: string;
 }
 
-export class SoloAuthStack extends cdk.Stack {
+export class ColtIDEAuthStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
   public readonly userPoolDomain: cognito.UserPoolDomain;
   public readonly identityPool: cognito.CfnIdentityPool;
   public readonly authenticatedRole: iam.Role;
 
-  constructor(scope: Construct, id: string, props: SoloAuthStackProps) {
+  constructor(scope: Construct, id: string, props: ColtIDEAuthStackProps) {
     super(scope, id, props);
     const { config } = props;
     const replaceLegacyImmutableEmailPool = config.stage === "prod";
@@ -46,7 +46,7 @@ export class SoloAuthStack extends cdk.Stack {
     const cognitoDomain = `${config.cognitoDomainPrefix}.auth.${config.region}.amazoncognito.com`;
 
     this.userPool = new cognito.UserPool(this, userPoolConstructId, {
-      userPoolName: `solo-users-${config.stage}`,
+      userPoolName: `coltide-users-${config.stage}`,
       selfSignUpEnabled: true,
       signInAliases: { email: true },
       autoVerify: { email: true },
@@ -137,7 +137,7 @@ export class SoloAuthStack extends cdk.Stack {
 
     if (config.googleOidcEnabled) {
       const googleSecret = new secretsmanager.Secret(this, "GoogleOidcSecret", {
-        secretName: `solo/${config.stage}/google-oidc-client`,
+        secretName: `coltide/${config.stage}/google-oidc-client`,
         description: "Google OAuth client ID and secret for Cognito federation",
         secretObjectValue: {
           clientId: cdk.SecretValue.unsafePlainText("REPLACE_ME_AFTER_DEPLOY"),
@@ -164,7 +164,7 @@ export class SoloAuthStack extends cdk.Stack {
     let githubIdp: cognito.UserPoolIdentityProviderOidc | undefined;
     if (config.githubOidcEnabled) {
       new secretsmanager.Secret(this, "GitHubOidcSecret", {
-        secretName: `solo/${config.stage}/github-oidc-client`,
+        secretName: `coltide/${config.stage}/github-oidc-client`,
         description: "GitHub OAuth app client ID and secret (used by OIDC wrapper Lambda)",
         secretObjectValue: {
           clientId: cdk.SecretValue.unsafePlainText("REPLACE_ME_AFTER_DEPLOY"),
@@ -177,7 +177,7 @@ export class SoloAuthStack extends cdk.Stack {
         githubIdp = new cognito.UserPoolIdentityProviderOidc(this, "GitHubIdp", {
           name: "GitHub",
           userPool: this.userPool,
-          clientId: "solo-desktop",
+          clientId: "coltide-desktop",
           clientSecret: "unused",
           issuerUrl: props.githubOidcIssuerUrl,
           scopes: ["openid", "email", "profile"],
@@ -197,17 +197,17 @@ export class SoloAuthStack extends cdk.Stack {
     const previewWebOrigin =
       config.stage === "prod"
         ? undefined
-        : "https://solo-web-sachin1801-sachins-projects-a130ba69.vercel.app";
+        : "https://coltide-web-sachin1801-sachins-projects-a130ba69.vercel.app";
 
     const callbackUrls = [
       "http://127.0.0.1:19877/callback",
       "coltide://auth/callback",
       "http://localhost:3000/auth/callback",
-      "https://solo.dev/auth/callback",
-      "https://solo-build.com/auth/callback",
+      "https://coltide.dev/auth/callback",
+      "https://coltide-build.com/auth/callback",
       "http://localhost:3000/api/auth/callback/cognito",
-      "https://solo.dev/api/auth/callback/cognito",
-      "https://solo-build.com/api/auth/callback/cognito",
+      "https://coltide.dev/api/auth/callback/cognito",
+      "https://coltide-build.com/api/auth/callback/cognito",
       ...(previewWebOrigin
         ? [
             `${previewWebOrigin}/auth/callback`,
@@ -219,13 +219,13 @@ export class SoloAuthStack extends cdk.Stack {
     const logoutUrls = [
       "coltide://auth/signout",
       "http://localhost:3000",
-      "https://solo.dev",
-      "https://solo-build.com",
+      "https://coltide.dev",
+      "https://coltide-build.com",
       ...(previewWebOrigin ? [previewWebOrigin] : []),
     ];
 
     this.userPoolClient = this.userPool.addClient("DesktopClient", {
-      userPoolClientName: `solo-desktop-${config.stage}`,
+      userPoolClientName: `coltide-desktop-${config.stage}`,
       generateSecret: false,
       authFlows: {
         userSrp: true,
@@ -263,7 +263,7 @@ export class SoloAuthStack extends cdk.Stack {
     // user with the same email. Without this, Cognito refuses to create the
     // second federated user (email is a UsernameAttribute and therefore
     // globally unique) and sign-in fails with OAuthCallbackError.
-    const preSignUpFnName = `solo-auth-preSignUp-${config.stage}`;
+    const preSignUpFnName = `coltide-auth-preSignUp-${config.stage}`;
     const preSignUpLogGroup = new logs.LogGroup(this, "PreSignUpLogGroup", {
       logGroupName: `/aws/lambda/${preSignUpFnName}`,
       retention: logs.RetentionDays.TWO_WEEKS,
@@ -304,11 +304,11 @@ export class SoloAuthStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "PreSignUpFnArn", {
       value: preSignUpFn.functionArn,
-      exportName: `solo-${config.stage}-presignup-fn-arn`,
+      exportName: `coltide-${config.stage}-presignup-fn-arn`,
     });
 
     if (props.githubTokensTableName && props.githubPendingTableName) {
-      const postAuthFnName = `solo-gh-postAuth-${config.stage}`;
+      const postAuthFnName = `coltide-gh-postAuth-${config.stage}`;
       const postAuthLogGroup = new logs.LogGroup(this, "PostAuthLogGroup", {
         logGroupName: `/aws/lambda/${postAuthFnName}`,
         retention: logs.RetentionDays.TWO_WEEKS,
@@ -370,7 +370,7 @@ export class SoloAuthStack extends cdk.Stack {
     }
 
     this.identityPool = new cognito.CfnIdentityPool(this, "IdentityPool", {
-      identityPoolName: `solo_users_${config.stage}`,
+      identityPoolName: `coltide_users_${config.stage}`,
       allowUnauthenticatedIdentities: false,
       cognitoIdentityProviders: [
         {
@@ -382,7 +382,7 @@ export class SoloAuthStack extends cdk.Stack {
     });
 
     this.authenticatedRole = new iam.Role(this, "AuthenticatedRole", {
-      roleName: `solo-authenticated-${config.stage}`,
+      roleName: `coltide-authenticated-${config.stage}`,
       description: "Granted to authenticated Cognito users via the Identity Pool",
       assumedBy: new iam.FederatedPrincipal(
         "cognito-identity.amazonaws.com",
@@ -407,23 +407,23 @@ export class SoloAuthStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "UserPoolId", {
       value: this.userPool.userPoolId,
-      exportName: `solo-${config.stage}-user-pool-id`,
+      exportName: `coltide-${config.stage}-user-pool-id`,
     });
     new cdk.CfnOutput(this, "UserPoolClientId", {
       value: this.userPoolClient.userPoolClientId,
-      exportName: `solo-${config.stage}-user-pool-client-id`,
+      exportName: `coltide-${config.stage}-user-pool-client-id`,
     });
     new cdk.CfnOutput(this, "CognitoDomain", {
       value: cognitoDomain,
-      exportName: `solo-${config.stage}-cognito-domain`,
+      exportName: `coltide-${config.stage}-cognito-domain`,
     });
     new cdk.CfnOutput(this, "IdentityPoolId", {
       value: this.identityPool.ref,
-      exportName: `solo-${config.stage}-identity-pool-id`,
+      exportName: `coltide-${config.stage}-identity-pool-id`,
     });
     new cdk.CfnOutput(this, "AuthenticatedRoleArn", {
       value: this.authenticatedRole.roleArn,
-      exportName: `solo-${config.stage}-authenticated-role-arn`,
+      exportName: `coltide-${config.stage}-authenticated-role-arn`,
     });
   }
 }

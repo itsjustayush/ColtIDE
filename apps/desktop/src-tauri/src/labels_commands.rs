@@ -4,7 +4,7 @@
 //! membership is tracked by `Task.label_ids` (JSON on the task row). Deleting a
 //! label prunes its id from every task that carried it.
 
-use solo_protocol::{BackendEvent, Label, LabelDraft, LabelPatch, Task};
+use coltide_protocol::{BackendEvent, Label, LabelDraft, LabelPatch, Task};
 use tauri::{AppHandle, Emitter as _, State};
 use tracing::debug;
 

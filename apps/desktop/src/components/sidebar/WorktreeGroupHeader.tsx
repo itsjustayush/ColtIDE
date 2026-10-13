@@ -7,7 +7,7 @@
  *     view. Clicking the badge never toggles collapse (stopPropagation).
  *
  * A small dot turns green when the worktree is currently active; the branch
- * label shows the raw git branch ("main", "solo/thames"). If the branch has
+ * label shows the raw git branch ("main", "coltide/thames"). If the branch has
  * uncommitted changes, we render a warning dot.
  */
 

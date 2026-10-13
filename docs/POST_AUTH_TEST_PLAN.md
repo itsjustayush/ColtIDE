@@ -1,6 +1,6 @@
 # ColtIDE — Post-Auth Integration Test Plan
 
-**Scope:** Verify the AWS Cognito + RDS + GitHub-OIDC-wrapper migration works end-to-end across the ColtIDE desktop app and solo-web. · **Last updated:** 2026-04-16
+**Scope:** Verify the AWS Cognito + RDS + GitHub-OIDC-wrapper migration works end-to-end across the ColtIDE desktop app and coltide-web. · **Last updated:** 2026-04-16
 
 ## How to use this doc
 
@@ -15,26 +15,26 @@ These must be done before anything below works.
 ### 0.1 Apply Drizzle schema to RDS (once)
 
 ```bash
-DB_PASSWORD=$(aws secretsmanager get-secret-value --profile solo \
-  --secret-id solo/dev/rds-admin --query SecretString --output text | jq -r '.password')
+DB_PASSWORD=$(aws secretsmanager get-secret-value --profile coltide \
+  --secret-id coltide/dev/rds-admin --query SecretString --output text | jq -r '.password')
 
 PGPASSWORD="$DB_PASSWORD" psql \
-  -h solo-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
-  -U solo_admin -d solo -p 5432 \
-  -f solo-web/lib/db/migrations/0000_sudden_ken_ellis.sql
+  -h coltide-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
+  -U coltide_admin -d coltide -p 5432 \
+  -f coltide-web/lib/db/migrations/0000_sudden_ken_ellis.sql
 ```
 
 - [ ] Command completes without error
 - [ ] `\dt` inside psql lists all 6 tables: `waitlist`, `allowed_users`, `admin_users`, `download_logs`, `contact_submissions`, `job_applications`
 
-**When this fails:** check `aws configure list-profiles` shows `solo`; ensure the security group allows your IP on 5432 (it should allow all IPv4 by design for dev).
+**When this fails:** check `aws configure list-profiles` shows `coltide`; ensure the security group allows your IP on 5432 (it should allow all IPv4 by design for dev).
 
 ### 0.2 Seed your own admin email
 
 ```bash
 PGPASSWORD="$DB_PASSWORD" psql \
-  -h solo-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
-  -U solo_admin -d solo -p 5432 \
+  -h coltide-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
+  -U coltide_admin -d coltide -p 5432 \
   -c "INSERT INTO admin_users (email) VALUES ('YOUR_EMAIL@example.com') ON CONFLICT DO NOTHING;
       INSERT INTO allowed_users (email, name, added_by) VALUES ('YOUR_EMAIL@example.com', 'Your Name', 'bootstrap') ON CONFLICT DO NOTHING;"
 ```
@@ -50,16 +50,16 @@ pg_dump --data-only \
   > supabase-waitlist-backup.sql
 
 PGPASSWORD="$DB_PASSWORD" psql \
-  -h solo-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
-  -U solo_admin -d solo -p 5432 < supabase-waitlist-backup.sql
+  -h coltide-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
+  -U coltide_admin -d coltide -p 5432 < supabase-waitlist-backup.sql
 ```
 
 - [ ] Row count in RDS matches Supabase: `SELECT count(*) FROM waitlist;`
 
-### 0.4 Set up solo-web `.env.local`
+### 0.4 Set up coltide-web `.env.local`
 
 ```bash
-cd solo-web
+cd coltide-web
 cp .env.example .env.local
 # Edit .env.local: set NEXTAUTH_SECRET to `openssl rand -base64 32`
 # Paste DATABASE_URL using the password from 0.1
@@ -72,7 +72,7 @@ cp .env.example .env.local
 Recommended:
 
 ```bash
-cd solo
+cd coltide
 bun run auth:doctor
 ```
 
@@ -87,12 +87,12 @@ All checks are read-only; takes ~30 seconds.
 ### 1.1 CloudFormation stacks are `UPDATE_COMPLETE` / `CREATE_COMPLETE`
 
 ```bash
-aws cloudformation describe-stacks --profile solo --region us-east-1 \
+aws cloudformation describe-stacks --profile coltide --region us-east-1 \
   --query 'Stacks[?starts_with(StackName, `ColtIDE`)].{name:StackName,status:StackStatus}' \
   --output table
 ```
 
-- [ ] `SoloAuth-dev`, `SoloGitHub-dev`, `SoloData-dev`, `SoloStorage-dev`, `SoloApi-dev`, `SoloRds-dev` — all `CREATE_COMPLETE` or `UPDATE_COMPLETE`
+- [ ] `ColtIDEAuth-dev`, `ColtIDEGitHub-dev`, `ColtIDEData-dev`, `ColtIDEStorage-dev`, `ColtIDEApi-dev`, `ColtIDERds-dev` — all `CREATE_COMPLETE` or `UPDATE_COMPLETE`
 
 ### 1.2 OIDC discovery is reachable
 
@@ -115,8 +115,8 @@ curl -i -s https://vd8wm2yqle.execute-api.us-east-1.amazonaws.com/v1/tier/me | h
 
 ```bash
 PGPASSWORD="$DB_PASSWORD" psql \
-  -h solo-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
-  -U solo_admin -d solo -p 5432 -c "SELECT version();"
+  -h coltide-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
+  -U coltide_admin -d coltide -p 5432 -c "SELECT version();"
 ```
 
 - [ ] Returns a PostgreSQL 16 version string
@@ -128,7 +128,7 @@ PGPASSWORD="$DB_PASSWORD" psql \
 Assumes Section 0.5 passes. Start the app with:
 
 ```bash
-cd solo
+cd coltide
 bun run dev:auth
 ```
 
@@ -142,25 +142,25 @@ bun run dev:auth
 - [ ] Desktop app accepts the code and lands on authenticated state
 - [ ] Your email shows somewhere in the app (settings or titlebar)
 
-**When this fails:** the most likely culprit is the `solo/dev/google-oidc-client` secret missing real client ID/secret (see earlier plan for populating via AWS Console).
+**When this fails:** the most likely culprit is the `coltide/dev/google-oidc-client` secret missing real client ID/secret (see earlier plan for populating via AWS Console).
 
 ### 2.2 GitHub sign-in (desktop)
 
 - [ ] Click "Continue with GitHub"
 - [ ] Browser URL chain: wrapper `/authorize` → github.com/login/oauth → wrapper `/callback` → Cognito `/oauth2/idpresponse` → back to `http://127.0.0.1:19877/callback`
 - [ ] After completion, check RDS: the Cognito User Pool should have a new user row with `identities` including the GitHub provider
-- [ ] Check DynamoDB `solo-github-tokens-dev`: the user's row should contain an `access_token` (value captured by post-auth Lambda trigger)
+- [ ] Check DynamoDB `coltide-github-tokens-dev`: the user's row should contain an `access_token` (value captured by post-auth Lambda trigger)
 
 ```bash
-aws dynamodb scan --profile solo --region us-east-1 \
-  --table-name solo-github-tokens-dev --max-items 5 \
+aws dynamodb scan --profile coltide --region us-east-1 \
+  --table-name coltide-github-tokens-dev --max-items 5 \
   --query 'Items[].{userId:userId.S,login:github_login.S,scopes:granted_scopes.S}' \
   --output table
 ```
 
 - [ ] Your GitHub login appears with `repo` in granted_scopes
 
-**When this fails:** check CloudWatch logs `/aws/lambda/solo-gh-oidcWrapper-dev` and `/aws/lambda/solo-gh-postAuth-dev`.
+**When this fails:** check CloudWatch logs `/aws/lambda/coltide-gh-oidcWrapper-dev` and `/aws/lambda/coltide-gh-postAuth-dev`.
 
 ### 2.3 Email sign-in (desktop)
 
@@ -174,7 +174,7 @@ aws dynamodb scan --profile solo --region us-east-1 \
 - [ ] Click sign out (wherever it lives in the UI)
 - [ ] Browser briefly opens to Cognito `/logout`
 - [ ] Desktop returns to login screen
-- [ ] Vault entries gone: `security find-generic-password -s com.solo-ide.credentials` still exists as a keychain entry but the JSON inside no longer contains `cognito.accessToken`
+- [ ] Vault entries gone: `security find-generic-password -s com.coltide-ide.credentials` still exists as a keychain entry but the JSON inside no longer contains `cognito.accessToken`
 
 ### 2.5 Session persistence across desktop restart
 
@@ -185,9 +185,9 @@ aws dynamodb scan --profile solo --region us-east-1 \
 
 ---
 
-## Section 3 — Auth flows (solo-web)
+## Section 3 — Auth flows (coltide-web)
 
-Start: `cd solo-web && bun dev`. Visit `http://localhost:3000`.
+Start: `cd coltide-web && bun dev`. Visit `http://localhost:3000`.
 
 ### 3.1 Public pages don't require auth
 
@@ -214,10 +214,10 @@ Start: `cd solo-web && bun dev`. Visit `http://localhost:3000`.
 This verifies both apps see the same user.
 
 - [ ] Sign into desktop with your Google account (from 2.1)
-- [ ] Sign into solo-web with the **same** Google account (from 3.3)
+- [ ] Sign into coltide-web with the **same** Google account (from 3.3)
 - [ ] In psql: `SELECT * FROM admin_users;` — your email should match the one stored in 0.2
-- [ ] `session.user.isAdmin` should be `true` on solo-web (your email was seeded as admin)
-- [ ] Desktop's Cognito `sub` should match solo-web's `session.user.id` — they come from the same pool
+- [ ] `session.user.isAdmin` should be `true` on coltide-web (your email was seeded as admin)
+- [ ] Desktop's Cognito `sub` should match coltide-web's `session.user.id` — they come from the same pool
 
 ### 3.5 Role gating
 
@@ -229,7 +229,7 @@ This verifies both apps see the same user.
 
 ### 3.6 Sign out (web)
 
-- [ ] Click sign-out on solo-web
+- [ ] Click sign-out on coltide-web
 - [ ] Session cookie cleared
 - [ ] Visit `/beta` → redirected to `/signin` again
 
@@ -321,7 +321,7 @@ curl -s -X DELETE https://vd8wm2yqle.execute-api.us-east-1.amazonaws.com/v1/gith
 - [ ] Run `SELECT users.sub FROM ...` — actually Cognito doesn't expose users to RDS directly; use `aws cognito-idp list-users`:
 
 ```bash
-aws cognito-idp list-users --profile solo --region us-east-1 \
+aws cognito-idp list-users --profile coltide --region us-east-1 \
   --user-pool-id us-east-1_S9C2mSy8E \
   --query 'Users[].{username:Username,email:Attributes[?Name==`email`].Value|[0],sub:Attributes[?Name==`sub`].Value|[0]}' \
   --output table
@@ -337,9 +337,9 @@ aws cognito-idp list-users --profile solo --region us-east-1 \
   curl -s -H "Authorization: Bearer <desktop-jwt>" \
     https://vd8wm2yqle.execute-api.us-east-1.amazonaws.com/v1/tier/me | jq .
   ```
-- [ ] Returns the same data as the solo-web call would (since it's the same user)
+- [ ] Returns the same data as the coltide-web call would (since it's the same user)
 
-### 6.3 solo-web's session JWT works against the same Lambda
+### 6.3 coltide-web's session JWT works against the same Lambda
 
 Same idea in reverse — `session.accessToken` from NextAuth should be usable against the API Gateway.
 
@@ -366,8 +366,8 @@ curl -i -s -H "Authorization: Bearer totally.fake.jwt" \
 
 ```bash
 PGPASSWORD="$DB_PASSWORD" psql \
-  -h solo-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
-  -U solo_admin -d solo -p 5432 "sslmode=disable"
+  -h coltide-db-dev.cgxcqy6sq3vr.us-east-1.rds.amazonaws.com \
+  -U coltide_admin -d coltide -p 5432 "sslmode=disable"
 ```
 
 - [ ] Connection refused / "no SSL"
@@ -401,9 +401,9 @@ While signed in as a NON-admin user:
 ### 8.1 CloudWatch logs are flowing
 
 ```bash
-aws logs tail /aws/lambda/solo-syncStats-dev --profile solo --region us-east-1 --since 1h
-aws logs tail /aws/lambda/solo-gh-oidcWrapper-dev --profile solo --region us-east-1 --since 1h
-aws logs tail /aws/lambda/solo-gh-postAuth-dev --profile solo --region us-east-1 --since 1h
+aws logs tail /aws/lambda/coltide-syncStats-dev --profile coltide --region us-east-1 --since 1h
+aws logs tail /aws/lambda/coltide-gh-oidcWrapper-dev --profile coltide --region us-east-1 --since 1h
+aws logs tail /aws/lambda/coltide-gh-postAuth-dev --profile coltide --region us-east-1 --since 1h
 ```
 
 - [ ] Recent invocations visible (after doing 2.x and 3.x above, logs should have entries)
@@ -422,8 +422,8 @@ Visit the AWS Billing dashboard (or run `aws ce get-cost-and-usage`). After an h
 ### 8.3 Dev DynamoDB tables stayed empty of stale data
 
 ```bash
-aws dynamodb scan --profile solo --region us-east-1 --table-name solo-user-stats-dev --max-items 5
-aws dynamodb scan --profile solo --region us-east-1 --table-name solo-daily-activity-dev --max-items 5
+aws dynamodb scan --profile coltide --region us-east-1 --table-name coltide-user-stats-dev --max-items 5
+aws dynamodb scan --profile coltide --region us-east-1 --table-name coltide-daily-activity-dev --max-items 5
 ```
 
 - [ ] Empty or only contains your user (no other test data bled in)
@@ -435,7 +435,7 @@ aws dynamodb scan --profile solo --region us-east-1 --table-name solo-daily-acti
 The migration is considered **validated for dev** when:
 
 1. ✅ Every item in Sections 0, 1, 2, 3, 4, 5, 7 is checked
-2. ✅ No CloudWatch errors in the `/aws/lambda/solo-*` log groups in the last hour
+2. ✅ No CloudWatch errors in the `/aws/lambda/coltide-*` log groups in the last hour
 3. ✅ A fresh browser, no cookies, can visit the homepage, sign up via waitlist, sign in via GitHub, and reach `/beta`
 
 **Out of scope for this test plan** (tracked elsewhere):
@@ -453,10 +453,10 @@ The migration is considered **validated for dev** when:
 | Symptom | First check |
 |---|---|
 | Desktop login button does nothing | Env vars not set (Section 0.5) |
-| Desktop opens browser but login loops | Cognito client secret out of date (check `solo/dev/google-oidc-client`) |
-| solo-web shows "internal server error" on sign-in | `NEXTAUTH_SECRET` not set in `.env.local` |
-| solo-web redirects forever on `/beta` | Middleware running, auth() returning no session — check cookie set correctly (`next-auth.session-token`) |
+| Desktop opens browser but login loops | Cognito client secret out of date (check `coltide/dev/google-oidc-client`) |
+| coltide-web shows "internal server error" on sign-in | `NEXTAUTH_SECRET` not set in `.env.local` |
+| coltide-web redirects forever on `/beta` | Middleware running, auth() returning no session — check cookie set correctly (`next-auth.session-token`) |
 | psql connection hangs | RDS security group doesn't allow your IP (it should by default `0.0.0.0/0`) |
-| `GET /v1/github/token` returns 404 for a GitHub-signed-in user | Post-auth Lambda didn't fire; check `/aws/lambda/solo-gh-postAuth-dev` logs and `solo-github-pending-dev` TTL (it's 10 min) |
+| `GET /v1/github/token` returns 404 for a GitHub-signed-in user | Post-auth Lambda didn't fire; check `/aws/lambda/coltide-gh-postAuth-dev` logs and `coltide-github-pending-dev` TTL (it's 10 min) |
 | Admin routes say "not authorized" | Your email isn't in `admin_users`; re-run Section 0.2 and sign out + sign in again |
 | JWT signature verification fails on wrapper-minted tokens | JWKs endpoint returning stale key; Cognito caches for ~1h — wait or recreate the IdP |

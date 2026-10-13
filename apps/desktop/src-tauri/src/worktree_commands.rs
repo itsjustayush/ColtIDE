@@ -2,8 +2,8 @@
 //!
 //! This module contains all git worktree related IPC commands.
 
-use solo_git::WorktreeManager;
-use solo_protocol::{
+use coltide_git::WorktreeManager;
+use coltide_protocol::{
     BackendEvent, CreateWorktreeRequest, RemoveWorktreeRequest, WorktreeDiffEntry, WorktreeInfo,
     WorktreeSetupConfig,
 };
@@ -119,7 +119,7 @@ pub async fn worktree_create(
 
     match manager.create(&request) {
         Ok(info) => {
-            stats.record(solo_stats::StatsEvent::WorktreeCreated).await;
+            stats.record(coltide_stats::StatsEvent::WorktreeCreated).await;
 
             let _ = app.emit(
                 "backend-event",

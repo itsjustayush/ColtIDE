@@ -6,7 +6,7 @@
 
 ## Context
 
-ColtIDE's existing **Task Allocator** already implements the three-view panel (list / kanban / calendar) that the predecessor plan was scoped to build. The predecessor assumed a greenfield ticket system with a single JSON file and per-subtask CLI task files. That assumption does not hold in ColtIDE: task persistence is SQLite-backed via `solo-tasks`, agent assignment is wired through `task_executor::spawn_agent_for_task`, and the three views already exist.
+ColtIDE's existing **Task Allocator** already implements the three-view panel (list / kanban / calendar) that the predecessor plan was scoped to build. The predecessor assumed a greenfield ticket system with a single JSON file and per-subtask CLI task files. That assumption does not hold in ColtIDE: task persistence is SQLite-backed via `coltide-tasks`, agent assignment is wired through `task_executor::spawn_agent_for_task`, and the three views already exist.
 
 This spec supersedes the predecessor by narrowing scope to the true delta:
 
@@ -35,7 +35,7 @@ This spec supersedes the predecessor by narrowing scope to the true delta:
 
 Existing ColtIDE architecture is untouched at the domain level:
 
-- Rust side: `solo-protocol` types → `solo-tasks` SQLite store → `task_commands` Tauri commands → `BackendEvent::TasksChanged` event stream → frontend `useTaskStream` → `taskStore` patches Map.
+- Rust side: `colt-core` types → `coltide-tasks` SQLite store → `task_commands` Tauri commands → `BackendEvent::TasksChanged` event stream → frontend `useTaskStream` → `taskStore` patches Map.
 - Agent assignment: `taskStore.run()` → `task_executor::spawn_agent_for_task` → `SessionManager::create_session` + first-message send.
 - UI: `TasksPanel` → `TasksSection` (owns view/grouping state) → three views + `TaskDrawer` + dialogs.
 
@@ -48,7 +48,7 @@ The delta is localized:
 
 ## Data Model
 
-### New type (`solo-protocol`)
+### New type (`colt-core`)
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -78,7 +78,7 @@ Subtask ordering lives in the containing `Vec` — no explicit `position` field.
 - `TaskDraft.subtasks: Vec<SubtaskDraft>` — `#[serde(default)]`, optional on create.
 - `TaskPatch.subtasks: Option<Vec<Subtask>>` — bulk replace escape hatch. Not used by the UI; kept for completeness.
 
-### SQLite migration (`solo-tasks/src/store.rs`)
+### SQLite migration (`coltide-tasks/src/store.rs`)
 
 The existing `migrate()` uses `CREATE TABLE IF NOT EXISTS` without versioning. We introduce a `PRAGMA user_version` gate:
 
@@ -166,7 +166,7 @@ Each wraps the corresponding `tasksApi.*` call and patches the task in the Map w
 
 ## Testing
 
-### Rust unit tests (`solo-tasks/src/store.rs`)
+### Rust unit tests (`coltide-tasks/src/store.rs`)
 
 - `subtask_add_appends_and_persists`
 - `subtask_toggle_sets_completed_at`
@@ -177,7 +177,7 @@ Each wraps the corresponding `tasksApi.*` call and patches the task in the Map w
 
 ### Protocol round-trip
 
-Extend existing round-trip tests in `solo-protocol/tests.rs` to include tasks with non-empty `subtasks`.
+Extend existing round-trip tests in `colt-core/tests.rs` to include tasks with non-empty `subtasks`.
 
 ### Frontend
 

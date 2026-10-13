@@ -7,7 +7,7 @@ ColtIDE's auto-update and DMG distribution pipeline.
 ## Architecture
 
 ```
-ColtIDE-UDE/solo  (private source)              ColtIDE-UDE/solo-releases  (public downloads)
+ColtIDE-UDE/coltide  (private source)              ColtIDE-UDE/coltide-releases  (public downloads)
 ───────────────────────────                  ────────────────────────────────────────
   push tag v*
         │
@@ -23,7 +23,7 @@ ColtIDE-UDE/solo  (private source)              ColtIDE-UDE/solo-releases  (publ
         ├── generate latest.json
         │
         └──────► publish via RELEASE_PAT ─────►  GitHub Release
-                                                    - Solo_X.Y.Z_aarch64.dmg
+                                                    - ColtIDE_X.Y.Z_aarch64.dmg
                                                     - ColtIDE.app.tar.gz
                                                     - ColtIDE.app.tar.gz.sig
                                                     - latest.json
@@ -39,7 +39,7 @@ Why the two-repo split: Tauri's updater does an anonymous `GET` for `latest.json
 
 ---
 
-## GitHub Secrets (on ColtIDE-UDE/solo, repo-level)
+## GitHub Secrets (on ColtIDE-UDE/coltide, repo-level)
 
 | Secret | Value | Source |
 |---|---|---|
@@ -50,11 +50,11 @@ Why the two-repo split: Tauri's updater does an anonymous `GET` for `latest.json
 | `APPLE_API_KEY_ID` | App Store Connect API key ID | App Store Connect → Users and Access → Integrations |
 | `APPLE_API_ISSUER` | App Store Connect issuer UUID | App Store Connect → Users and Access → Integrations |
 | `APPLE_API_KEY_P8_BASE64` | base64-encoded App Store Connect `.p8` key | `base64 -i AuthKey_XXXXXXXXXX.p8 \| pbcopy` |
-| `TAURI_SIGNING_PRIVATE_KEY` | contents of `~/.tauri/solo-ide.key` | `cat ~/.tauri/solo-ide.key` |
+| `TAURI_SIGNING_PRIVATE_KEY` | contents of `~/.tauri/coltide-ide.key` | `cat ~/.tauri/coltide-ide.key` |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | empty string | (key generated without password) |
-| `RELEASE_PAT` | fine-grained PAT with `Contents: write` on ColtIDE-UDE/solo-releases | github.com/settings/personal-access-tokens/new |
+| `RELEASE_PAT` | fine-grained PAT with `Contents: write` on ColtIDE-UDE/coltide-releases | github.com/settings/personal-access-tokens/new |
 
-## GitHub Variables (on ColtIDE-UDE/solo, repo-level)
+## GitHub Variables (on ColtIDE-UDE/coltide, repo-level)
 
 The workflows map **stage-specific** GitHub variables into the generic desktop
 env contract used by the Tauri build:
@@ -63,29 +63,29 @@ env contract used by the Tauri build:
 
 | Variable | Value |
 |---|---|
-| `SOLO_DEV_COGNITO_DOMAIN` | `solo-ide-dev.auth.us-east-1.amazoncognito.com` |
-| `SOLO_DEV_COGNITO_CLIENT_ID` | dev Cognito desktop client ID |
-| `SOLO_DEV_AWS_REGION` | `us-east-1` |
-| `SOLO_DEV_API_ENDPOINT` | dev ColtIDE API endpoint |
+| `COLTIDE_DEV_COGNITO_DOMAIN` | `coltide-ide-dev.auth.us-east-1.amazoncognito.com` |
+| `COLTIDE_DEV_COGNITO_CLIENT_ID` | dev Cognito desktop client ID |
+| `COLTIDE_DEV_AWS_REGION` | `us-east-1` |
+| `COLTIDE_DEV_API_ENDPOINT` | dev ColtIDE API endpoint |
 
 ### Release workflow (`release.yml`)
 
 | Variable | Value |
 |---|---|
-| `SOLO_PROD_COGNITO_DOMAIN` | `solo-ide-prod.auth.us-east-1.amazoncognito.com` |
-| `SOLO_PROD_COGNITO_CLIENT_ID` | prod Cognito desktop client ID |
-| `SOLO_PROD_AWS_REGION` | `us-east-1` |
-| `SOLO_PROD_API_ENDPOINT` | prod ColtIDE API endpoint |
+| `COLTIDE_PROD_COGNITO_DOMAIN` | `coltide-ide-prod.auth.us-east-1.amazoncognito.com` |
+| `COLTIDE_PROD_COGNITO_CLIENT_ID` | prod Cognito desktop client ID |
+| `COLTIDE_PROD_AWS_REGION` | `us-east-1` |
+| `COLTIDE_PROD_API_ENDPOINT` | prod ColtIDE API endpoint |
 
 ---
 
 ## Tauri signing keys
 
-Private key `~/.tauri/solo-ide.key` is the minisign key that signs `ColtIDE.app.tar.gz`. Its public half is base64-embedded in `apps/desktop/src-tauri/tauri.conf.json` under `plugins.updater.pubkey` — every installed ColtIDE verifies updates against that pubkey.
+Private key `~/.tauri/coltide-ide.key` is the minisign key that signs `ColtIDE.app.tar.gz`. Its public half is base64-embedded in `apps/desktop/src-tauri/tauri.conf.json` under `plugins.updater.pubkey` — every installed ColtIDE verifies updates against that pubkey.
 
 **Never regenerate this key.** Changing it would strand every existing install (they would reject every future update as "invalid signature") with no in-app recovery path.
 
-Back up `~/.tauri/solo-ide.key` to a password manager or encrypted archive.
+Back up `~/.tauri/coltide-ide.key` to a password manager or encrypted archive.
 
 ---
 
@@ -103,7 +103,7 @@ git pull --ff-only origin master
 bun run release:master 0.3.0 --notes-file ./release-notes.md
 
 # 3. Verify the release on the public download repo.
-gh release view v0.3.0 --repo ColtIDE-UDE/solo-releases
+gh release view v0.3.0 --repo ColtIDE-UDE/coltide-releases
 ```
 
 The helper intentionally refuses to run unless:
@@ -116,7 +116,7 @@ The helper intentionally refuses to run unless:
 The tag push triggers `.github/workflows/release.yml`, which builds from the
 tagged master commit, signs/notarizes/staples the `.app`, signs/notarizes/staples
 the DMG, creates the updater archive/signature, writes `latest.json`, and
-publishes everything to `ColtIDE-UDE/solo-releases`.
+publishes everything to `ColtIDE-UDE/coltide-releases`.
 
 Manual fallback: use the GitHub Actions `Release` workflow dispatch from the
 `master` branch. The optional `version` input must match
@@ -138,7 +138,7 @@ If you want a gated beta channel where only opted-in users see betas, that is a 
 
 1. User launches ColtIDE.
 2. 5 s after launch, `useUpdateStream` calls `check_for_update()`.
-3. Rust fetches `https://github.com/ColtIDE-UDE/solo-releases/releases/latest/download/latest.json`.
+3. Rust fetches `https://github.com/ColtIDE-UDE/coltide-releases/releases/latest/download/latest.json`.
 4. If `latest.json.version > installed-version`, emits `BackendEvent::UpdateAvailable`.
 5. Frontend shows persistent toast: "New update available".
 6. User clicks "Restart" → Tauri downloads `.tar.gz`, verifies `.sig` against pubkey, swaps app, restarts.
@@ -149,8 +149,8 @@ If you want a gated beta channel where only opted-in users see betas, that is a 
 ## Local development build (unsigned)
 
 ```bash
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/solo-ide.key)"
-export COLTIDE_COGNITO_DOMAIN="solo-ide-dev.auth.us-east-1.amazoncognito.com"
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/coltide-ide.key)"
+export COLTIDE_COGNITO_DOMAIN="coltide-ide-dev.auth.us-east-1.amazoncognito.com"
 export COLTIDE_COGNITO_CLIENT_ID="4rcj8gv02gj3t5tlhv3gnqrvq1"
 export COLTIDE_AWS_REGION="us-east-1"
 export COLTIDE_API_ENDPOINT="https://9qpve9xe1b.execute-api.us-east-1.amazonaws.com"
@@ -159,7 +159,7 @@ bun tauri build
 
 # Output:
 #   target/release/bundle/macos/ColtIDE.app
-#   target/release/bundle/dmg/Solo_X.Y.Z_aarch64.dmg      (unsigned, right-click-open)
+#   target/release/bundle/dmg/ColtIDE_X.Y.Z_aarch64.dmg      (unsigned, right-click-open)
 #   target/release/bundle/macos/ColtIDE.app.tar.gz           (updater payload)
 #   target/release/bundle/macos/ColtIDE.app.tar.gz.sig       (updater signature)
 ```
@@ -184,9 +184,9 @@ builds, only CI produces them (requires the keychain dance in `release.yml`).
 | `apps/desktop/src/App.tsx` | Mounts `useUpdateStream()` |
 | `.github/workflows/release.yml` | CI/CD release pipeline |
 | `scripts/bump-version.mjs` | Version bump across all manifests |
-| `~/.tauri/solo-ide.key` | Private signing key (local, never committed) |
-| `docs/superpowers/specs/2026-04-17-solo-dmg-autoupdate-design.md` | Design rationale |
-| `docs/superpowers/plans/2026-04-17-solo-dmg-autoupdate.md` | Implementation plan |
+| `~/.tauri/coltide-ide.key` | Private signing key (local, never committed) |
+| `docs/superpowers/specs/2026-04-17-coltide-dmg-autoupdate-design.md` | Design rationale |
+| `docs/superpowers/plans/2026-04-17-coltide-dmg-autoupdate.md` | Implementation plan |
 
 ---
 
@@ -206,10 +206,10 @@ git push origin v0.X.Y
 
 ### Workflow succeeded but release is broken (DMG bad, latest.json malformed, etc.)
 
-**Never re-tag a public release.** Bump the patch (e.g., `v0.X.Y+1`), cut a new release. Delete the broken GitHub Release from solo-releases so the updater does not see it:
+**Never re-tag a public release.** Bump the patch (e.g., `v0.X.Y+1`), cut a new release. Delete the broken GitHub Release from coltide-releases so the updater does not see it:
 
 ```bash
-gh release delete vX.Y.Z --repo ColtIDE-UDE/solo-releases --yes
+gh release delete vX.Y.Z --repo ColtIDE-UDE/coltide-releases --yes
 ```
 
 ### Notarization fails

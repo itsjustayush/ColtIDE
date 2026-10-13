@@ -8,8 +8,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
-use solo_protocol::{Executor, TaskDraft, TaskPatch, TaskPriority, TaskStatus, VaultScope};
-use solo_tasks::{
+use coltide_protocol::{Executor, TaskDraft, TaskPatch, TaskPriority, TaskStatus, VaultScope};
+use coltide_tasks::{
     render_prompt, trim_to_budget, ContextFragment, TaskStore, DEFAULT_BUNDLE, DEFAULT_TOKEN_BUDGET,
 };
 use tauri::{AppHandle, Manager as _};
@@ -64,7 +64,7 @@ pub async fn collect_vault_fragment(app: &AppHandle) -> Option<ContextFragment> 
         return None;
     };
 
-    let filters = solo_protocol::VaultListFilters::default();
+    let filters = coltide_protocol::VaultListFilters::default();
     // Use Global scope to get cross-project entries as context.
     let entries = vault.list(&VaultScope::Global, &filters).ok()?;
     let top = entries.into_iter().take(10).collect::<Vec<_>>();
@@ -180,7 +180,7 @@ pub async fn collect_git_fragment(app: &AppHandle) -> Option<ContextFragment> {
 pub async fn collect_sessions_fragment(_app: &AppHandle) -> Option<ContextFragment> {
     // Phase 6 fallback: read recent session JSON files from ~/.coltide/sessions/.
     let home = dirs::home_dir()?;
-    let sess_dir = home.join(".solo").join("sessions");
+    let sess_dir = home.join(".coltide").join("sessions");
     let mut entries: Vec<std::path::PathBuf> = std::fs::read_dir(&sess_dir)
         .ok()?
         .filter_map(|e| e.ok())
@@ -219,7 +219,7 @@ pub async fn collect_notes_fragment(app: &AppHandle) -> Option<ContextFragment> 
 
 pub async fn collect_tasks_fragment(store: &Arc<TaskStore>) -> Option<ContextFragment> {
     let existing = store
-        .list(&solo_protocol::TaskListFilters::default())
+        .list(&coltide_protocol::TaskListFilters::default())
         .ok()?;
     let open: Vec<_> = existing
         .into_iter()

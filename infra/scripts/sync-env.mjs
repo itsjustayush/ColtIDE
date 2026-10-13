@@ -22,7 +22,7 @@ if (stage !== "dev" && stage !== "prod") {
   process.exit(1);
 }
 
-const profile = process.env.AWS_PROFILE ?? "solo";
+const profile = process.env.AWS_PROFILE ?? "coltide";
 const region = process.env.AWS_REGION ?? "us-east-1";
 
 function aws(args) {
@@ -69,7 +69,7 @@ async function stackOutput(stackName) {
 
 console.log(`Syncing infra/.env.${stage} from CloudFormation stacks (profile=${profile}, region=${region})`);
 
-const auth = await stackOutput(`SoloAuth-${stage}`);
+const auth = await stackOutput(`ColtIDEAuth-${stage}`);
 const envPath = path.join(INFRA_ROOT, `.env.${stage}`);
 
 // Preserve any hand-managed keys (RDS password ARNs, etc) while overwriting
@@ -83,27 +83,27 @@ for (const line of existing.split(/\r?\n/)) {
 
 const authoritative = {
   COLTIDE_COGNITO_DOMAIN: `${auth.CognitoDomain}`,
-  SOLO_COGNITO_USER_POOL_ID: auth.UserPoolId,
+  COLTIDE_COGNITO_USER_POOL_ID: auth.UserPoolId,
   COLTIDE_COGNITO_CLIENT_ID: auth.UserPoolClientId,
-  SOLO_COGNITO_IDENTITY_POOL_ID: auth.IdentityPoolId,
+  COLTIDE_COGNITO_IDENTITY_POOL_ID: auth.IdentityPoolId,
   COLTIDE_AWS_REGION: region,
 };
 
 // Best-effort: pull API + GitHub wrapper endpoints if those stacks exist.
 try {
-  const api = await stackOutput(`SoloApi-${stage}`);
+  const api = await stackOutput(`ColtIDEApi-${stage}`);
   if (api.ApiEndpoint) authoritative.COLTIDE_API_ENDPOINT = api.ApiEndpoint;
 } catch (e) {
-  console.warn(`! SoloApi-${stage}: ${e.message.split("\n")[0]}`);
+  console.warn(`! ColtIDEApi-${stage}: ${e.message.split("\n")[0]}`);
 }
 try {
-  const gh = await stackOutput(`SoloGitHub-${stage}`);
+  const gh = await stackOutput(`ColtIDEGitHub-${stage}`);
   const oidcIssuer = gh.OidcIssuerUrl ?? gh.OidcIssuer ?? gh.OidcApiUrl;
   const callbackUrl = gh.CallbackUrl ?? gh.GitHubCallbackUrl;
-  if (oidcIssuer) authoritative.SOLO_GITHUB_OIDC_ISSUER = oidcIssuer;
-  if (callbackUrl) authoritative.SOLO_GITHUB_CALLBACK = callbackUrl;
+  if (oidcIssuer) authoritative.COLTIDE_GITHUB_OIDC_ISSUER = oidcIssuer;
+  if (callbackUrl) authoritative.COLTIDE_GITHUB_CALLBACK = callbackUrl;
 } catch (e) {
-  console.warn(`! SoloGitHub-${stage}: ${e.message.split("\n")[0]}`);
+  console.warn(`! ColtIDEGitHub-${stage}: ${e.message.split("\n")[0]}`);
 }
 
 const merged = new Map(existingMap);
@@ -113,17 +113,17 @@ for (const [k, v] of Object.entries(authoritative)) {
 
 const ordered = [
   "COLTIDE_COGNITO_DOMAIN",
-  "SOLO_COGNITO_USER_POOL_ID",
+  "COLTIDE_COGNITO_USER_POOL_ID",
   "COLTIDE_COGNITO_CLIENT_ID",
-  "SOLO_COGNITO_IDENTITY_POOL_ID",
+  "COLTIDE_COGNITO_IDENTITY_POOL_ID",
   "COLTIDE_AWS_REGION",
   "COLTIDE_API_ENDPOINT",
-  "SOLO_GITHUB_OIDC_ISSUER",
-  "SOLO_GITHUB_CALLBACK",
-  "SOLO_RDS_ENDPOINT",
-  "SOLO_RDS_PORT",
-  "SOLO_RDS_DATABASE",
-  "SOLO_RDS_SECRET_ARN",
+  "COLTIDE_GITHUB_OIDC_ISSUER",
+  "COLTIDE_GITHUB_CALLBACK",
+  "COLTIDE_RDS_ENDPOINT",
+  "COLTIDE_RDS_PORT",
+  "COLTIDE_RDS_DATABASE",
+  "COLTIDE_RDS_SECRET_ARN",
 ];
 
 const seen = new Set(ordered);

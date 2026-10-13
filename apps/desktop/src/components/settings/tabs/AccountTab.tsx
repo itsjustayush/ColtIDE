@@ -13,7 +13,7 @@ interface CognitoIdentityClaim {
   userId?: string;
 }
 
-interface SoloIdentitySummary {
+interface ColtIDEIdentitySummary {
   displayName: string;
   email: string | null;
   avatarUrl: string | null;
@@ -89,10 +89,10 @@ function providerFromUsername(username: string | null): string | null {
   return prefix && prefix !== username ? prefix : null;
 }
 
-function deriveSoloIdentity(
+function deriveColtIDEIdentity(
   user: User | null,
   claims: DecodedTokenClaims | null,
-): SoloIdentitySummary | null {
+): ColtIDEIdentitySummary | null {
   if (!user) return null;
 
   const identities = parseIdentities(claims?.identities);
@@ -207,7 +207,7 @@ export function AccountTab() {
     void loadGitHubToken();
   }, [loadGitHubToken]);
 
-  const soloIdentity = useMemo(() => deriveSoloIdentity(user, claims), [user, claims]);
+  const coltideIdentity = useMemo(() => deriveColtIDEIdentity(user, claims), [user, claims]);
 
   return (
     <div className="space-y-8">
@@ -219,20 +219,20 @@ export function AccountTab() {
         </p>
 
         <div className="rounded-[14px] border border-border/70 bg-background/55 p-5">
-          {soloIdentity ? (
+          {coltideIdentity ? (
             <>
               <div className="mb-5 flex items-center gap-4">
-                <AccountAvatar name={soloIdentity.displayName} avatarUrl={soloIdentity.avatarUrl} />
+                <AccountAvatar name={coltideIdentity.displayName} avatarUrl={coltideIdentity.avatarUrl} />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="text-lg font-semibold text-foreground">{soloIdentity.displayName}</h4>
+                    <h4 className="text-lg font-semibold text-foreground">{coltideIdentity.displayName}</h4>
                     <span className="rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                      Signed in with {soloIdentity.providerLabel}
+                      Signed in with {coltideIdentity.providerLabel}
                     </span>
                   </div>
                   <p className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                     <Mail className="h-4 w-4" />
-                    <span>{soloIdentity.email ?? 'No email claim returned'}</span>
+                    <span>{coltideIdentity.email ?? 'No email claim returned'}</span>
                   </p>
                 </div>
                 <button
@@ -246,9 +246,9 @@ export function AccountTab() {
               </div>
 
               <div className="space-y-0">
-                <MetaRow label="Auth provider" value={soloIdentity.providerLabel} />
-                <MetaRow label="Provider account" value={soloIdentity.providerAccount} />
-                <MetaRow label="ColtIDE user ID" value={soloIdentity.subject} />
+                <MetaRow label="Auth provider" value={coltideIdentity.providerLabel} />
+                <MetaRow label="Provider account" value={coltideIdentity.providerAccount} />
+                <MetaRow label="ColtIDE user ID" value={coltideIdentity.subject} />
               </div>
             </>
           ) : (
@@ -302,7 +302,7 @@ export function AccountTab() {
                 <MetaRow label="GitHub login" value={githubUser.login} />
                 <MetaRow label="GitHub account type" value={githubUser.type} />
                 <MetaRow label="GitHub user ID" value={String(githubUser.id)} />
-                <MetaRow label="ColtIDE user ID" value={soloIdentity?.subject ?? null} />
+                <MetaRow label="ColtIDE user ID" value={coltideIdentity?.subject ?? null} />
               </div>
             </>
           ) : (

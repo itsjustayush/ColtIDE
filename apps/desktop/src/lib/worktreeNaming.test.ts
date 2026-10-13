@@ -19,14 +19,14 @@ function wt(branch: string): WorktreeInfo {
 }
 
 describe('pickWorktreeName', () => {
-	it('defaults to the solo/ prefix and tier-1 pool for a fresh user', () => {
+	it('defaults to the coltide/ prefix and tier-1 pool for a fresh user', () => {
 		const { branch, poolName } = pickWorktreeName(1, [], { random: () => 0 });
 		expect(branch.startsWith(`${DEFAULT_BRANCH_PREFIX}/`)).toBe(true);
 		expect(branch).toBe(`${DEFAULT_BRANCH_PREFIX}/${poolName.toLowerCase()}`);
 	});
 
 	it('strips the prefix when matching already-used names (case-insensitive)', () => {
-		const existing = [wt('solo/sequoia'), wt('solo/cypress')];
+		const existing = [wt('coltide/sequoia'), wt('coltide/cypress')];
 		const { poolName } = pickWorktreeName(1, existing, { random: () => 0 });
 		expect(['sequoia', 'cypress']).not.toContain(poolName.toLowerCase());
 	});

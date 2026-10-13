@@ -6,9 +6,9 @@
 
 **Architecture:** Builds on the Phase 1 pipeline (formatter's `format_dispatch` already returns `DispatchTask { title, prompt }`) and on the Phase 2 hotkey tap + HUD (which already emits `voice:hotkey` → `dispatch_{down,up}`). Phase 3 wires the `voice_end(mode=Dispatch, target=NewAgentSession)` tail to ColtIDE's existing `agent_commands::create_session` call, adds a toast/notification/dock-badge UX, populates `linked_session_id` in history, and hooks "auto-pop agent panel on focus" into ColtIDE's existing focus-change listener.
 
-**Tech Stack:** Tauri 2 (notifications + dock badge), existing `solo-agent` + `solo-voice`, React 19 + Zustand, `tauri-plugin-notification`.
+**Tech Stack:** Tauri 2 (notifications + dock badge), existing `colt-core` + `coltide-voice`, React 19 + Zustand, `tauri-plugin-notification`.
 
-**Reference:** `docs/superpowers/specs/2026-04-17-voice-in-solo-design.md` — this plan implements Phase 3.
+**Reference:** `docs/superpowers/specs/2026-04-17-voice-in-coltide-design.md` — this plan implements Phase 3.
 
 ---
 
@@ -21,7 +21,7 @@
 | `apps/desktop/src-tauri/Cargo.toml` | Add `tauri-plugin-notification` if not present |
 | `apps/desktop/src-tauri/src/voice_commands.rs` | `voice_end` with `target: NewAgentSession` creates an agent session, populates `linked_session_id` in history, emits `voice:dispatched` event, updates dock badge via `app.set_badge_count` |
 | `apps/desktop/src-tauri/src/lib.rs` | Register `tauri_plugin_notification` |
-| `crates/solo-voice/src/pipeline.rs` | `end()` now returns `Option<DispatchTask>` alongside formatted text so voice_commands can pass title/prompt to session creation |
+| `crates/coltide-voice/src/pipeline.rs` | `end()` now returns `Option<DispatchTask>` alongside formatted text so voice_commands can pass title/prompt to session creation |
 
 ### Modifications (Frontend)
 
@@ -68,7 +68,7 @@ In `apps/desktop/src-tauri/src/lib.rs`, inside the `.plugin(...)` chain on the `
 
 - [ ] **Step 3: Verify**
 
-`cargo check -p solo-desktop`
+`cargo check -p coltide-desktop`
 
 - [ ] **Step 4: Commit**
 
@@ -82,7 +82,7 @@ git commit -m "chore(voice): add tauri-plugin-notification for dispatch toasts"
 ## Task 2: Pipeline's `end()` returns the DispatchTask
 
 **Files:**
-- Modify: `crates/solo-voice/src/pipeline.rs`
+- Modify: `crates/coltide-voice/src/pipeline.rs`
 - Modify: `apps/desktop/src-tauri/src/voice_commands.rs`
 
 Currently `pipeline.end(...)` returns `PipelineOutput`. For Dispatch mode the formatter call returns a `DispatchTask { title, prompt }`, but `pipeline.end()` currently collapses it into a single formatted string. Fix: add an optional `dispatch_task: Option<DispatchTask>` field to `PipelineOutput`.
@@ -129,15 +129,15 @@ In `voice_end`, after `pipeline.end(...)`, pass through the task for Dispatch fl
 - [ ] **Step 5: Verify**
 
 ```
-cargo test -p solo-voice
-cargo check -p solo-desktop
+cargo test -p coltide-voice
+cargo check -p coltide-desktop
 ```
 
 - [ ] **Step 6: Commit**
 
 ```
-git add crates/solo-voice/src/pipeline.rs apps/desktop/src-tauri/src/voice_commands.rs
-git commit -m "feat(solo-voice): surface DispatchTask on PipelineOutput"
+git add crates/coltide-voice/src/pipeline.rs apps/desktop/src-tauri/src/voice_commands.rs
+git commit -m "feat(coltide-voice): surface DispatchTask on PipelineOutput"
 ```
 
 ---
@@ -212,7 +212,7 @@ match target {
 
 - [ ] **Step 3: Verify**
 
-`cargo check -p solo-desktop`. If the signature of `create_session_internal` differs, adapt.
+`cargo check -p coltide-desktop`. If the signature of `create_session_internal` differs, adapt.
 
 - [ ] **Step 4: Commit**
 
@@ -255,7 +255,7 @@ Initial value `null`.
 
 - [ ] **Step 3: Verify**
 
-`bun run --filter '@solo/desktop' typecheck`
+`bun run --filter '@coltide/desktop' typecheck`
 
 - [ ] **Step 4: Commit**
 
@@ -351,8 +351,8 @@ Register in `lib.rs` generate_handler.
 - [ ] **Step 4: Verify**
 
 ```
-cargo check -p solo-desktop
-bun run --filter '@solo/desktop' typecheck
+cargo check -p coltide-desktop
+bun run --filter '@coltide/desktop' typecheck
 ```
 
 - [ ] **Step 5: Commit**
@@ -367,14 +367,14 @@ git commit -m "feat(voice): auto-pop dispatched agent session on ColtIDE focus"
 ## Task 7: Integration test — dispatch creates a session
 
 **Files:**
-- Create: `crates/solo-voice/tests/pipeline_dispatch.rs`
+- Create: `crates/coltide-voice/tests/pipeline_dispatch.rs`
 
 - [ ] **Step 1: Test**
 
 ```rust
 //! End-to-end: mode=Dispatch returns a DispatchTask on PipelineOutput.
 
-use solo_voice::{
+use coltide_voice::{
     audio::AudioRing,
     formatter::{ChatClient, CloudFormatter, DictationOptions, AppContext, FormatterProvider},
     mode::{PipelineTarget, VoiceMode},
@@ -388,7 +388,7 @@ struct CannedChat(&'static str);
 #[async_trait]
 impl ChatClient for CannedChat {
     async fn simple_completion(&self, _m: &str, _s: &str, _u: &str)
-        -> solo_voice::error::Result<String>
+        -> coltide_voice::error::Result<String>
     { Ok(self.0.to_string()) }
 }
 
@@ -421,14 +421,14 @@ async fn dispatch_returns_task() {
 - [ ] **Step 2: Run**
 
 ```
-cargo test -p solo-voice --test pipeline_dispatch
+cargo test -p coltide-voice --test pipeline_dispatch
 ```
 
 - [ ] **Step 3: Commit**
 
 ```
-git add crates/solo-voice/tests/pipeline_dispatch.rs
-git commit -m "test(solo-voice): dispatch flow returns DispatchTask"
+git add crates/coltide-voice/tests/pipeline_dispatch.rs
+git commit -m "test(coltide-voice): dispatch flow returns DispatchTask"
 ```
 
 ---
@@ -465,10 +465,10 @@ git commit -m "docs: voice Phase 3 manual QA checklist"
 - [ ] **Step 1: Full sweep**
 
 ```
-cargo check --workspace --exclude solo-desktop
-cargo check -p solo-desktop
-cargo test -p solo-voice
-bun run --filter '@solo/desktop' typecheck
+cargo check --workspace --exclude coltide-desktop
+cargo check -p coltide-desktop
+cargo test -p coltide-voice
+bun run --filter '@coltide/desktop' typecheck
 cd apps/desktop && bun test src/stores/__tests__/voiceStore.test.ts
 ```
 

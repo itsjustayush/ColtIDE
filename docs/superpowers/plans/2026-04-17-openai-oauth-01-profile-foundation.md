@@ -6,19 +6,19 @@
 
 **Architecture:** The vault is a `HashMap<String, String>` where each provider's OAuth is stored under `{provider}.oauth` as a single JSON-serialized `OAuthToken` (or `OpenAIOAuthToken` for OpenAI). We replace that value with a `ProviderOAuthStore` JSON: `{ active_profile: String, profiles: HashMap<String, OAuthProfile> }`. Migration detects the legacy shape by JSON content (absence of the `profiles` key) and wraps it into `profiles.default` on first vault load.
 
-**Tech Stack:** Rust (workspace `solo-auth` crate), `serde_json`, `tokio`, existing `keyring` + macOS `security` CLI for vault persistence. Tests: in-crate `#[cfg(test)] mod tests` modules, `cargo test -p solo-auth`.
+**Tech Stack:** Rust (workspace `coltide-auth` crate), `serde_json`, `tokio`, existing `keyring` + macOS `security` CLI for vault persistence. Tests: in-crate `#[cfg(test)] mod tests` modules, `cargo test -p coltide-auth`.
 
 ---
 
 ## File Structure
 
 **New files:**
-- `crates/solo-auth/src/oauth/profiles.rs` — `ProviderOAuthStore`, `OAuthProfile`, migration helpers
+- `crates/coltide-auth/src/oauth/profiles.rs` — `ProviderOAuthStore`, `OAuthProfile`, migration helpers
 
 **Modified files:**
-- `crates/solo-auth/src/oauth/mod.rs` — add `pub mod profiles;` and re-export
-- `crates/solo-auth/src/credentials.rs` — route all OAuth read/write through `ProviderOAuthStore`; call migration from `load_vault`
-- `crates/solo-auth/src/lib.rs` — no change expected; verify exports
+- `crates/coltide-auth/src/oauth/mod.rs` — add `pub mod profiles;` and re-export
+- `crates/coltide-auth/src/credentials.rs` — route all OAuth read/write through `ProviderOAuthStore`; call migration from `load_vault`
+- `crates/coltide-auth/src/lib.rs` — no change expected; verify exports
 
 **Unchanged this plan:**
 - `apps/desktop/src/*` — frontend isn't touched
@@ -30,12 +30,12 @@
 ## Task 1: ProviderOAuthStore and OAuthProfile types
 
 **Files:**
-- Create: `crates/solo-auth/src/oauth/profiles.rs`
-- Modify: `crates/solo-auth/src/oauth/mod.rs`
+- Create: `crates/coltide-auth/src/oauth/profiles.rs`
+- Modify: `crates/coltide-auth/src/oauth/mod.rs`
 
 - [ ] **Step 1: Write the failing tests**
 
-Create `crates/solo-auth/src/oauth/profiles.rs` with ONLY the test module (no implementation yet):
+Create `crates/coltide-auth/src/oauth/profiles.rs` with ONLY the test module (no implementation yet):
 
 ```rust
 //! Profile-keyed OAuth storage.
@@ -150,7 +150,7 @@ mod tests {
 
 - [ ] **Step 2: Register the module**
 
-Edit `crates/solo-auth/src/oauth/mod.rs` to add the new module. Insert `pub mod profiles;` right after `pub mod callback_server;`:
+Edit `crates/coltide-auth/src/oauth/mod.rs` to add the new module. Insert `pub mod profiles;` right after `pub mod callback_server;`:
 
 ```rust
 pub mod types;
@@ -163,15 +163,15 @@ pub mod providers;
 - [ ] **Step 3: Run the tests to confirm they fail**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-auth --lib oauth::profiles
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-auth --lib oauth::profiles
 ```
 
 Expected: compile errors — `ProviderOAuthStore` and `OAuthProfile` are undefined.
 
 - [ ] **Step 4: Implement the types**
 
-Add this to the top of `crates/solo-auth/src/oauth/profiles.rs` (above the `#[cfg(test)] mod tests` block):
+Add this to the top of `crates/coltide-auth/src/oauth/profiles.rs` (above the `#[cfg(test)] mod tests` block):
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -287,8 +287,8 @@ impl ProviderOAuthStore {
 - [ ] **Step 5: Run the tests to confirm they pass**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-auth --lib oauth::profiles
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-auth --lib oauth::profiles
 ```
 
 Expected: all 9 tests pass.
@@ -296,9 +296,9 @@ Expected: all 9 tests pass.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-git add crates/solo-auth/src/oauth/profiles.rs crates/solo-auth/src/oauth/mod.rs
-git commit -m "feat(solo-auth): add ProviderOAuthStore and OAuthProfile types"
+cd /Users/sachin/Developer/Orbit_Main/coltide
+git add crates/coltide-auth/src/oauth/profiles.rs crates/coltide-auth/src/oauth/mod.rs
+git commit -m "feat(coltide-auth): add ProviderOAuthStore and OAuthProfile types"
 ```
 
 ---
@@ -308,11 +308,11 @@ git commit -m "feat(solo-auth): add ProviderOAuthStore and OAuthProfile types"
 Add pure functions that convert a legacy single-token blob (whatever is currently stored at `{provider}.oauth`) into a `ProviderOAuthStore` with a `default` profile. Detection is content-based: if the JSON has a top-level `profiles` field it's already migrated; otherwise treat it as legacy.
 
 **Files:**
-- Modify: `crates/solo-auth/src/oauth/profiles.rs`
+- Modify: `crates/coltide-auth/src/oauth/profiles.rs`
 
 - [ ] **Step 1: Write the failing tests**
 
-Append these tests to the existing `#[cfg(test)] mod tests` block in `crates/solo-auth/src/oauth/profiles.rs`, right before the closing `}`:
+Append these tests to the existing `#[cfg(test)] mod tests` block in `crates/coltide-auth/src/oauth/profiles.rs`, right before the closing `}`:
 
 ```rust
     #[test]
@@ -387,15 +387,15 @@ Append these tests to the existing `#[cfg(test)] mod tests` block in `crates/sol
 - [ ] **Step 2: Run tests to confirm they fail**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-auth --lib oauth::profiles
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-auth --lib oauth::profiles
 ```
 
 Expected: compile errors for `migrate_legacy_blob` and `is_already_migrated`.
 
 - [ ] **Step 3: Implement the migration helpers**
 
-Add these functions to `crates/solo-auth/src/oauth/profiles.rs`, after the `ProviderOAuthStore` impl block and before the `#[cfg(test)]` block:
+Add these functions to `crates/coltide-auth/src/oauth/profiles.rs`, after the `ProviderOAuthStore` impl block and before the `#[cfg(test)]` block:
 
 ```rust
 /// Returns true if `json` is already in the new `ProviderOAuthStore` shape.
@@ -492,8 +492,8 @@ pub fn migrate_legacy_blob(json: &str, provider: &str) -> Result<ProviderOAuthSt
 - [ ] **Step 4: Run the tests to confirm they pass**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-auth --lib oauth::profiles
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-auth --lib oauth::profiles
 ```
 
 Expected: all tests in the module (originals + new) pass.
@@ -501,9 +501,9 @@ Expected: all tests in the module (originals + new) pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-git add crates/solo-auth/src/oauth/profiles.rs
-git commit -m "feat(solo-auth): add migrate_legacy_blob for profile store migration"
+cd /Users/sachin/Developer/Orbit_Main/coltide
+git add crates/coltide-auth/src/oauth/profiles.rs
+git commit -m "feat(coltide-auth): add migrate_legacy_blob for profile store migration"
 ```
 
 ---
@@ -515,17 +515,17 @@ Replace the internals of `get_oauth_token`, `save_oauth_token`, and their OpenAI
 Keep the existing public method signatures (`get_oauth_token(provider) -> Option<OAuthToken>`, etc.) so callers compile unchanged.
 
 **Files:**
-- Modify: `crates/solo-auth/src/credentials.rs`
+- Modify: `crates/coltide-auth/src/credentials.rs`
 
 - [ ] **Step 1: Read the existing implementations**
 
-Find these in `crates/solo-auth/src/credentials.rs` (use `grep -n 'fn get_oauth_token\|fn save_oauth_token\|fn get_openai_oauth_token\|fn save_openai_oauth_token\|fn clear_oauth\|fn clear_openai_oauth' crates/solo-auth/src/credentials.rs` to locate exact line numbers). They currently read/write the `{provider}.oauth` vault key as a JSON-serialized `OAuthToken` or `OpenAIOAuthToken` directly.
+Find these in `crates/coltide-auth/src/credentials.rs` (use `grep -n 'fn get_oauth_token\|fn save_oauth_token\|fn get_openai_oauth_token\|fn save_openai_oauth_token\|fn clear_oauth\|fn clear_openai_oauth' crates/coltide-auth/src/credentials.rs` to locate exact line numbers). They currently read/write the `{provider}.oauth` vault key as a JSON-serialized `OAuthToken` or `OpenAIOAuthToken` directly.
 
 Note the existing method signatures before touching them; they must stay the same.
 
 - [ ] **Step 2: Add failing tests**
 
-Append a new `#[cfg(test)]` module at the bottom of `crates/solo-auth/src/credentials.rs` (if one exists already, append to it; otherwise add fresh). These tests exercise the end-to-end profile-store round trip through the CredentialManager's public API:
+Append a new `#[cfg(test)]` module at the bottom of `crates/coltide-auth/src/credentials.rs` (if one exists already, append to it; otherwise add fresh). These tests exercise the end-to-end profile-store round trip through the CredentialManager's public API:
 
 ```rust
 #[cfg(test)]
@@ -643,15 +643,15 @@ mod profile_tests {
 - [ ] **Step 3: Run the tests to confirm they fail**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-auth --lib credentials::profile_tests
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-auth --lib credentials::profile_tests
 ```
 
 Expected: some combination of FAIL / compile error for `clear_oauth_token` if that name differs. If the existing method is named differently (e.g., `delete_oauth_token` or `sign_out`), update the test to match the existing name — do NOT rename the implementation.
 
 - [ ] **Step 4: Rewrite the OAuth read/write internals**
 
-This step edits **only the bodies** of these methods in `crates/solo-auth/src/credentials.rs`:
+This step edits **only the bodies** of these methods in `crates/coltide-auth/src/credentials.rs`:
 - `get_oauth_token`
 - `save_oauth_token`
 - `clear_oauth_token` (or whatever the existing delete method is called — keep the existing name)
@@ -790,8 +790,8 @@ pub async fn clear_oauth_token(&self, provider: ProviderType) -> ProviderResult<
 - [ ] **Step 5: Run the tests to confirm they pass**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-auth --lib credentials::profile_tests
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-auth --lib credentials::profile_tests
 ```
 
 Expected: all 4 tests pass. If `clear_oauth_token` is named differently in the existing codebase (e.g., `delete_oauth_token`), the test must use the existing name — do not introduce a new alias.
@@ -799,8 +799,8 @@ Expected: all 4 tests pass. If `clear_oauth_token` is named differently in the e
 - [ ] **Step 6: Confirm the full crate still builds and tests pass**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-auth
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-auth
 ```
 
 Expected: all pre-existing tests still pass alongside the new ones. No warnings newly introduced.
@@ -808,9 +808,9 @@ Expected: all pre-existing tests still pass alongside the new ones. No warnings 
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-git add crates/solo-auth/src/credentials.rs
-git commit -m "refactor(solo-auth): route Anthropic OAuth through ProviderOAuthStore
+cd /Users/sachin/Developer/Orbit_Main/coltide
+git add crates/coltide-auth/src/credentials.rs
+git commit -m "refactor(coltide-auth): route Anthropic OAuth through ProviderOAuthStore
 
 Adds lazy migration: the first read of a legacy single-token blob wraps
 it into profiles.default and persists the new shape. Public API is
@@ -824,21 +824,21 @@ unchanged — get_oauth_token / save_oauth_token still take OAuthToken."
 Mirror Task 3 for `get_openai_oauth_token`, `save_openai_oauth_token`, and the OpenAI clear method. The OpenAI profile retains `id_token` and `account_id`, which the generic `OAuthToken` shape doesn't carry.
 
 **Files:**
-- Modify: `crates/solo-auth/src/credentials.rs`
+- Modify: `crates/coltide-auth/src/credentials.rs`
 
 - [ ] **Step 1: Locate the existing OpenAI OAuth methods**
 
 Use grep to find them:
 
 ```bash
-grep -n 'fn get_openai_oauth_token\|fn save_openai_oauth_token\|fn clear_openai_oauth\|fn delete_openai_oauth' crates/solo-auth/src/credentials.rs
+grep -n 'fn get_openai_oauth_token\|fn save_openai_oauth_token\|fn clear_openai_oauth\|fn delete_openai_oauth' crates/coltide-auth/src/credentials.rs
 ```
 
 Note their existing signatures. They operate on `OpenAIOAuthToken` (with `id_token` and `account_id`).
 
 - [ ] **Step 2: Add failing tests**
 
-Append to the `profile_tests` module at the bottom of `crates/solo-auth/src/credentials.rs`:
+Append to the `profile_tests` module at the bottom of `crates/coltide-auth/src/credentials.rs`:
 
 ```rust
     #[tokio::test]
@@ -909,8 +909,8 @@ Note: the test calls `save_openai_oauth_token(token, Some("me@openai"))` — thi
 - [ ] **Step 3: Run to confirm the tests fail**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-auth --lib credentials::profile_tests::save_openai_oauth_token_persists_identity_fields credentials::profile_tests::get_openai_oauth_token_returns_active_profile_with_account_id
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-auth --lib credentials::profile_tests::save_openai_oauth_token_persists_identity_fields credentials::profile_tests::get_openai_oauth_token_returns_active_profile_with_account_id
 ```
 
 Expected: FAIL.
@@ -1039,11 +1039,11 @@ pub async fn clear_openai_oauth_token(&self) -> ProviderResult<()> {
 Grep for callers across the workspace and add `None` as the second argument:
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 grep -rn "save_openai_oauth_token" --include="*.rs"
 ```
 
-For each hit outside `crates/solo-auth/src/credentials.rs`, replace the call:
+For each hit outside `crates/coltide-auth/src/credentials.rs`, replace the call:
 - OLD: `save_openai_oauth_token(token)`
 - NEW: `save_openai_oauth_token(token, None)`
 
@@ -1052,8 +1052,8 @@ Each caller site fix is a one-line edit; do them all in this step.
 - [ ] **Step 6: Build + test the full crate**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-auth
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-auth
 bun run check
 ```
 
@@ -1062,10 +1062,10 @@ Expected: all tests pass. `bun run check` runs `cargo check` + `tsc` — both cl
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-git add crates/solo-auth/src/credentials.rs
+cd /Users/sachin/Developer/Orbit_Main/coltide
+git add crates/coltide-auth/src/credentials.rs
 # Also stage any caller files modified in Step 5 (grep output tells you which).
-git commit -m "refactor(solo-auth): route OpenAI OAuth through ProviderOAuthStore
+git commit -m "refactor(coltide-auth): route OpenAI OAuth through ProviderOAuthStore
 
 OpenAIOAuthToken reads/writes now go through the profile store, with
 lazy migration from legacy blobs. save_openai_oauth_token now accepts
@@ -1085,7 +1085,7 @@ Before handing off to Plan 2, verify the migration works end-to-end against a re
 If the developer machine has been used with ColtIDE before and may contain real Anthropic OAuth credentials, save a copy:
 
 ```bash
-/usr/bin/security find-generic-password -s com.solo-ide.credentials -a vault -w > /tmp/solo-vault-backup-$(date +%s).json
+/usr/bin/security find-generic-password -s com.coltide-ide.credentials -a vault -w > /tmp/coltide-vault-backup-$(date +%s).json
 ```
 
 If it errors with "item not found," there is no vault — skip to Step 2.
@@ -1093,7 +1093,7 @@ If it errors with "item not found," there is no vault — skip to Step 2.
 - [ ] **Step 2: Run ColtIDE in dev mode**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 bun run dev
 ```
 
@@ -1104,7 +1104,7 @@ Wait for the app to open. Confirm Settings → AI tab still shows the Anthropic 
 After the app has loaded and the vault was read at least once, inspect:
 
 ```bash
-/usr/bin/security find-generic-password -s com.solo-ide.credentials -a vault -w | python3 -m json.tool | grep -A 20 '"anthropic.oauth"'
+/usr/bin/security find-generic-password -s com.coltide-ide.credentials -a vault -w | python3 -m json.tool | grep -A 20 '"anthropic.oauth"'
 ```
 
 Expected: the `anthropic.oauth` value is now a JSON string containing `"active_profile":"default"` and `"profiles":{"default":{...}}`. (Note: the vault's outer shape is `HashMap<String, String>` so the inner JSON appears as an escaped string.)

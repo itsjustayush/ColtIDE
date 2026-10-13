@@ -4,16 +4,16 @@
 
 **Goal:** Ship ColtIDE as a code-signed, notarized macOS DMG with Tauri auto-updates; publish v0.2.0-beta.1 as the first green end-to-end release.
 
-**Architecture:** Two-repo split — private `ColtIDE-UDE/solo` (source + CI) publishes artifacts via `RELEASE_PAT` to public `ColtIDE-UDE/solo-releases` (downloads + `latest.json`). A `macos-14` GitHub runner builds → signs inside-out → notarizes via `notarytool --wait` → staples → DMGs → minisigns the updater `.tar.gz` → publishes. Existing `~/.tauri/solo-ide.key` (already embedded as pubkey in `tauri.conf.json`) is preserved so v0.1.x installs can verify v0.2.0-beta.1 updates.
+**Architecture:** Two-repo split — private `ColtIDE-UDE/coltide` (source + CI) publishes artifacts via `RELEASE_PAT` to public `ColtIDE-UDE/coltide-releases` (downloads + `latest.json`). A `macos-14` GitHub runner builds → signs inside-out → notarizes via `notarytool --wait` → staples → DMGs → minisigns the updater `.tar.gz` → publishes. Existing `~/.tauri/coltide-ide.key` (already embedded as pubkey in `tauri.conf.json`) is preserved so v0.1.x installs can verify v0.2.0-beta.1 updates.
 
 **Tech Stack:** Tauri 2, Rust, Bun, GitHub Actions, `xcrun notarytool`, `codesign`, `hdiutil`, `gh` CLI.
 
-**Spec:** [`docs/superpowers/specs/2026-04-17-solo-dmg-autoupdate-design.md`](../specs/2026-04-17-solo-dmg-autoupdate-design.md)
+**Spec:** [`docs/superpowers/specs/2026-04-17-coltide-dmg-autoupdate-design.md`](../specs/2026-04-17-coltide-dmg-autoupdate-design.md)
 
 **Prerequisites (already verified):**
-- ✅ 9 secrets on `ColtIDE-UDE/solo` (`APPLE_CERTIFICATE_P12`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID`, `APPLE_SIGN_IDENTITY`, `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, `RELEASE_PAT`)
-- ✅ `ColtIDE-UDE/solo-releases` public repo exists
-- ✅ `~/.tauri/solo-ide.key` present locally (the minisign private key)
+- ✅ 9 secrets on `ColtIDE-UDE/coltide` (`APPLE_CERTIFICATE_P12`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID`, `APPLE_SIGN_IDENTITY`, `TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, `RELEASE_PAT`)
+- ✅ `ColtIDE-UDE/coltide-releases` public repo exists
+- ✅ `~/.tauri/coltide-ide.key` present locally (the minisign private key)
 - ✅ `scripts/bump-version.mjs` supports pre-release semver (`0.2.0-beta.1` valid)
 
 **Commit style:** One commit per file, no Claude attribution (per user's persistent preferences).
@@ -50,11 +50,11 @@ Change line 4 (version):
 
 Change line 66 (endpoint inside `plugins.updater.endpoints`):
 ```diff
--        "https://github.com/ColtIDE-UDE/solo/releases/latest/download/latest.json"
-+        "https://github.com/ColtIDE-UDE/solo-releases/releases/latest/download/latest.json"
+-        "https://github.com/ColtIDE-UDE/coltide/releases/latest/download/latest.json"
++        "https://github.com/ColtIDE-UDE/coltide-releases/releases/latest/download/latest.json"
 ```
 
-**Do NOT change** `plugins.updater.pubkey` — the existing value corresponds to `~/.tauri/solo-ide.key` and is what v0.1.x installs expect.
+**Do NOT change** `plugins.updater.pubkey` — the existing value corresponds to `~/.tauri/coltide-ide.key` and is what v0.1.x installs expect.
 
 - [ ] **Step 2: Validate JSON**
 
@@ -70,14 +70,14 @@ jq -r '.version, .plugins.updater.endpoints[0]' apps/desktop/src-tauri/tauri.con
 Expected:
 ```
 0.2.0-beta.1
-https://github.com/ColtIDE-UDE/solo-releases/releases/latest/download/latest.json
+https://github.com/ColtIDE-UDE/coltide-releases/releases/latest/download/latest.json
 ```
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add apps/desktop/src-tauri/tauri.conf.json
-git commit -m "release: bump version and point updater at solo-releases"
+git commit -m "release: bump version and point updater at coltide-releases"
 ```
 
 ---
@@ -173,8 +173,8 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
-      SOLO_SUPABASE_URL: ${{ vars.SOLO_SUPABASE_URL }}
-      SOLO_SUPABASE_ANON_KEY: ${{ vars.SOLO_SUPABASE_ANON_KEY }}
+      COLTIDE_SUPABASE_URL: ${{ vars.COLTIDE_SUPABASE_URL }}
+      COLTIDE_SUPABASE_ANON_KEY: ${{ vars.COLTIDE_SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout
@@ -208,8 +208,8 @@ jobs:
 
       - name: Validate desktop auth config
         run: |
-          test -n "$SOLO_SUPABASE_URL" || { echo "Missing SOLO_SUPABASE_URL" >&2; exit 1; }
-          test -n "$SOLO_SUPABASE_ANON_KEY" || { echo "Missing SOLO_SUPABASE_ANON_KEY" >&2; exit 1; }
+          test -n "$COLTIDE_SUPABASE_URL" || { echo "Missing COLTIDE_SUPABASE_URL" >&2; exit 1; }
+          test -n "$COLTIDE_SUPABASE_ANON_KEY" || { echo "Missing COLTIDE_SUPABASE_ANON_KEY" >&2; exit 1; }
 
       - name: Import Apple certificate
         run: |
@@ -282,7 +282,7 @@ jobs:
 
           APP_PATH="target/aarch64-apple-darwin/release/bundle/macos/ColtIDE.app"
           STAGING="$RUNNER_TEMP/dmg-staging"
-          DMG_NAME="Solo_${VERSION}_aarch64.dmg"
+          DMG_NAME="ColtIDE_${VERSION}_aarch64.dmg"
           DMG_PATH="$RUNNER_TEMP/$DMG_NAME"
 
           mkdir -p "$STAGING"
@@ -342,7 +342,7 @@ jobs:
             --arg notes "$NOTES" \
             --arg pub_date "$PUB_DATE" \
             --arg signature "$SIGNATURE" \
-            --arg url "https://github.com/ColtIDE-UDE/solo-releases/releases/download/${TAG_NAME}/ColtIDE.app.tar.gz" \
+            --arg url "https://github.com/ColtIDE-UDE/coltide-releases/releases/download/${TAG_NAME}/ColtIDE.app.tar.gz" \
             '{
               version: $version,
               notes: $notes,
@@ -357,7 +357,7 @@ jobs:
 
           cat dist/latest.json
 
-      - name: Publish release to solo-releases
+      - name: Publish release to coltide-releases
         run: |
           TAG_NAME="v${VERSION}"
           NOTES=$(git tag -l --format='%(contents)' "$TAG_NAME")
@@ -366,7 +366,7 @@ jobs:
           fi
 
           GH_TOKEN="$RELEASE_PAT" gh release create "$TAG_NAME" \
-            --repo ColtIDE-UDE/solo-releases \
+            --repo ColtIDE-UDE/coltide-releases \
             --title "ColtIDE v$VERSION" \
             --notes "$NOTES" \
             "dist/$DMG_NAME" \
@@ -409,7 +409,7 @@ ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
 Cross-check against GitHub:
 ```bash
-gh secret list --repo ColtIDE-UDE/solo | awk '{print $1}' | sort
+gh secret list --repo ColtIDE-UDE/coltide | awk '{print $1}' | sort
 ```
 The set of names must match exactly.
 
@@ -441,7 +441,7 @@ ColtIDE's auto-update and DMG distribution pipeline.
 ## Architecture
 
 ```
-ColtIDE-UDE/solo  (private source)              ColtIDE-UDE/solo-releases  (public downloads)
+ColtIDE-UDE/coltide  (private source)              ColtIDE-UDE/coltide-releases  (public downloads)
 ───────────────────────────                  ────────────────────────────────────────
   push tag v*
         │
@@ -457,7 +457,7 @@ ColtIDE-UDE/solo  (private source)              ColtIDE-UDE/solo-releases  (publ
         ├── generate latest.json
         │
         └──────► publish via RELEASE_PAT ─────►  GitHub Release
-                                                    - Solo_X.Y.Z_aarch64.dmg
+                                                    - ColtIDE_X.Y.Z_aarch64.dmg
                                                     - ColtIDE.app.tar.gz
                                                     - ColtIDE.app.tar.gz.sig
                                                     - latest.json
@@ -471,7 +471,7 @@ ColtIDE-UDE/solo  (private source)              ColtIDE-UDE/solo-releases  (publ
 
 ---
 
-## GitHub Secrets (on ColtIDE-UDE/solo, repo-level)
+## GitHub Secrets (on ColtIDE-UDE/coltide, repo-level)
 
 | Secret | Value | Source |
 |---|---|---|
@@ -481,26 +481,26 @@ ColtIDE-UDE/solo  (private source)              ColtIDE-UDE/solo-releases  (publ
 | `APPLE_APP_PASSWORD` | app-specific password | appleid.apple.com → Sign-In and Security |
 | `APPLE_TEAM_ID` | Apple team identifier | developer.apple.com → Membership |
 | `APPLE_SIGN_IDENTITY` | `Developer ID Application: Name (TEAM)` | `security find-identity -v -p codesigning` |
-| `TAURI_SIGNING_PRIVATE_KEY` | contents of `~/.tauri/solo-ide.key` | `cat ~/.tauri/solo-ide.key` |
+| `TAURI_SIGNING_PRIVATE_KEY` | contents of `~/.tauri/coltide-ide.key` | `cat ~/.tauri/coltide-ide.key` |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | empty string | (key generated without password) |
-| `RELEASE_PAT` | fine-grained PAT with `Contents: write` on ColtIDE-UDE/solo-releases | github.com/settings/personal-access-tokens/new |
+| `RELEASE_PAT` | fine-grained PAT with `Contents: write` on ColtIDE-UDE/coltide-releases | github.com/settings/personal-access-tokens/new |
 
-## GitHub Variables (on ColtIDE-UDE/solo, repo-level)
+## GitHub Variables (on ColtIDE-UDE/coltide, repo-level)
 
 | Variable | Value |
 |---|---|
-| `SOLO_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
-| `SOLO_SUPABASE_ANON_KEY` | Supabase anon/public key |
+| `COLTIDE_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+| `COLTIDE_SUPABASE_ANON_KEY` | Supabase anon/public key |
 
 ---
 
 ## Tauri signing keys
 
-Private key `~/.tauri/solo-ide.key` is the minisign key that signs `ColtIDE.app.tar.gz`. Its public half is base64-embedded in `apps/desktop/src-tauri/tauri.conf.json` under `plugins.updater.pubkey` — every installed ColtIDE verifies updates against that pubkey.
+Private key `~/.tauri/coltide-ide.key` is the minisign key that signs `ColtIDE.app.tar.gz`. Its public half is base64-embedded in `apps/desktop/src-tauri/tauri.conf.json` under `plugins.updater.pubkey` — every installed ColtIDE verifies updates against that pubkey.
 
 **Never regenerate this key.** Changing it would strand every existing install (they would reject every future update as "invalid signature") with no in-app recovery path.
 
-Back up `~/.tauri/solo-ide.key` to a password manager / encrypted archive.
+Back up `~/.tauri/coltide-ide.key` to a password manager / encrypted archive.
 
 ---
 
@@ -528,10 +528,10 @@ git push origin master
 git push origin v0.3.0
 
 # 5. Monitor the build
-gh run watch --repo ColtIDE-UDE/solo
+gh run watch --repo ColtIDE-UDE/coltide
 
-# 6. Verify the release on solo-releases
-gh release view v0.3.0 --repo ColtIDE-UDE/solo-releases
+# 6. Verify the release on coltide-releases
+gh release view v0.3.0 --repo ColtIDE-UDE/coltide-releases
 ```
 
 ---
@@ -550,7 +550,7 @@ If you want a gated beta channel where only opted-in users see betas, that's a l
 
 1. User launches ColtIDE.
 2. 5 s after launch, `useUpdateStream` calls `check_for_update()`.
-3. Rust fetches `https://github.com/ColtIDE-UDE/solo-releases/releases/latest/download/latest.json`.
+3. Rust fetches `https://github.com/ColtIDE-UDE/coltide-releases/releases/latest/download/latest.json`.
 4. If `latest.json.version > installed-version`, emits `BackendEvent::UpdateAvailable`.
 5. Frontend shows persistent toast: "New update available".
 6. User clicks "Restart" → Tauri downloads `.tar.gz`, verifies `.sig` against pubkey, swaps app, restarts.
@@ -561,12 +561,12 @@ If you want a gated beta channel where only opted-in users see betas, that's a l
 ## Local development build (unsigned)
 
 ```bash
-export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/solo-ide.key)"
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/coltide-ide.key)"
 bun tauri build
 
 # Output:
 #   target/release/bundle/macos/ColtIDE.app
-#   target/release/bundle/dmg/Solo_X.Y.Z_aarch64.dmg      (unsigned, right-click-open)
+#   target/release/bundle/dmg/ColtIDE_X.Y.Z_aarch64.dmg      (unsigned, right-click-open)
 #   target/release/bundle/macos/ColtIDE.app.tar.gz           (updater payload)
 #   target/release/bundle/macos/ColtIDE.app.tar.gz.sig       (updater signature)
 ```
@@ -589,8 +589,8 @@ Use this to sanity-check changes locally before tagging. For Apple-signed builds
 | `apps/desktop/src/App.tsx` | Mounts `useUpdateStream()` |
 | `.github/workflows/release.yml` | CI/CD release pipeline |
 | `scripts/bump-version.mjs` | Version bump across all manifests |
-| `~/.tauri/solo-ide.key` | Private signing key (local, never committed) |
-| `docs/superpowers/specs/2026-04-17-solo-dmg-autoupdate-design.md` | Design rationale |
+| `~/.tauri/coltide-ide.key` | Private signing key (local, never committed) |
+| `docs/superpowers/specs/2026-04-17-coltide-dmg-autoupdate-design.md` | Design rationale |
 
 ---
 
@@ -610,10 +610,10 @@ git push origin v0.X.Y
 
 ### Workflow succeeded but release is broken (DMG bad, latest.json malformed, etc.)
 
-**Never re-tag a public release.** Bump the patch (e.g., `v0.X.Y+1`), cut a new release. Delete the broken GitHub Release from solo-releases so the updater doesn't see it:
+**Never re-tag a public release.** Bump the patch (e.g., `v0.X.Y+1`), cut a new release. Delete the broken GitHub Release from coltide-releases so the updater doesn't see it:
 
 ```bash
-gh release delete vX.Y.Z --repo ColtIDE-UDE/solo-releases --yes
+gh release delete vX.Y.Z --repo ColtIDE-UDE/coltide-releases --yes
 ```
 
 ### Notarization fails
@@ -645,7 +645,7 @@ git commit -m "docs(releases): document voiceflow-style pipeline and new secret 
 
 Run:
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 bun run gen:bindings
 git diff --stat apps/desktop/src/bindings/
 ```
@@ -675,7 +675,7 @@ Expected: 5 commits (one per file) — Tasks 1, 2, 3, 4, 5. Example:
 <sha> ci(release): voiceflow-style build/sign/notarize pipeline
 <sha> release: bump desktop app version to 0.2.0-beta.1
 <sha> release: bump workspace version to 0.2.0-beta.1
-<sha> release: bump version and point updater at solo-releases
+<sha> release: bump version and point updater at coltide-releases
 ```
 
 (The design-doc commit `408bb255` is already on master, so it will not appear here.)
@@ -698,7 +698,7 @@ Expected: 5 new commits pushed. This triggers `.github/workflows/build-master-dm
 
 - [ ] **Step 3: Verify the build-master-dmg workflow starts**
 
-Run: `gh run list --workflow=build-master-dmg.yml --repo ColtIDE-UDE/solo --limit 1`
+Run: `gh run list --workflow=build-master-dmg.yml --repo ColtIDE-UDE/coltide --limit 1`
 Expected: one run in `in_progress` status tied to the latest master commit.
 
 This step is informational; it does not block Task 8.
@@ -714,16 +714,16 @@ This step is informational; it does not block Task 8.
 Run:
 ```bash
 git log v0.1.2..HEAD --oneline --no-merges | wc -l
-git log v0.1.2..HEAD --oneline --no-merges | awk '{$1=""; print}' | sort -u > /tmp/solo-commits.txt
-wc -l /tmp/solo-commits.txt
-head -20 /tmp/solo-commits.txt
+git log v0.1.2..HEAD --oneline --no-merges | awk '{$1=""; print}' | sort -u > /tmp/coltide-commits.txt
+wc -l /tmp/coltide-commits.txt
+head -20 /tmp/coltide-commits.txt
 ```
 
 - [ ] **Step 2: Categorize into a changelog**
 
 Group commits into four buckets: **Features**, **UI/design**, **Fixes**, **Internal**. Ignore: merge commits, WIP commits, reverts.
 
-Write the changelog to `/tmp/solo-v0.2.0-beta.1-changelog.txt` in this exact format:
+Write the changelog to `/tmp/coltide-v0.2.0-beta.1-changelog.txt` in this exact format:
 
 ```
 ColtIDE v0.2.0-beta.1 — Desktop beta
@@ -752,7 +752,7 @@ Internal
 Print the drafted file and ask for sign-off before proceeding to tag.
 
 ```bash
-cat /tmp/solo-v0.2.0-beta.1-changelog.txt
+cat /tmp/coltide-v0.2.0-beta.1-changelog.txt
 ```
 
 **DO NOT proceed to Task 9 until the user explicitly approves the changelog wording.**
@@ -767,7 +767,7 @@ cat /tmp/solo-v0.2.0-beta.1-changelog.txt
 
 Run:
 ```bash
-git tag -a v0.2.0-beta.1 -F /tmp/solo-v0.2.0-beta.1-changelog.txt
+git tag -a v0.2.0-beta.1 -F /tmp/coltide-v0.2.0-beta.1-changelog.txt
 git tag -l --format='%(contents)' v0.2.0-beta.1 | head -20
 ```
 Expected: first 20 lines of your changelog echoed back (sanity check that the annotation stuck).
@@ -779,7 +779,7 @@ Expected: `* [new tag] v0.2.0-beta.1 -> v0.2.0-beta.1`. This triggers `.github/w
 
 - [ ] **Step 3: Confirm the release workflow started**
 
-Run: `gh run list --workflow=release.yml --repo ColtIDE-UDE/solo --limit 1`
+Run: `gh run list --workflow=release.yml --repo ColtIDE-UDE/coltide --limit 1`
 Expected: one run in `in_progress` with `head_branch=v0.2.0-beta.1`.
 
 ---
@@ -792,8 +792,8 @@ Expected: one run in `in_progress` with `head_branch=v0.2.0-beta.1`.
 
 Run:
 ```bash
-RUN_ID=$(gh run list --workflow=release.yml --repo ColtIDE-UDE/solo --limit 1 --json databaseId --jq '.[0].databaseId')
-gh run watch "$RUN_ID" --repo ColtIDE-UDE/solo --exit-status
+RUN_ID=$(gh run list --workflow=release.yml --repo ColtIDE-UDE/coltide --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch "$RUN_ID" --repo ColtIDE-UDE/coltide --exit-status
 ```
 Expected: exits 0 on success. If it fails, `gh run watch` prints the failed step name.
 
@@ -801,7 +801,7 @@ Expected: exits 0 on success. If it fails, `gh run watch` prints the failed step
 
 Run:
 ```bash
-gh run view "$RUN_ID" --repo ColtIDE-UDE/solo --log-failed | tail -200
+gh run view "$RUN_ID" --repo ColtIDE-UDE/coltide --log-failed | tail -200
 ```
 
 Common failure recipes:
@@ -810,19 +810,19 @@ Common failure recipes:
 |---|---|---|
 | `notarytool submit ... status: Invalid` | Unsigned `.dylib` inside app bundle | Check `codesign --verify --deep --strict` output; extend inside-out find to cover the offending file type |
 | `hdiutil: could not access` | Runner disk flake | Workflow retries 3×. If still fails, re-run the job (`gh run rerun $RUN_ID`) |
-| `gh: HTTP 403: Resource not accessible by personal access token` on publish step | RELEASE_PAT missing `Contents: write` on solo-releases, or token expired | Regenerate PAT with correct scope, update secret, re-run |
+| `gh: HTTP 403: Resource not accessible by personal access token` on publish step | RELEASE_PAT missing `Contents: write` on coltide-releases, or token expired | Regenerate PAT with correct scope, update secret, re-run |
 | `security: SecKeychainSetKeychainListDomain` | Keychain partition list step failed | Very rarely this; re-run usually fixes |
 | `bunx tauri signer sign: error: unknown option '--password'` | CLI flag name changed | Fall back to `--private-key-password` or run `bunx tauri signer sign --help` to discover the current flag |
 
 - [ ] **Step 3: If the failure is in the code or workflow, recover by fixing and re-tagging**
 
-Only if **no release has been published yet** on solo-releases (check with `gh release list --repo ColtIDE-UDE/solo-releases`):
+Only if **no release has been published yet** on coltide-releases (check with `gh release list --repo ColtIDE-UDE/coltide-releases`):
 
 ```bash
 git tag -d v0.2.0-beta.1
 git push origin :refs/tags/v0.2.0-beta.1
 # fix the bug, commit (one file per commit)
-git tag -a v0.2.0-beta.1 -F /tmp/solo-v0.2.0-beta.1-changelog.txt
+git tag -a v0.2.0-beta.1 -F /tmp/coltide-v0.2.0-beta.1-changelog.txt
 git push origin v0.2.0-beta.1
 ```
 
@@ -835,12 +835,12 @@ If a release WAS published but has bad artifacts, bump to `v0.2.0-beta.2` instea
 
 - [ ] **Step 4: On success, verify run duration and artifacts**
 
-Run: `gh run view "$RUN_ID" --repo ColtIDE-UDE/solo`
+Run: `gh run view "$RUN_ID" --repo ColtIDE-UDE/coltide`
 Expected: all steps green, total duration 15–40 min.
 
 ---
 
-## Task 11: Verify the release artifacts on solo-releases
+## Task 11: Verify the release artifacts on coltide-releases
 
 **No file changes.**
 
@@ -848,10 +848,10 @@ Expected: all steps green, total duration 15–40 min.
 
 Run:
 ```bash
-gh release view v0.2.0-beta.1 --repo ColtIDE-UDE/solo-releases
+gh release view v0.2.0-beta.1 --repo ColtIDE-UDE/coltide-releases
 ```
 Expected: release named `ColtIDE v0.2.0-beta.1`, `isPrerelease: false`, 4 assets:
-- `Solo_0.2.0-beta.1_aarch64.dmg`
+- `ColtIDE_0.2.0-beta.1_aarch64.dmg`
 - `ColtIDE.app.tar.gz`
 - `ColtIDE.app.tar.gz.sig`
 - `latest.json`
@@ -861,7 +861,7 @@ Expected: release named `ColtIDE v0.2.0-beta.1`, `isPrerelease: false`, 4 assets
 Run in a clean shell (unset auth env vars just to be safe):
 ```bash
 env -i PATH=/usr/bin:/bin curl -sSfL \
-  "https://github.com/ColtIDE-UDE/solo-releases/releases/latest/download/latest.json" | jq .
+  "https://github.com/ColtIDE-UDE/coltide-releases/releases/latest/download/latest.json" | jq .
 ```
 Expected: pretty-printed JSON with `version: "0.2.0-beta.1"`, correct signature/url fields. This is the exact request path Tauri's updater will make.
 
@@ -869,7 +869,7 @@ Expected: pretty-printed JSON with `version: "0.2.0-beta.1"`, correct signature/
 
 Run:
 ```bash
-URL=$(curl -sSfL https://github.com/ColtIDE-UDE/solo-releases/releases/latest/download/latest.json | jq -r '.platforms."darwin-aarch64".url')
+URL=$(curl -sSfL https://github.com/ColtIDE-UDE/coltide-releases/releases/latest/download/latest.json | jq -r '.platforms."darwin-aarch64".url')
 curl -sSfLI "$URL" | head -5
 ```
 Expected: `HTTP/2 200` (after redirect) and a `content-length` matching the actual `.tar.gz` size.
@@ -884,7 +884,7 @@ Expected: `HTTP/2 200` (after redirect) and a `content-length` matching the actu
 
 Run:
 ```bash
-DMG_URL=$(gh release view v0.2.0-beta.1 --repo ColtIDE-UDE/solo-releases --json assets \
+DMG_URL=$(gh release view v0.2.0-beta.1 --repo ColtIDE-UDE/coltide-releases --json assets \
   --jq '.assets[] | select(.name | endswith(".dmg")) | .url')
 curl -sSfLo /tmp/ColtIDE-test.dmg "$DMG_URL"
 spctl --assess --type open --context context:primary-signature --verbose=2 /tmp/ColtIDE-test.dmg
@@ -907,5 +907,5 @@ If no v0.1.2 install is available, skip this step — the Task 11 Step 2 verific
 
 - **Spec coverage:** every spec section (architecture, secrets, version strategy, workflow structure, tauri.conf changes, kept workflows, rollout, risks) maps to a concrete task above.
 - **Placeholders:** none — every step has concrete commands, expected output, and file content.
-- **Type consistency:** secret names, file paths, tag name, URL, env-var names are spelled identically across tasks (cross-checked `APPLE_SIGN_IDENTITY`, `solo-releases`, `v0.2.0-beta.1`, `ColtIDE.app.tar.gz`).
+- **Type consistency:** secret names, file paths, tag name, URL, env-var names are spelled identically across tasks (cross-checked `APPLE_SIGN_IDENTITY`, `coltide-releases`, `v0.2.0-beta.1`, `ColtIDE.app.tar.gz`).
 - **One task skipped by design:** spec referenced "patch bump-version.mjs if needed" — verified during planning that the script already supports semver pre-release (`/^\d+\.\d+\.\d+(-[\w.]+)?$/`), so no task was created. Documented here for traceability.

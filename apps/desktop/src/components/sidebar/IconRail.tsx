@@ -19,7 +19,7 @@ export const IconRail: FC = () => {
   const activeTab = useUIStore((s) => s.activeTab);
   const setActiveTab = useUIStore((s) => s.setActiveTab);
   const [showHint, setShowHint] = useState(
-    () => !localStorage.getItem('solo:sessions-discovered')
+    () => !localStorage.getItem('coltide:sessions-discovered')
   );
 
   const activeIndex = TABS.findIndex((t) => t.key === activeTab);
@@ -42,7 +42,7 @@ export const IconRail: FC = () => {
           onClick={() => {
             setActiveTab(key);
             if (key === 'sessions' && showHint) {
-              localStorage.setItem('solo:sessions-discovered', '1');
+              localStorage.setItem('coltide:sessions-discovered', '1');
               setShowHint(false);
             }
           }}

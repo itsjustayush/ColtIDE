@@ -61,7 +61,7 @@ export const APPEARANCE_PRESETS: Record<ThemePresetOptionId, {
   light: ThemePalette;
   dark: ThemePalette;
 }> = {
-  solo: {
+  coltide: {
     label: 'ColtIDE',
     light: {
       accent: '#2f8f68',

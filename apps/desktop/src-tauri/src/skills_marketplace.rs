@@ -9,7 +9,7 @@ use crate::skills_origin;
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, USER_AGENT};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use solo_protocol::{
+use coltide_protocol::{
     InstalledSkillMeta, OriginSource, Registry, RegistryEntry, SkillAudit, SkillDetail, SkillFile,
     SkillSuggestion, SkillsEvent,
 };
@@ -92,12 +92,12 @@ fn home_dir() -> Option<PathBuf> {
 }
 
 fn user_skills_dir() -> Option<PathBuf> {
-    home_dir().map(|h| h.join(".solo").join("skills"))
+    home_dir().map(|h| h.join(".coltide").join("skills"))
 }
 
 fn cache_path(view: &str, page: u32) -> Option<PathBuf> {
     home_dir().map(|h| {
-        h.join(".solo")
+        h.join(".coltide")
             .join("cache")
             .join("skills-sh")
             .join(format!("{}-{}.json", sanitize_file_segment(view), page))

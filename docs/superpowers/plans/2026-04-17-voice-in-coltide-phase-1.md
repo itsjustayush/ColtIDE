@@ -2,19 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship `solo-voice` crate + chat-mic integration. Rip out `solo-elevenlabs`. Parakeet STT + cloud formatter (Claude / Codex) drive the existing chat microphone in ColtIDE's agent input. No global hotkeys, no HUD, no agent-dispatch — those come in Phases 2 and 3.
+**Goal:** Ship `coltide-voice` crate + chat-mic integration. Rip out `coltide-elevenlabs`. Parakeet STT + cloud formatter (Claude / Codex) drive the existing chat microphone in ColtIDE's agent input. No global hotkeys, no HUD, no agent-dispatch — those come in Phases 2 and 3.
 
-**Architecture:** New `solo-voice` workspace crate owns audio capture (cpal), VAD (silero via `ort`), STT (`sherpa-rs` + NVIDIA Parakeet-TDT-0.6B), a `FormatterProvider` trait with Claude + Codex impls, a pipeline state machine, and a SQLite transcript history. Tauri exposes a thin command surface (`voice_commands.rs`); the React chat input subscribes to `voice:*` events. No Llama local formatter in P1 (opt-in P2 item). No platform code (`voice/hotkey.rs`, `voice/injection.rs`, `voice/app_monitor.rs`, HUD window) in P1 — those come in Phase 2.
+**Architecture:** New `coltide-voice` workspace crate owns audio capture (cpal), VAD (silero via `ort`), STT (`sherpa-rs` + NVIDIA Parakeet-TDT-0.6B), a `FormatterProvider` trait with Claude + Codex impls, a pipeline state machine, and a SQLite transcript history. Tauri exposes a thin command surface (`voice_commands.rs`); the React chat input subscribes to `voice:*` events. No Llama local formatter in P1 (opt-in P2 item). No platform code (`voice/hotkey.rs`, `voice/injection.rs`, `voice/app_monitor.rs`, HUD window) in P1 — those come in Phase 2.
 
 **Tech Stack:** Rust 1.x (pinned by `rust-toolchain.toml`), Tauri 2, `cpal`, `ort` (ONNX Runtime), `sherpa-rs`, `reqwest`, `rusqlite`, `ts-rs` for bindings, React 19 + Zustand + immer for the frontend, Bun as the JS package manager, Vitest for frontend tests, `cargo test` for Rust.
 
-**Reference:** `solo/docs/superpowers/specs/2026-04-17-voice-in-solo-design.md` (this plan implements Phase 1 of that spec).
+**Reference:** `coltide/docs/superpowers/specs/2026-04-17-voice-in-coltide-design.md` (this plan implements Phase 1 of that spec).
 
 ---
 
 ## File Structure
 
-### New Rust crate `crates/solo-voice/`
+### New Rust crate `crates/coltide-voice/`
 
 | File | Responsibility |
 |---|---|
@@ -40,7 +40,7 @@
 
 | File | Responsibility |
 |---|---|
-| `crates/solo-protocol/src/lib.rs` | Add `VoiceMode`, `VoicePipelineState`, `VoiceTranscriptResult`, new `BackendEvent` variants |
+| `crates/colt-core/src/lib.rs` | Add `VoiceMode`, `VoicePipelineState`, `VoiceTranscriptResult`, new `BackendEvent` variants |
 
 ### Frontend
 
@@ -55,8 +55,8 @@
 
 | File | Change |
 |---|---|
-| `solo/Cargo.toml` (root) | Remove `tokio-tungstenite` + `base64` from `[workspace.dependencies]` if unused; add cpal, ort, sherpa-rs, rusqlite, reqwest (already present), uuid |
-| `apps/desktop/src-tauri/Cargo.toml` | Add `solo-voice` path dep; remove `solo-elevenlabs` |
+| `coltide/Cargo.toml` (root) | Remove `tokio-tungstenite` + `base64` from `[workspace.dependencies]` if unused; add cpal, ort, sherpa-rs, rusqlite, reqwest (already present), uuid |
+| `apps/desktop/src-tauri/Cargo.toml` | Add `coltide-voice` path dep; remove `coltide-elevenlabs` |
 | `apps/desktop/src-tauri/src/lib.rs` | Register `VoiceState`; add voice commands to `generate_handler!`; remove elevenlabs state + commands |
 | `apps/desktop/src/components/agent/input/voice-button.tsx` | Route to `voiceStore` |
 | `apps/desktop/src/components/agent/input/ChatInputContainer.tsx` | Subscribe to `voice:transcript` via `useVoiceInput` |
@@ -66,7 +66,7 @@
 
 | File/dir | Reason |
 |---|---|
-| `crates/solo-elevenlabs/` | Replaced |
+| `crates/coltide-elevenlabs/` | Replaced |
 | `apps/desktop/src-tauri/src/elevenlabs_commands.rs` | Replaced |
 | `apps/desktop/src/stores/elevenlabsStore.ts` | Replaced |
 | `apps/desktop/src/lib/tauri/elevenlabs.ts` | Replaced |
@@ -77,28 +77,28 @@
 ## Conventions applied to every task
 
 - **TDD:** write failing test, run it, implement, run again, commit.
-- **Commit style:** Conventional commits, e.g. `feat(solo-voice): add audio capture module`. One task = one commit unless noted.
-- **Running Rust tests:** from `solo/` run `cargo test -p <crate>`.
-- **Running frontend tests:** from `solo/apps/desktop/` run `bun run test`. Vitest is already configured in ColtIDE.
-- **Regenerating TS bindings:** after any change to `crates/solo-protocol/src/lib.rs`, run `bun run gen:bindings` from `solo/`.
+- **Commit style:** Conventional commits, e.g. `feat(coltide-voice): add audio capture module`. One task = one commit unless noted.
+- **Running Rust tests:** from `coltide/` run `cargo test -p <crate>`.
+- **Running frontend tests:** from `coltide/apps/desktop/` run `bun run test`. Vitest is already configured in ColtIDE.
+- **Regenerating TS bindings:** after any change to `crates/colt-core/src/lib.rs`, run `bun run gen:bindings` from `coltide/`.
 - **Don't skip pre-commit hooks.** If a hook fails, fix and commit fresh — do not `--amend` or `--no-verify`.
 - **Per-task quality gate:** `cargo check --workspace` and `bun run check` (which runs `cargo check` + `tsc`) must pass before commit.
 
 ---
 
-## Task 1: Scaffold the `solo-voice` crate
+## Task 1: Scaffold the `coltide-voice` crate
 
 **Files:**
-- Create: `solo/crates/solo-voice/Cargo.toml`
-- Create: `solo/crates/solo-voice/src/lib.rs`
-- Modify: `solo/Cargo.toml` (workspace `[workspace.dependencies]` additions)
+- Create: `coltide/crates/coltide-voice/Cargo.toml`
+- Create: `coltide/crates/coltide-voice/src/lib.rs`
+- Modify: `coltide/Cargo.toml` (workspace `[workspace.dependencies]` additions)
 
 - [ ] **Step 1: Add new workspace dependencies**
 
-Edit `solo/Cargo.toml`. In the `[workspace.dependencies]` section, after the existing `reqwest` line (there may not be one — search for a good alphabetical location), add:
+Edit `coltide/Cargo.toml`. In the `[workspace.dependencies]` section, after the existing `reqwest` line (there may not be one — search for a good alphabetical location), add:
 
 ```toml
-# Audio + ML for solo-voice
+# Audio + ML for coltide-voice
 cpal = "0.15"
 ort = { version = "2.0", features = ["download-binaries", "ndarray"] }
 ndarray = "0.16"
@@ -114,11 +114,11 @@ sherpa-rs = "0.6"
 
 - [ ] **Step 2: Create the crate skeleton**
 
-Create `solo/crates/solo-voice/Cargo.toml`:
+Create `coltide/crates/coltide-voice/Cargo.toml`:
 
 ```toml
 [package]
-name = "solo-voice"
+name = "coltide-voice"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -141,8 +141,8 @@ ort.workspace = true
 cpal.workspace = true
 sherpa-rs.workspace = true
 ts-rs.workspace = true
-solo-protocol = { path = "../solo-protocol" }
-solo-auth = { path = "../solo-auth" }
+colt-core = { path = "../colt-core" }
+coltide-auth = { path = "../coltide-auth" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
@@ -150,7 +150,7 @@ hound.workspace = true
 tempfile = "3"
 ```
 
-Create `solo/crates/solo-voice/src/lib.rs`:
+Create `coltide/crates/coltide-voice/src/lib.rs`:
 
 ```rust
 //! Voice pipeline for ColtIDE.
@@ -181,14 +181,14 @@ Create empty module stubs so the crate compiles. For each of `audio.rs`, `error.
 
 - [ ] **Step 3: Verify the crate compiles**
 
-Run: `cargo check -p solo-voice`
-Expected: `Compiling solo-voice v0.2.0-beta.1 ... Finished`. Warnings about unused modules are OK.
+Run: `cargo check -p coltide-voice`
+Expected: `Compiling coltide-voice v0.2.0-beta.1 ... Finished`. Warnings about unused modules are OK.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add solo/crates/solo-voice solo/Cargo.toml
-git commit -m "feat(solo-voice): scaffold crate with module layout"
+git add coltide/crates/coltide-voice coltide/Cargo.toml
+git commit -m "feat(coltide-voice): scaffold crate with module layout"
 ```
 
 ---
@@ -196,12 +196,12 @@ git commit -m "feat(solo-voice): scaffold crate with module layout"
 ## Task 2: Define `VoiceMode` + `PipelineTarget` + `VoiceError`
 
 **Files:**
-- Modify: `solo/crates/solo-voice/src/mode.rs`
-- Modify: `solo/crates/solo-voice/src/error.rs`
+- Modify: `coltide/crates/coltide-voice/src/mode.rs`
+- Modify: `coltide/crates/coltide-voice/src/error.rs`
 
 - [ ] **Step 1: Write failing test**
 
-Append to `solo/crates/solo-voice/src/mode.rs`:
+Append to `coltide/crates/coltide-voice/src/mode.rs`:
 
 ```rust
 #[cfg(test)]
@@ -226,12 +226,12 @@ mod tests {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p solo-voice --lib mode::tests`
+Run: `cargo test -p coltide-voice --lib mode::tests`
 Expected: compile error — `VoiceMode` and `PipelineTarget` not defined.
 
 - [ ] **Step 3: Implement**
 
-Replace contents of `solo/crates/solo-voice/src/mode.rs`:
+Replace contents of `coltide/crates/coltide-voice/src/mode.rs`:
 
 ```rust
 use serde::{Deserialize, Serialize};
@@ -274,7 +274,7 @@ mod tests {
 }
 ```
 
-Replace contents of `solo/crates/solo-voice/src/error.rs`:
+Replace contents of `coltide/crates/coltide-voice/src/error.rs`:
 
 ```rust
 use thiserror::Error;
@@ -326,14 +326,14 @@ pub type Result<T> = std::result::Result<T, VoiceError>;
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cargo test -p solo-voice --lib mode::tests`
+Run: `cargo test -p coltide-voice --lib mode::tests`
 Expected: `test mode::tests::voice_mode_is_serde_tagged ... ok`, `test mode::tests::pipeline_target_roundtrips ... ok`.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add solo/crates/solo-voice/src/mode.rs solo/crates/solo-voice/src/error.rs
-git commit -m "feat(solo-voice): add VoiceMode, PipelineTarget, VoiceError"
+git add coltide/crates/coltide-voice/src/mode.rs coltide/crates/coltide-voice/src/error.rs
+git commit -m "feat(coltide-voice): add VoiceMode, PipelineTarget, VoiceError"
 ```
 
 ---
@@ -341,12 +341,12 @@ git commit -m "feat(solo-voice): add VoiceMode, PipelineTarget, VoiceError"
 ## Task 3: Add protocol types + BackendEvent variants; regenerate bindings
 
 **Files:**
-- Modify: `solo/crates/solo-protocol/src/lib.rs`
-- Generated: `solo/apps/desktop/src/bindings/*`
+- Modify: `coltide/crates/colt-core/src/lib.rs`
+- Generated: `coltide/apps/desktop/src/bindings/*`
 
 - [ ] **Step 1: Add types to the protocol**
 
-In `solo/crates/solo-protocol/src/lib.rs`, locate the existing ts-rs exports block. Add (place near existing event/state types):
+In `coltide/crates/colt-core/src/lib.rs`, locate the existing ts-rs exports block. Add (place near existing event/state types):
 
 ```rust
 #[derive(TS, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -416,24 +416,24 @@ Find the `BackendEvent` enum and add these variants (preserve existing variants 
 
 - [ ] **Step 2: Regenerate TS bindings**
 
-From `solo/` run: `bun run gen:bindings`
-Expected: new files appear under `solo/apps/desktop/src/bindings/`: `VoiceMode.ts`, `VoicePipelineState.ts`, `VoiceTranscriptResult.ts`, `VoiceModelProgress.ts`. No errors.
+From `coltide/` run: `bun run gen:bindings`
+Expected: new files appear under `coltide/apps/desktop/src/bindings/`: `VoiceMode.ts`, `VoicePipelineState.ts`, `VoiceTranscriptResult.ts`, `VoiceModelProgress.ts`. No errors.
 
 - [ ] **Step 3: Verify the workspace still compiles**
 
-From `solo/` run: `cargo check --workspace`
+From `coltide/` run: `cargo check --workspace`
 Expected: clean.
 
 - [ ] **Step 4: Verify tsc passes**
 
-From `solo/` run: `bun run check`
+From `coltide/` run: `bun run check`
 Expected: no new TypeScript errors (pre-existing ones are out of scope).
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add solo/crates/solo-protocol/src/lib.rs solo/apps/desktop/src/bindings
-git commit -m "feat(solo-protocol): add voice types and BackendEvent variants"
+git add coltide/crates/colt-core/src/lib.rs coltide/apps/desktop/src/bindings
+git commit -m "feat(colt-core): add voice types and BackendEvent variants"
 ```
 
 ---
@@ -441,11 +441,11 @@ git commit -m "feat(solo-protocol): add voice types and BackendEvent variants"
 ## Task 4: Model manifest + SHA-256 download
 
 **Files:**
-- Modify: `solo/crates/solo-voice/src/models.rs`
+- Modify: `coltide/crates/coltide-voice/src/models.rs`
 
 - [ ] **Step 1: Write failing test**
 
-Replace contents of `solo/crates/solo-voice/src/models.rs`:
+Replace contents of `coltide/crates/coltide-voice/src/models.rs`:
 
 ```rust
 use crate::error::{Result, VoiceError};
@@ -584,12 +584,12 @@ mod tests {
 
 - [ ] **Step 2: Run test to verify**
 
-Run: `cargo test -p solo-voice --lib models::tests`
+Run: `cargo test -p coltide-voice --lib models::tests`
 Expected: all 4 tests pass.
 
 - [ ] **Step 3: Add streaming downloader**
 
-Append to `solo/crates/solo-voice/src/models.rs`:
+Append to `coltide/crates/coltide-voice/src/models.rs`:
 
 ```rust
 use tokio::io::AsyncWriteExt;
@@ -608,7 +608,7 @@ pub async fn download_file<F: Fn(u64, u64) + Send>(
     }
 
     let client = reqwest::Client::builder()
-        .user_agent("solo-voice/0.1")
+        .user_agent("coltide-voice/0.1")
         .build()
         .map_err(|e| VoiceError::ModelDownload(e.to_string()))?;
 
@@ -673,7 +673,7 @@ pub async fn download_manifest<F: Fn(u64, u64) + Send + Clone>(
 }
 ```
 
-Also add `futures-util = "0.3"` to `solo-voice`'s `[dependencies]` in `solo/crates/solo-voice/Cargo.toml`:
+Also add `futures-util = "0.3"` to `coltide-voice`'s `[dependencies]` in `coltide/crates/coltide-voice/Cargo.toml`:
 
 ```toml
 futures-util = "0.3"
@@ -681,14 +681,14 @@ futures-util = "0.3"
 
 - [ ] **Step 4: Verify compiles**
 
-Run: `cargo check -p solo-voice`
+Run: `cargo check -p coltide-voice`
 Expected: clean.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add solo/crates/solo-voice/src/models.rs solo/crates/solo-voice/Cargo.toml
-git commit -m "feat(solo-voice): model manifest, SHA-256 verify, resumable download"
+git add coltide/crates/coltide-voice/src/models.rs coltide/crates/coltide-voice/Cargo.toml
+git commit -m "feat(coltide-voice): model manifest, SHA-256 verify, resumable download"
 ```
 
 ---
@@ -696,11 +696,11 @@ git commit -m "feat(solo-voice): model manifest, SHA-256 verify, resumable downl
 ## Task 5: Audio capture via cpal
 
 **Files:**
-- Modify: `solo/crates/solo-voice/src/audio.rs`
+- Modify: `coltide/crates/coltide-voice/src/audio.rs`
 
 - [ ] **Step 1: Write failing test**
 
-Replace contents of `solo/crates/solo-voice/src/audio.rs`:
+Replace contents of `coltide/crates/coltide-voice/src/audio.rs`:
 
 ```rust
 use crate::error::{Result, VoiceError};
@@ -945,14 +945,14 @@ mod tests {
 
 - [ ] **Step 2: Run test to verify**
 
-Run: `cargo test -p solo-voice --lib audio::tests`
+Run: `cargo test -p coltide-voice --lib audio::tests`
 Expected: 4 tests pass.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add solo/crates/solo-voice/src/audio.rs
-git commit -m "feat(solo-voice): cpal audio capture with downmix + resample"
+git add coltide/crates/coltide-voice/src/audio.rs
+git commit -m "feat(coltide-voice): cpal audio capture with downmix + resample"
 ```
 
 ---
@@ -960,11 +960,11 @@ git commit -m "feat(solo-voice): cpal audio capture with downmix + resample"
 ## Task 6: Silero VAD wrapper
 
 **Files:**
-- Modify: `solo/crates/solo-voice/src/vad.rs`
+- Modify: `coltide/crates/coltide-voice/src/vad.rs`
 
 - [ ] **Step 1: Implement with test**
 
-Replace contents of `solo/crates/solo-voice/src/vad.rs`:
+Replace contents of `coltide/crates/coltide-voice/src/vad.rs`:
 
 ```rust
 use crate::error::{Result, VoiceError};
@@ -1098,12 +1098,12 @@ mod tests {
 
 - [ ] **Step 2: Run test**
 
-Run: `cargo test -p solo-voice --lib vad::tests`
+Run: `cargo test -p coltide-voice --lib vad::tests`
 Expected: 2 tests pass.
 
 - [ ] **Step 3: Verify the full crate still builds**
 
-Run: `cargo check -p solo-voice`
+Run: `cargo check -p coltide-voice`
 Expected: clean (warnings about unused `reset` are OK).
 
 > **Caveat — ort version differences.** The ort Rust crate's session-building API
@@ -1118,8 +1118,8 @@ Expected: clean (warnings about unused `reset` are OK).
 - [ ] **Step 4: Commit**
 
 ```bash
-git add solo/crates/solo-voice/src/vad.rs
-git commit -m "feat(solo-voice): Silero VAD wrapper via ort"
+git add coltide/crates/coltide-voice/src/vad.rs
+git commit -m "feat(coltide-voice): Silero VAD wrapper via ort"
 ```
 
 ---
@@ -1127,11 +1127,11 @@ git commit -m "feat(solo-voice): Silero VAD wrapper via ort"
 ## Task 7: STT trait + Sherpa Parakeet impl
 
 **Files:**
-- Modify: `solo/crates/solo-voice/src/stt.rs`
+- Modify: `coltide/crates/coltide-voice/src/stt.rs`
 
 - [ ] **Step 1: Implement**
 
-Replace contents of `solo/crates/solo-voice/src/stt.rs`:
+Replace contents of `coltide/crates/coltide-voice/src/stt.rs`:
 
 ```rust
 use crate::error::{Result, VoiceError};
@@ -1234,14 +1234,14 @@ mod tests {
 
 - [ ] **Step 2: Run test**
 
-Run: `cargo test -p solo-voice --lib stt::tests`
+Run: `cargo test -p coltide-voice --lib stt::tests`
 Expected: 1 test passes.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add solo/crates/solo-voice/src/stt.rs
-git commit -m "feat(solo-voice): SttProvider trait + SherpaParakeet + MockStt"
+git add coltide/crates/coltide-voice/src/stt.rs
+git commit -m "feat(coltide-voice): SttProvider trait + SherpaParakeet + MockStt"
 ```
 
 ---
@@ -1249,11 +1249,11 @@ git commit -m "feat(solo-voice): SttProvider trait + SherpaParakeet + MockStt"
 ## Task 8: Formatter trait + Claude + Codex impls
 
 **Files:**
-- Modify: `solo/crates/solo-voice/src/formatter.rs`
+- Modify: `coltide/crates/coltide-voice/src/formatter.rs`
 
 - [ ] **Step 1: Implement**
 
-Replace contents of `solo/crates/solo-voice/src/formatter.rs`:
+Replace contents of `coltide/crates/coltide-voice/src/formatter.rs`:
 
 ```rust
 use crate::error::{Result, VoiceError};
@@ -1331,7 +1331,7 @@ pub fn dispatch_system_prompt() -> &'static str {
 /// Claude impl — wraps ColtIDE's existing Claude provider auth.
 /// `ChatClient` is a thin trait so we can mock in tests; the real
 /// impl in apps/desktop/src-tauri/src/voice_commands.rs wires this up
-/// to solo-auth's Claude client.
+/// to coltide-auth's Claude client.
 #[async_trait]
 pub trait ChatClient: Send + Sync {
     async fn simple_completion(
@@ -1466,14 +1466,14 @@ mod tests {
 
 - [ ] **Step 2: Run tests**
 
-Run: `cargo test -p solo-voice --lib formatter::tests`
+Run: `cargo test -p coltide-voice --lib formatter::tests`
 Expected: 4 tests pass.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add solo/crates/solo-voice/src/formatter.rs
-git commit -m "feat(solo-voice): FormatterProvider trait + CloudFormatter + prompt builders"
+git add coltide/crates/coltide-voice/src/formatter.rs
+git commit -m "feat(coltide-voice): FormatterProvider trait + CloudFormatter + prompt builders"
 ```
 
 ---
@@ -1481,11 +1481,11 @@ git commit -m "feat(solo-voice): FormatterProvider trait + CloudFormatter + prom
 ## Task 9: SQLite transcript history
 
 **Files:**
-- Modify: `solo/crates/solo-voice/src/history.rs`
+- Modify: `coltide/crates/coltide-voice/src/history.rs`
 
 - [ ] **Step 1: Implement with tests**
 
-Replace contents of `solo/crates/solo-voice/src/history.rs`:
+Replace contents of `coltide/crates/coltide-voice/src/history.rs`:
 
 ```rust
 use crate::error::{Result, VoiceError};
@@ -1652,14 +1652,14 @@ mod tests {
 
 - [ ] **Step 2: Run tests**
 
-Run: `cargo test -p solo-voice --lib history::tests`
+Run: `cargo test -p coltide-voice --lib history::tests`
 Expected: 3 tests pass.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add solo/crates/solo-voice/src/history.rs
-git commit -m "feat(solo-voice): SQLite voice_transcripts history"
+git add coltide/crates/coltide-voice/src/history.rs
+git commit -m "feat(coltide-voice): SQLite voice_transcripts history"
 ```
 
 ---
@@ -1667,11 +1667,11 @@ git commit -m "feat(solo-voice): SQLite voice_transcripts history"
 ## Task 10: Pipeline state machine
 
 **Files:**
-- Modify: `solo/crates/solo-voice/src/pipeline.rs`
+- Modify: `coltide/crates/coltide-voice/src/pipeline.rs`
 
 - [ ] **Step 1: Implement**
 
-Replace contents of `solo/crates/solo-voice/src/pipeline.rs`:
+Replace contents of `coltide/crates/coltide-voice/src/pipeline.rs`:
 
 ```rust
 use crate::audio::AudioRing;
@@ -1683,7 +1683,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-/// Mirrors `solo_protocol::VoicePipelineState`. Serde representation matches
+/// Mirrors `coltide_protocol::VoicePipelineState`. Serde representation matches
 /// the protocol's tagged union (`{ "kind": "...", "data": ... }`), so values
 /// can be emitted to the frontend directly.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -1891,14 +1891,14 @@ mod tests {
 
 - [ ] **Step 2: Run tests**
 
-Run: `cargo test -p solo-voice --lib pipeline::tests`
+Run: `cargo test -p coltide-voice --lib pipeline::tests`
 Expected: 3 tests pass.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add solo/crates/solo-voice/src/pipeline.rs
-git commit -m "feat(solo-voice): pipeline state machine"
+git add coltide/crates/coltide-voice/src/pipeline.rs
+git commit -m "feat(coltide-voice): pipeline state machine"
 ```
 
 ---
@@ -1906,21 +1906,21 @@ git commit -m "feat(solo-voice): pipeline state machine"
 ## Task 11: Tauri voice commands
 
 **Files:**
-- Create: `solo/apps/desktop/src-tauri/src/voice_commands.rs`
-- Modify: `solo/apps/desktop/src-tauri/Cargo.toml`
-- Modify: `solo/apps/desktop/src-tauri/src/lib.rs`
+- Create: `coltide/apps/desktop/src-tauri/src/voice_commands.rs`
+- Modify: `coltide/apps/desktop/src-tauri/Cargo.toml`
+- Modify: `coltide/apps/desktop/src-tauri/src/lib.rs`
 
-- [ ] **Step 1: Add solo-voice dep**
+- [ ] **Step 1: Add coltide-voice dep**
 
-In `solo/apps/desktop/src-tauri/Cargo.toml`, under `[dependencies]`, add:
+In `coltide/apps/desktop/src-tauri/Cargo.toml`, under `[dependencies]`, add:
 
 ```toml
-solo-voice = { path = "../../../crates/solo-voice" }
+coltide-voice = { path = "../../../crates/coltide-voice" }
 ```
 
 - [ ] **Step 2: Write the commands file**
 
-Create `solo/apps/desktop/src-tauri/src/voice_commands.rs`:
+Create `coltide/apps/desktop/src-tauri/src/voice_commands.rs`:
 
 ```rust
 //! Tauri command surface for the voice pipeline.
@@ -1929,7 +1929,7 @@ Create `solo/apps/desktop/src-tauri/src/voice_commands.rs`:
 //! download, and history ops. No global hotkeys or paste — those
 //! arrive in Phase 2.
 
-use solo_voice::{
+use coltide_voice::{
     audio::{start_capture, AudioRing, AudioStream},
     formatter::{
         AppContext, ChatClient, CloudFormatter, DictationOptions, FormatterProvider,
@@ -1946,11 +1946,11 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex as TokioMutex;
 
-// -- Chat client wired to solo-auth's Claude provider ------------------------
+// -- Chat client wired to coltide-auth's Claude provider ------------------------
 
 struct ClaudeChatClient {
-    // In a real wiring, hold an Arc to solo-auth's ProviderAuthState.
-    // For P1 the voice_commands layer owns creation via solo-auth APIs.
+    // In a real wiring, hold an Arc to coltide-auth's ProviderAuthState.
+    // For P1 the voice_commands layer owns creation via coltide-auth APIs.
     // Left intentionally thin here; the concrete call is in `simple_completion`.
     handle: AppHandle,
 }
@@ -1962,18 +1962,18 @@ impl ChatClient for ClaudeChatClient {
         model: &str,
         system: &str,
         user: &str,
-    ) -> solo_voice::error::Result<String> {
-        // Invoke solo-auth's Claude adapter. The exact call depends on
-        // solo-auth's exposed API; the contract here is "given model +
+    ) -> coltide_voice::error::Result<String> {
+        // Invoke coltide-auth's Claude adapter. The exact call depends on
+        // coltide-auth's exposed API; the contract here is "given model +
         // system + user, return assistant text."
         //
         // Engineer: replace the body below with a call to
-        // `solo_auth::providers::claude::simple_completion(&self.handle, model, system, user).await`
+        // `coltide_auth::providers::claude::simple_completion(&self.handle, model, system, user).await`
         // once that helper is added. For now, emit a descriptive error so
         // tests and UI fail cleanly.
         let _ = (model, system, user, &self.handle);
-        Err(solo_voice::VoiceError::Formatter(
-            "ClaudeChatClient::simple_completion: wire to solo-auth Claude provider".into(),
+        Err(coltide_voice::VoiceError::Formatter(
+            "ClaudeChatClient::simple_completion: wire to coltide-auth Claude provider".into(),
         ))
     }
 }
@@ -2256,7 +2256,7 @@ chrono = { version = "0.4", features = ["serde"] }
 
 - [ ] **Step 3: Register state + commands in `lib.rs`**
 
-Edit `solo/apps/desktop/src-tauri/src/lib.rs`. Add at the top with other `mod` statements:
+Edit `coltide/apps/desktop/src-tauri/src/lib.rs`. Add at the top with other `mod` statements:
 
 ```rust
 mod voice_commands;
@@ -2274,32 +2274,32 @@ Locate the `generate_handler![ ... ]` macro call and:
 
 - [ ] **Step 4: Verify**
 
-From `solo/` run: `cargo check --workspace`
+From `coltide/` run: `cargo check --workspace`
 Expected: clean except for the stubbed ClaudeChatClient error — acceptable since wiring is a follow-up within this task list.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add solo/apps/desktop/src-tauri/Cargo.toml solo/apps/desktop/src-tauri/src/voice_commands.rs solo/apps/desktop/src-tauri/src/lib.rs
-git commit -m "feat(voice_commands): Tauri command surface for solo-voice"
+git add coltide/apps/desktop/src-tauri/Cargo.toml coltide/apps/desktop/src-tauri/src/voice_commands.rs coltide/apps/desktop/src-tauri/src/lib.rs
+git commit -m "feat(voice_commands): Tauri command surface for coltide-voice"
 ```
 
 ---
 
-## Task 12: Wire ClaudeChatClient to solo-auth
+## Task 12: Wire ClaudeChatClient to coltide-auth
 
 **Files:**
-- Modify: `solo/apps/desktop/src-tauri/src/voice_commands.rs`
-- Possibly: `solo/crates/solo-auth/src/lib.rs` (to expose a public `simple_completion` helper if not already present)
+- Modify: `coltide/apps/desktop/src-tauri/src/voice_commands.rs`
+- Possibly: `coltide/crates/coltide-auth/src/lib.rs` (to expose a public `simple_completion` helper if not already present)
 
-- [ ] **Step 1: Inspect solo-auth's public surface**
+- [ ] **Step 1: Inspect coltide-auth's public surface**
 
-Run: `grep -rn "claude" solo/crates/solo-auth/src/` and `cat solo/crates/solo-auth/src/lib.rs`
+Run: `grep -rn "claude" coltide/crates/coltide-auth/src/` and `cat coltide/crates/coltide-auth/src/lib.rs`
 Expected: identify the existing Claude provider entry point. Look for anything shaped like `pub async fn complete` or `pub async fn chat`.
 
-- [ ] **Step 2: Add a `simple_completion` helper in solo-auth (if one doesn't exist)**
+- [ ] **Step 2: Add a `simple_completion` helper in coltide-auth (if one doesn't exist)**
 
-If solo-auth exposes only raw provider clients, add `solo/crates/solo-auth/src/providers/claude_simple.rs` (or an equivalent module) with:
+If coltide-auth exposes only raw provider clients, add `coltide/crates/coltide-auth/src/providers/claude_simple.rs` (or an equivalent module) with:
 
 ```rust
 use crate::Result;
@@ -2338,7 +2338,7 @@ pub async fn simple_completion(
 }
 ```
 
-Expose it from `solo-auth`'s `lib.rs`: `pub use providers::claude_simple::simple_completion as claude_simple_completion;`
+Expose it from `coltide-auth`'s `lib.rs`: `pub use providers::claude_simple::simple_completion as claude_simple_completion;`
 
 - [ ] **Step 3: Replace stub in `ClaudeChatClient`**
 
@@ -2350,33 +2350,33 @@ async fn simple_completion(
     model: &str,
     system: &str,
     user: &str,
-) -> solo_voice::error::Result<String> {
-    // Fetch a fresh Claude access token from solo-auth's credential store.
-    // The access-token fetch helper exists today in solo-auth — use the
-    // same call path solo's agent_commands uses. Here we assume a helper
-    // `solo_auth::get_claude_access_token(&handle)` exists; swap to the
+) -> coltide_voice::error::Result<String> {
+    // Fetch a fresh Claude access token from coltide-auth's credential store.
+    // The access-token fetch helper exists today in coltide-auth — use the
+    // same call path coltide's agent_commands uses. Here we assume a helper
+    // `coltide_auth::get_claude_access_token(&handle)` exists; swap to the
     // actual name in this codebase.
-    let token = solo_auth::get_claude_access_token(&self.handle)
+    let token = coltide_auth::get_claude_access_token(&self.handle)
         .await
-        .map_err(|e| solo_voice::VoiceError::Formatter(format!("auth: {e}")))?;
-    solo_auth::claude_simple_completion(&token, model, system, user)
+        .map_err(|e| coltide_voice::VoiceError::Formatter(format!("auth: {e}")))?;
+    coltide_auth::claude_simple_completion(&token, model, system, user)
         .await
-        .map_err(|e| solo_voice::VoiceError::Formatter(format!("claude: {e}")))
+        .map_err(|e| coltide_voice::VoiceError::Formatter(format!("claude: {e}")))
 }
 ```
 
-If solo-auth's actual token-fetch helper has a different name, substitute it. Check `grep -n "access_token" solo/crates/solo-auth/src/` to find it.
+If coltide-auth's actual token-fetch helper has a different name, substitute it. Check `grep -n "access_token" coltide/crates/coltide-auth/src/` to find it.
 
 - [ ] **Step 4: Verify**
 
-From `solo/` run: `cargo check --workspace`
+From `coltide/` run: `cargo check --workspace`
 Expected: clean.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add solo/apps/desktop/src-tauri/src/voice_commands.rs solo/crates/solo-auth
-git commit -m "feat(voice): wire ClaudeChatClient to solo-auth"
+git add coltide/apps/desktop/src-tauri/src/voice_commands.rs coltide/crates/coltide-auth
+git commit -m "feat(voice): wire ClaudeChatClient to coltide-auth"
 ```
 
 ---
@@ -2384,12 +2384,12 @@ git commit -m "feat(voice): wire ClaudeChatClient to solo-auth"
 ## Task 13: Frontend — voiceStore + tauri wrappers
 
 **Files:**
-- Create: `solo/apps/desktop/src/lib/tauri/voice.ts`
-- Create: `solo/apps/desktop/src/stores/voiceStore.ts`
+- Create: `coltide/apps/desktop/src/lib/tauri/voice.ts`
+- Create: `coltide/apps/desktop/src/stores/voiceStore.ts`
 
 - [ ] **Step 1: Write the tauri wrapper**
 
-Create `solo/apps/desktop/src/lib/tauri/voice.ts`:
+Create `coltide/apps/desktop/src/lib/tauri/voice.ts`:
 
 ```typescript
 import { invoke } from '@tauri-apps/api/core';
@@ -2445,7 +2445,7 @@ export function onVoiceModelProgress(
 
 - [ ] **Step 2: Write the store**
 
-Create `solo/apps/desktop/src/stores/voiceStore.ts`:
+Create `coltide/apps/desktop/src/stores/voiceStore.ts`:
 
 ```typescript
 import { create } from 'zustand';
@@ -2490,7 +2490,7 @@ export const useVoiceStore = create<VoiceStore>()(
 
 - [ ] **Step 3: Add a smoke test**
 
-Create `solo/apps/desktop/src/stores/__tests__/voiceStore.test.ts`:
+Create `coltide/apps/desktop/src/stores/__tests__/voiceStore.test.ts`:
 
 ```typescript
 import { describe, expect, it } from 'vitest';
@@ -2513,13 +2513,13 @@ describe('voiceStore', () => {
 });
 ```
 
-Run from `solo/apps/desktop/`: `bun run test -- voiceStore`
+Run from `coltide/apps/desktop/`: `bun run test -- voiceStore`
 Expected: 2 passing.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add solo/apps/desktop/src/lib/tauri/voice.ts solo/apps/desktop/src/stores/voiceStore.ts solo/apps/desktop/src/stores/__tests__/voiceStore.test.ts
+git add coltide/apps/desktop/src/lib/tauri/voice.ts coltide/apps/desktop/src/stores/voiceStore.ts coltide/apps/desktop/src/stores/__tests__/voiceStore.test.ts
 git commit -m "feat(ui): voiceStore + tauri wrappers"
 ```
 
@@ -2528,11 +2528,11 @@ git commit -m "feat(ui): voiceStore + tauri wrappers"
 ## Task 14: Rewire `useVoiceInput` against voiceStore
 
 **Files:**
-- Modify: `solo/apps/desktop/src/hooks/useVoiceInput.ts`
+- Modify: `coltide/apps/desktop/src/hooks/useVoiceInput.ts`
 
 - [ ] **Step 1: Replace the hook**
 
-Replace contents of `solo/apps/desktop/src/hooks/useVoiceInput.ts`:
+Replace contents of `coltide/apps/desktop/src/hooks/useVoiceInput.ts`:
 
 ```typescript
 import { useCallback, useEffect, useRef } from 'react';
@@ -2626,13 +2626,13 @@ export function useVoiceInput({ onTranscript }: UseVoiceInputOptions) {
 
 - [ ] **Step 2: Verify compiles**
 
-Run from `solo/apps/desktop/`: `bun run check`
+Run from `coltide/apps/desktop/`: `bun run check`
 Expected: no errors in `useVoiceInput.ts`.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add solo/apps/desktop/src/hooks/useVoiceInput.ts
+git add coltide/apps/desktop/src/hooks/useVoiceInput.ts
 git commit -m "feat(ui): rewire useVoiceInput against voiceStore"
 ```
 
@@ -2641,12 +2641,12 @@ git commit -m "feat(ui): rewire useVoiceInput against voiceStore"
 ## Task 15: Update `voice-button.tsx` and `ChatInputContainer`
 
 **Files:**
-- Modify: `solo/apps/desktop/src/components/agent/input/voice-button.tsx`
-- Modify: `solo/apps/desktop/src/components/agent/input/ChatInputContainer.tsx`
+- Modify: `coltide/apps/desktop/src/components/agent/input/voice-button.tsx`
+- Modify: `coltide/apps/desktop/src/components/agent/input/ChatInputContainer.tsx`
 
 - [ ] **Step 1: Inspect existing `voice-button.tsx`**
 
-Run: `cat solo/apps/desktop/src/components/agent/input/voice-button.tsx`
+Run: `cat coltide/apps/desktop/src/components/agent/input/voice-button.tsx`
 Expected: identify the existing ElevenLabs-based logic to remove.
 
 - [ ] **Step 2: Rewrite `voice-button.tsx`**
@@ -2705,14 +2705,14 @@ Remove any `useElevenLabs*` imports and hook calls.
 
 - [ ] **Step 4: Verify**
 
-From `solo/apps/desktop/` run: `bun run check`
+From `coltide/apps/desktop/` run: `bun run check`
 Expected: no errors around the chat input or voice button.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add solo/apps/desktop/src/components/agent/input/voice-button.tsx solo/apps/desktop/src/components/agent/input/ChatInputContainer.tsx
-git commit -m "feat(ui): chat mic button wired to solo-voice"
+git add coltide/apps/desktop/src/components/agent/input/voice-button.tsx coltide/apps/desktop/src/components/agent/input/ChatInputContainer.tsx
+git commit -m "feat(ui): chat mic button wired to coltide-voice"
 ```
 
 ---
@@ -2720,11 +2720,11 @@ git commit -m "feat(ui): chat mic button wired to solo-voice"
 ## Task 16: Rewrite `VoiceTab` settings
 
 **Files:**
-- Modify: `solo/apps/desktop/src/components/settings/tabs/VoiceTab.tsx`
+- Modify: `coltide/apps/desktop/src/components/settings/tabs/VoiceTab.tsx`
 
 - [ ] **Step 1: Rewrite**
 
-Replace contents of `solo/apps/desktop/src/components/settings/tabs/VoiceTab.tsx`:
+Replace contents of `coltide/apps/desktop/src/components/settings/tabs/VoiceTab.tsx`:
 
 ```tsx
 import { useEffect, useState } from 'react';
@@ -2848,14 +2848,14 @@ export function VoiceTab() {
 
 - [ ] **Step 2: Check tsc**
 
-From `solo/apps/desktop/` run: `bun run check`
+From `coltide/apps/desktop/` run: `bun run check`
 Expected: clean for this file.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add solo/apps/desktop/src/components/settings/tabs/VoiceTab.tsx
-git commit -m "feat(settings): rewrite VoiceTab for solo-voice"
+git add coltide/apps/desktop/src/components/settings/tabs/VoiceTab.tsx
+git commit -m "feat(settings): rewrite VoiceTab for coltide-voice"
 ```
 
 ---
@@ -2863,66 +2863,66 @@ git commit -m "feat(settings): rewrite VoiceTab for solo-voice"
 ## Task 17: Rip out ElevenLabs
 
 **Files (deletions):**
-- `solo/crates/solo-elevenlabs/`
-- `solo/apps/desktop/src-tauri/src/elevenlabs_commands.rs`
-- `solo/apps/desktop/src/stores/elevenlabsStore.ts`
-- `solo/apps/desktop/src/lib/tauri/elevenlabs.ts`
-- `solo/apps/desktop/src/lib/elevenlabs/`
+- `coltide/crates/coltide-elevenlabs/`
+- `coltide/apps/desktop/src-tauri/src/elevenlabs_commands.rs`
+- `coltide/apps/desktop/src/stores/elevenlabsStore.ts`
+- `coltide/apps/desktop/src/lib/tauri/elevenlabs.ts`
+- `coltide/apps/desktop/src/lib/elevenlabs/`
 
 **Files (modifications):**
-- `solo/Cargo.toml` (workspace)
-- `solo/apps/desktop/src-tauri/Cargo.toml`
-- `solo/apps/desktop/src-tauri/src/lib.rs`
-- `solo/apps/desktop/src/stores/settingsStore.ts`
+- `coltide/Cargo.toml` (workspace)
+- `coltide/apps/desktop/src-tauri/Cargo.toml`
+- `coltide/apps/desktop/src-tauri/src/lib.rs`
+- `coltide/apps/desktop/src/stores/settingsStore.ts`
 
 - [ ] **Step 1: Delete files**
 
 ```bash
-rm -rf solo/crates/solo-elevenlabs
-rm -f  solo/apps/desktop/src-tauri/src/elevenlabs_commands.rs
-rm -f  solo/apps/desktop/src/stores/elevenlabsStore.ts
-rm -f  solo/apps/desktop/src/lib/tauri/elevenlabs.ts
-rm -rf solo/apps/desktop/src/lib/elevenlabs
+rm -rf coltide/crates/coltide-elevenlabs
+rm -f  coltide/apps/desktop/src-tauri/src/elevenlabs_commands.rs
+rm -f  coltide/apps/desktop/src/stores/elevenlabsStore.ts
+rm -f  coltide/apps/desktop/src/lib/tauri/elevenlabs.ts
+rm -rf coltide/apps/desktop/src/lib/elevenlabs
 ```
 
 - [ ] **Step 2: Remove workspace member**
 
-In `solo/Cargo.toml`, the `members = ["crates/*", "apps/desktop/src-tauri"]` wildcard already excludes deleted dirs. Check that no `default-members` list names `solo-elevenlabs`.
+In `coltide/Cargo.toml`, the `members = ["crates/*", "apps/desktop/src-tauri"]` wildcard already excludes deleted dirs. Check that no `default-members` list names `coltide-elevenlabs`.
 
 - [ ] **Step 3: Drop unused workspace deps**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 cargo tree --workspace -i tokio-tungstenite | head -5
 cargo tree --workspace -i base64 | head -20
 ```
 
-If `tokio-tungstenite` has no consumers, delete its line from `solo/Cargo.toml [workspace.dependencies]`. Same for `base64`.
+If `tokio-tungstenite` has no consumers, delete its line from `coltide/Cargo.toml [workspace.dependencies]`. Same for `base64`.
 
-- [ ] **Step 4: Remove solo-elevenlabs from tauri app**
+- [ ] **Step 4: Remove coltide-elevenlabs from tauri app**
 
-In `solo/apps/desktop/src-tauri/Cargo.toml`, delete the `solo-elevenlabs` dependency line.
+In `coltide/apps/desktop/src-tauri/Cargo.toml`, delete the `coltide-elevenlabs` dependency line.
 
-In `solo/apps/desktop/src-tauri/src/lib.rs`:
+In `coltide/apps/desktop/src-tauri/src/lib.rs`:
 - Remove `mod elevenlabs_commands;`
 - Remove any `.manage(...)` call for an ElevenLabs state
 - Remove every `elevenlabs_commands::*` entry from `generate_handler!`
 
 - [ ] **Step 5: Strip elevenlabs keys from settingsStore + migrate**
 
-Open `solo/apps/desktop/src/stores/settingsStore.ts`. Remove all `elevenlabs*` fields from the state type, initial state, and reducers.
+Open `coltide/apps/desktop/src/stores/settingsStore.ts`. Remove all `elevenlabs*` fields from the state type, initial state, and reducers.
 
 Add a one-shot migration to the persist middleware or the hydration hook:
 
 ```typescript
 // Drop legacy elevenlabs keys on load (safe no-op if absent)
-const raw = localStorage.getItem('solo-settings');
+const raw = localStorage.getItem('coltide-settings');
 if (raw) {
   try {
     const parsed = JSON.parse(raw);
     if (parsed?.state && 'elevenlabs' in parsed.state) {
       delete parsed.state.elevenlabs;
-      localStorage.setItem('solo-settings', JSON.stringify(parsed));
+      localStorage.setItem('coltide-settings', JSON.stringify(parsed));
     }
   } catch { /* ignore */ }
 }
@@ -2932,19 +2932,19 @@ Place this at the top of `settingsStore.ts` before the `create(...)` call.
 
 - [ ] **Step 6: Verify compiles**
 
-From `solo/` run: `cargo check --workspace && bun run check`
+From `coltide/` run: `cargo check --workspace && bun run check`
 Expected: clean.
 
 - [ ] **Step 7: Search for stragglers**
 
-Run: `grep -rln "elevenlabs\|ElevenLabs" solo/apps solo/crates solo/Cargo.toml 2>/dev/null | grep -v node_modules`
+Run: `grep -rln "elevenlabs\|ElevenLabs" coltide/apps coltide/crates coltide/Cargo.toml 2>/dev/null | grep -v node_modules`
 Expected: no hits. Address any that appear.
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add -A solo/crates solo/apps solo/Cargo.toml
-git commit -m "chore: rip out solo-elevenlabs in favor of solo-voice"
+git add -A coltide/crates coltide/apps coltide/Cargo.toml
+git commit -m "chore: rip out coltide-elevenlabs in favor of coltide-voice"
 ```
 
 ---
@@ -2952,17 +2952,17 @@ git commit -m "chore: rip out solo-elevenlabs in favor of solo-voice"
 ## Task 18: Integration test — feed WAV through pipeline
 
 **Files:**
-- Create: `solo/crates/solo-voice/tests/pipeline_end_to_end.rs`
+- Create: `coltide/crates/coltide-voice/tests/pipeline_end_to_end.rs`
 
 - [ ] **Step 1: Write the test**
 
-Create `solo/crates/solo-voice/tests/pipeline_end_to_end.rs`:
+Create `coltide/crates/coltide-voice/tests/pipeline_end_to_end.rs`:
 
 ```rust
 //! End-to-end pipeline test using MockStt + a fake ChatClient.
 //! Exercises begin → feed audio → end → formatted output.
 
-use solo_voice::{
+use coltide_voice::{
     audio::AudioRing,
     formatter::{ChatClient, CloudFormatter, DictationOptions, AppContext, FormatterProvider},
     mode::{PipelineTarget, VoiceMode},
@@ -2976,7 +2976,7 @@ struct CannedChat(&'static str);
 #[async_trait]
 impl ChatClient for CannedChat {
     async fn simple_completion(&self, _m: &str, _s: &str, _u: &str)
-        -> solo_voice::error::Result<String>
+        -> coltide_voice::error::Result<String>
     {
         Ok(self.0.to_string())
     }
@@ -3034,14 +3034,14 @@ async fn end_to_end_dictation() {
 
 - [ ] **Step 2: Run**
 
-From `solo/` run: `cargo test -p solo-voice --test pipeline_end_to_end`
+From `coltide/` run: `cargo test -p coltide-voice --test pipeline_end_to_end`
 Expected: 1 test passes.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add solo/crates/solo-voice/tests/pipeline_end_to_end.rs
-git commit -m "test(solo-voice): end-to-end pipeline integration test"
+git add coltide/crates/coltide-voice/tests/pipeline_end_to_end.rs
+git commit -m "test(coltide-voice): end-to-end pipeline integration test"
 ```
 
 ---
@@ -3049,12 +3049,12 @@ git commit -m "test(solo-voice): end-to-end pipeline integration test"
 ## Task 19: Manual QA checklist + docs
 
 **Files:**
-- Modify: `solo/testing.md`
-- Modify: `solo/CLAUDE.md` (voice section)
+- Modify: `coltide/testing.md`
+- Modify: `coltide/CLAUDE.md` (voice section)
 
 - [ ] **Step 1: Append QA checklist**
 
-Append to `solo/testing.md`:
+Append to `coltide/testing.md`:
 
 ```markdown
 ## Voice (Phase 1)
@@ -3070,10 +3070,10 @@ Append to `solo/testing.md`:
 
 - [ ] **Step 2: Update CLAUDE.md**
 
-In `solo/CLAUDE.md`, replace any mention of `solo-elevenlabs` with `solo-voice`. Add a short paragraph under "Crates":
+In `coltide/CLAUDE.md`, replace any mention of `coltide-elevenlabs` with `coltide-voice`. Add a short paragraph under "Crates":
 
 ```markdown
-- `solo-voice` — voice input pipeline: cpal audio capture, Silero VAD,
+- `coltide-voice` — voice input pipeline: cpal audio capture, Silero VAD,
   Sherpa-ONNX Parakeet STT, cloud formatter (Claude Haiku / GPT-5 nano).
   Phase 1 drives the chat mic only; global dictation and agent dispatch
   arrive in Phases 2 and 3.
@@ -3082,7 +3082,7 @@ In `solo/CLAUDE.md`, replace any mention of `solo-elevenlabs` with `solo-voice`.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add solo/testing.md solo/CLAUDE.md
+git add coltide/testing.md coltide/CLAUDE.md
 git commit -m "docs: voice Phase 1 QA checklist + CLAUDE.md update"
 ```
 
@@ -3092,7 +3092,7 @@ git commit -m "docs: voice Phase 1 QA checklist + CLAUDE.md update"
 
 - [ ] **Step 1: Full check**
 
-From `solo/` run:
+From `coltide/` run:
 
 ```bash
 cargo check --workspace
@@ -3106,35 +3106,35 @@ Expected: all pass. Any failures here block the phase.
 
 - [ ] **Step 2: Run the app**
 
-From `solo/` run: `bun run dev`
+From `coltide/` run: `bun run dev`
 Expected: ColtIDE boots. Open Settings → Voice, walk the QA checklist from Task 19. Record one utterance, verify the transcript lands in the chat input.
 
 - [ ] **Step 3: Pin actual SHA-256 hashes**
 
-After the successful download in Step 2, compute SHA-256 of the four Parakeet files at `~/Library/Application Support/com.solo.desktop/models/parakeet-tdt-0.6b-v2/`:
+After the successful download in Step 2, compute SHA-256 of the four Parakeet files at `~/Library/Application Support/com.coltide.desktop/models/parakeet-tdt-0.6b-v2/`:
 
 ```bash
-shasum -a 256 ~/Library/Application\ Support/com.solo.desktop/models/parakeet-tdt-0.6b-v2/*.onnx \
-                ~/Library/Application\ Support/com.solo.desktop/models/parakeet-tdt-0.6b-v2/tokens.txt
+shasum -a 256 ~/Library/Application\ Support/com.coltide.desktop/models/parakeet-tdt-0.6b-v2/*.onnx \
+                ~/Library/Application\ Support/com.coltide.desktop/models/parakeet-tdt-0.6b-v2/tokens.txt
 ```
 
-Paste the hex digests into `solo/crates/solo-voice/src/models.rs`, replacing the `REPLACE_WITH_ACTUAL_HASH_ON_FIRST_DOWNLOAD` placeholders. Also update `size_bytes` with `ls -l` of each file.
+Paste the hex digests into `coltide/crates/coltide-voice/src/models.rs`, replacing the `REPLACE_WITH_ACTUAL_HASH_ON_FIRST_DOWNLOAD` placeholders. Also update `size_bytes` with `ls -l` of each file.
 
 - [ ] **Step 4: Commit pinned hashes**
 
 ```bash
-git add solo/crates/solo-voice/src/models.rs
-git commit -m "chore(solo-voice): pin Parakeet SHA-256 hashes"
+git add coltide/crates/coltide-voice/src/models.rs
+git commit -m "chore(coltide-voice): pin Parakeet SHA-256 hashes"
 ```
 
 - [ ] **Step 5: Phase 1 complete**
 
-Open a PR titled `feat: voice Phase 1 — solo-voice + chat mic`. Link it to the spec `solo/docs/superpowers/specs/2026-04-17-voice-in-solo-design.md`.
+Open a PR titled `feat: voice Phase 1 — coltide-voice + chat mic`. Link it to the spec `coltide/docs/superpowers/specs/2026-04-17-voice-in-coltide-design.md`.
 
 ---
 
 ## Follow-up plans (not in this plan)
 
-- `2026-04-XX-voice-in-solo-phase-2.md` — global dictation: CGEvent tap, text injection, cursor-pill HUD, Voice-settings shortcut recorder, permissions banner.
-- `2026-04-XX-voice-in-solo-phase-3.md` — agent dispatch: second hotkey, dispatch-prompt formatter variant, silent-spawn + toast + dock badge + sidebar-row + auto-pop-on-focus, history linking to agent sessions.
+- `2026-04-XX-voice-in-coltide-phase-2.md` — global dictation: CGEvent tap, text injection, cursor-pill HUD, Voice-settings shortcut recorder, permissions banner.
+- `2026-04-XX-voice-in-coltide-phase-3.md` — agent dispatch: second hotkey, dispatch-prompt formatter variant, silent-spawn + toast + dock badge + sidebar-row + auto-pop-on-focus, history linking to agent sessions.
 - Optional: local Llama-3.2-1B formatter (`LocalLlamaFormatter`) — adds `llama-cpp-rs` + download flow. Gated behind user opt-in in Voice settings.

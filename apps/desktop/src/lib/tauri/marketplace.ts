@@ -16,7 +16,7 @@ import type { SkillSuggestion } from '../../bindings/SkillSuggestion';
 export type { Registry, RegistryEntry, SkillDetail, SkillSuggestion };
 
 /**
- * Fetch the marketplace registry JSON from `solo/skills-registry`.
+ * Fetch the marketplace registry JSON from `coltide/skills-registry`.
  * 24h-cached on disk at `~/.coltide/cache/registry.json`; pass `force: true`
  * to bypass the cache.
  */

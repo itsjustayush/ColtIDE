@@ -262,13 +262,13 @@ Key indexes:
 
 Per-user directory hierarchy with global and project-scoped partitions:
 ```
-solo-vault-{env}/users/{cognito_user_id}/global/files/
-solo-vault-{env}/users/{cognito_user_id}/projects/{project_id}/files/
+coltide-vault-{env}/users/{cognito_user_id}/global/files/
+coltide-vault-{env}/users/{cognito_user_id}/projects/{project_id}/files/
 ```
 
 ### 5.3 DynamoDB Schema
 
-Table `solo-sessions` with composite key (user_id, session_id). GSI on project_id for project-scoped session queries. TTL on 30-day expiry.
+Table `coltide-sessions` with composite key (user_id, session_id). GSI on project_id for project-scoped session queries. TTL on 30-day expiry.
 
 ---
 

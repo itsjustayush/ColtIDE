@@ -17,10 +17,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use serde_json::Value;
-use solo_protocol::{
+use coltide_protocol::{
     AgentPermissionMode, BackendEvent, ExecutionLocation, RunOutcome, Task, TaskStatus,
 };
-use solo_tasks::TaskStore;
+use coltide_tasks::TaskStore;
 use tauri::{AppHandle, Emitter as _, Listener as _, Manager as _};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -88,20 +88,20 @@ impl ExecutorMap {
 }
 
 /// Create an isolated git worktree for a task run.
-/// Branch pattern: `solo/task-<8 chars of task_id>-<8 chars of run_id>`
+/// Branch pattern: `coltide/task-<8 chars of task_id>-<8 chars of run_id>`
 async fn create_worktree_for_run(
     app: &AppHandle,
     task_id: &str,
     run_id: &str,
 ) -> Result<(String, String), String> {
     let short = |s: &str| s.chars().take(8).collect::<String>();
-    let branch = format!("solo/task-{}-{}", short(task_id), short(run_id));
+    let branch = format!("coltide/task-{}-{}", short(task_id), short(run_id));
 
     let wt_state = app.state::<crate::worktree_commands::WorktreeState>();
     let fs_state = app.state::<crate::fs_commands::FsState>();
     let stats = app.state::<crate::stats_commands::StatsState>();
 
-    let request = solo_protocol::CreateWorktreeRequest {
+    let request = coltide_protocol::CreateWorktreeRequest {
         branch: branch.clone(),
         path: None,
         create_branch: true,
@@ -293,7 +293,7 @@ pub async fn spawn_agent_for_task(
     // Merge deny-lists: global defaults + per-task patterns. These are passed
     // into the bridge policy before the session starts and also retained in
     // the Rust listener as a second guardrail for permission prompts.
-    let all_deny: Vec<String> = solo_tasks::DEFAULT_DENY_LIST
+    let all_deny: Vec<String> = coltide_tasks::DEFAULT_DENY_LIST
         .iter()
         .map(|s| (*s).to_string())
         .chain(cfg.deny_list.iter().cloned())
@@ -348,7 +348,7 @@ pub async fn spawn_agent_for_task(
     store
         .update(
             &task_id,
-            solo_protocol::TaskPatch {
+            coltide_protocol::TaskPatch {
                 status: Some(TaskStatus::Running),
                 ..Default::default()
             },
@@ -590,7 +590,7 @@ pub fn install_agent_listeners(
 
             let patterns: Vec<&str> = run.deny_patterns.iter().map(String::as_str).collect();
 
-            if let Some(matched) = solo_tasks::is_denied(&cmd, &patterns) {
+            if let Some(matched) = coltide_tasks::is_denied(&cmd, &patterns) {
                 warn!(
                     cmd = %cmd,
                     matched = %matched,
@@ -654,7 +654,7 @@ async fn finalize_run(
             },
         );
 
-        let patch = solo_protocol::TaskPatch {
+        let patch = coltide_protocol::TaskPatch {
             status: Some(TaskStatus::NeedsReview),
             ..Default::default()
         };
@@ -679,7 +679,7 @@ async fn finalize_run(
         RunOutcome::Failed | RunOutcome::Cancelled => TaskStatus::Failed,
         RunOutcome::Running => TaskStatus::Running,
     };
-    let patch = solo_protocol::TaskPatch {
+    let patch = coltide_protocol::TaskPatch {
         status: Some(new_status),
         ..Default::default()
     };
@@ -830,13 +830,13 @@ mod tests {
 
     #[test]
     fn build_prompt_includes_marker_instruction_when_subtasks_present() {
-        let task = solo_protocol::Task {
+        let task = coltide_protocol::Task {
             id: "t1".into(),
             title: "do stuff".into(),
             description: "d".into(),
-            status: solo_protocol::TaskStatus::Queued,
-            executor: solo_protocol::Executor::Agent,
-            priority: solo_protocol::TaskPriority::Medium,
+            status: coltide_protocol::TaskStatus::Queued,
+            executor: coltide_protocol::Executor::Agent,
+            priority: coltide_protocol::TaskPriority::Medium,
             created_at: 0,
             updated_at: 0,
             agent_config: None,
@@ -845,8 +845,8 @@ mod tests {
             runs: Vec::new(),
             last_error: None,
             catch_up_on_launch: false,
-            origin: solo_protocol::TaskOrigin::Manual,
-            subtasks: vec![solo_protocol::Subtask {
+            origin: coltide_protocol::TaskOrigin::Manual,
+            subtasks: vec![coltide_protocol::Subtask {
                 id: "sub-1".into(),
                 title: "first".into(),
                 completed: false,
@@ -867,13 +867,13 @@ mod tests {
     fn build_prompt_references_marker_ids_in_checklist() {
         // Regression: ensure each checklist line contains the subtask id so
         // the agent can cite it back in <subtask-done id="..." /> markers.
-        let task = solo_protocol::Task {
+        let task = coltide_protocol::Task {
             id: "t1".into(),
             title: "multi".into(),
             description: "d".into(),
-            status: solo_protocol::TaskStatus::Queued,
-            executor: solo_protocol::Executor::Agent,
-            priority: solo_protocol::TaskPriority::Medium,
+            status: coltide_protocol::TaskStatus::Queued,
+            executor: coltide_protocol::Executor::Agent,
+            priority: coltide_protocol::TaskPriority::Medium,
             created_at: 0,
             updated_at: 0,
             agent_config: None,
@@ -882,16 +882,16 @@ mod tests {
             runs: Vec::new(),
             last_error: None,
             catch_up_on_launch: false,
-            origin: solo_protocol::TaskOrigin::Manual,
+            origin: coltide_protocol::TaskOrigin::Manual,
             subtasks: vec![
-                solo_protocol::Subtask {
+                coltide_protocol::Subtask {
                     id: "alpha".into(),
                     title: "a".into(),
                     completed: true,
                     created_at: 0,
                     completed_at: Some(1),
                 },
-                solo_protocol::Subtask {
+                coltide_protocol::Subtask {
                     id: "beta".into(),
                     title: "b".into(),
                     completed: false,
@@ -918,13 +918,13 @@ mod tests {
 
     #[test]
     fn build_prompt_skips_checklist_when_no_subtasks() {
-        let task = solo_protocol::Task {
+        let task = coltide_protocol::Task {
             id: "t1".into(),
             title: "do stuff".into(),
             description: "d".into(),
-            status: solo_protocol::TaskStatus::Queued,
-            executor: solo_protocol::Executor::Agent,
-            priority: solo_protocol::TaskPriority::Medium,
+            status: coltide_protocol::TaskStatus::Queued,
+            executor: coltide_protocol::Executor::Agent,
+            priority: coltide_protocol::TaskPriority::Medium,
             created_at: 0,
             updated_at: 0,
             agent_config: None,
@@ -933,7 +933,7 @@ mod tests {
             runs: Vec::new(),
             last_error: None,
             catch_up_on_launch: false,
-            origin: solo_protocol::TaskOrigin::Manual,
+            origin: coltide_protocol::TaskOrigin::Manual,
             subtasks: Vec::new(),
             label_ids: Vec::new(),
             project_id: None,

@@ -3,13 +3,13 @@
 //! 5 commands: plugins_list, plugins_get_detail, plugins_set_enabled,
 //! plugins_install_local, plugins_uninstall.
 
-use solo_core::settings as settings_io;
-use solo_plugins::{
+use coltide_core::settings as settings_io;
+use coltide_plugins::{
     get_plugin_detail, list_plugins, load_plugin_apps, load_plugin_manifest, load_plugin_mcp,
     LoaderConfig, PluginId as CoreId, PluginSource as CoreSource, PluginStore, PluginStoreError,
     PluginToggles,
 };
-use solo_protocol::{
+use coltide_protocol::{
     PluginAppDeclaration, PluginDetail, PluginId, PluginInstallResult, PluginInterface,
     PluginListOutcome, PluginLoadError, PluginSource, PluginSummary,
 };
@@ -32,8 +32,8 @@ impl PluginsState {
         Self { home_dir }
     }
 
-    pub(crate) fn solo_home(&self) -> PathBuf {
-        self.home_dir.join(".solo")
+    pub(crate) fn coltide_home(&self) -> PathBuf {
+        self.home_dir.join(".coltide")
     }
 
     pub(crate) fn claude_plugins_dir(&self) -> PathBuf {
@@ -51,7 +51,7 @@ impl Default for PluginsState {
     }
 }
 
-// Conversion helpers between solo-plugins core types and solo-protocol wire types.
+// Conversion helpers between coltide-plugins core types and colt-core wire types.
 
 fn wire_id(core: CoreId) -> PluginId {
     PluginId {
@@ -104,7 +104,7 @@ fn count_skill_files(skills_path: Option<&Path>) -> u32 {
         .count() as u32
 }
 
-fn snapshot_capabilities(record: &solo_plugins::PluginRecord) -> PluginCapabilitySnapshot {
+fn snapshot_capabilities(record: &coltide_plugins::PluginRecord) -> PluginCapabilitySnapshot {
     let mut snapshot = PluginCapabilitySnapshot::default();
     let Some(manifest) = record.manifest.as_ref() else {
         snapshot
@@ -188,7 +188,7 @@ fn snapshot_capabilities(record: &solo_plugins::PluginRecord) -> PluginCapabilit
     snapshot
 }
 
-fn record_to_summary(record: solo_plugins::PluginRecord) -> PluginSummary {
+fn record_to_summary(record: coltide_plugins::PluginRecord) -> PluginSummary {
     let interface = record.manifest.as_ref().and_then(|m| m.interface.as_ref());
     let display_name = interface
         .and_then(|i| i.display_name.clone())
@@ -222,7 +222,7 @@ fn record_to_summary(record: solo_plugins::PluginRecord) -> PluginSummary {
     }
 }
 
-fn record_to_detail(record: solo_plugins::PluginRecord) -> PluginDetail {
+fn record_to_detail(record: coltide_plugins::PluginRecord) -> PluginDetail {
     let manifest = record.manifest.clone();
     let interface = manifest
         .as_ref()
@@ -292,7 +292,7 @@ pub async fn plugins_list(
 ) -> Result<PluginListOutcome, String> {
     let workspace = PathBuf::from(&cwd);
     let config = settings_io::load_plugins_config(&workspace).unwrap_or_default();
-    let solo_home = state.solo_home();
+    let coltide_home = state.coltide_home();
     let claude_plugins_dir = {
         let d = state.claude_plugins_dir();
         d.exists().then_some(d)
@@ -303,7 +303,7 @@ pub async fn plugins_list(
     };
 
     let outcome = list_plugins(LoaderConfig {
-        solo_home: &solo_home,
+        coltide_home: &coltide_home,
         claude_plugins_dir,
         codex_cache_dir,
         adapter_claude_plugins: config.adapter_claude_plugins,
@@ -331,7 +331,7 @@ pub async fn plugins_get_detail(
 ) -> Result<PluginDetail, String> {
     let workspace = PathBuf::from(&cwd);
     let config = settings_io::load_plugins_config(&workspace).unwrap_or_default();
-    let solo_home = state.solo_home();
+    let coltide_home = state.coltide_home();
     let claude_plugins_dir = {
         let d = state.claude_plugins_dir();
         d.exists().then_some(d)
@@ -344,7 +344,7 @@ pub async fn plugins_get_detail(
 
     let record = get_plugin_detail(
         LoaderConfig {
-            solo_home: &solo_home,
+            coltide_home: &coltide_home,
             claude_plugins_dir,
             codex_cache_dir,
             adapter_claude_plugins: config.adapter_claude_plugins,
@@ -365,23 +365,23 @@ pub async fn plugins_set_enabled(
     state: State<'_, PluginsState>,
 ) -> Result<PluginSummary, String> {
     let core_id = core_id(id.clone())?;
-    let solo_plugins_dir = state.solo_home().join("plugins");
+    let coltide_plugins_dir = state.coltide_home().join("plugins");
 
-    let mut toggles = PluginToggles::load(&solo_plugins_dir);
+    let mut toggles = PluginToggles::load(&coltide_plugins_dir);
     toggles.set_enabled(&core_id, enabled);
     toggles
-        .save(&solo_plugins_dir)
+        .save(&coltide_plugins_dir)
         .map_err(|e| format!("failed to save toggles: {e}"))?;
 
     // Re-list to return the updated summary.
     let workspace = PathBuf::from(&cwd);
     let config = settings_io::load_plugins_config(&workspace).unwrap_or_default();
-    let solo_home = state.solo_home();
+    let coltide_home = state.coltide_home();
     let claude_plugins_dir = state.claude_plugins_dir();
     let codex_cache_dir = state.codex_cache_dir();
     let record = get_plugin_detail(
         LoaderConfig {
-            solo_home: &solo_home,
+            coltide_home: &coltide_home,
             claude_plugins_dir: claude_plugins_dir.exists().then_some(claude_plugins_dir),
             codex_cache_dir: codex_cache_dir.exists().then_some(codex_cache_dir),
             adapter_claude_plugins: config.adapter_claude_plugins,
@@ -414,9 +414,9 @@ pub async fn plugins_install_local(
     };
 
     let core_id =
-        solo_plugins::PluginId::new("local".to_string(), name).map_err(|e| e.to_string())?;
-    let solo_plugins_dir = state.solo_home().join("plugins");
-    let store = PluginStore::new(solo_plugins_dir);
+        coltide_plugins::PluginId::new("local".to_string(), name).map_err(|e| e.to_string())?;
+    let coltide_plugins_dir = state.coltide_home().join("plugins");
+    let store = PluginStore::new(coltide_plugins_dir);
     let result = store
         .install_local(&source, core_id, "local")
         .map_err(|e: PluginStoreError| e.to_string())?;
@@ -442,7 +442,7 @@ pub async fn plugins_uninstall(id: PluginId, state: State<'_, PluginsState>) -> 
             core_id.marketplace, core_id.name
         ));
     }
-    let solo_plugins_dir = state.solo_home().join("plugins");
-    let store = PluginStore::new(solo_plugins_dir);
+    let coltide_plugins_dir = state.coltide_home().join("plugins");
+    let store = PluginStore::new(coltide_plugins_dir);
     store.uninstall(&core_id).map_err(|e| e.to_string())
 }

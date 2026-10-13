@@ -1,7 +1,7 @@
 /**
  * PluginsTab — browse, install, enable, and remove plugins.
  *
- * A plugin is a directory containing `.solo-plugin/plugin.json` (or
+ * A plugin is a directory containing `.coltide-plugin/plugin.json` (or
  * `.codex-plugin/...` / `.claude-plugin/...` as compatibility fallbacks).
  * Plugins bundle skills, MCP servers, and app connectors. In this
  * foundation release, only the skills leg is wired through to the

@@ -4,7 +4,7 @@
 
 **Goal:** User types a goal ("ship the billing dashboard this week") into a "New Plan" dialog. The planner reads the 6-source context bundle, calls an LLM, and drops N `TaskStatus::Suggested` drafts into the board. User accepts (→ `Queued`) or dismisses (→ deleted). A proactive hook runs the same pipeline after an agent session ends, rate-limited to 1 per 10 min.
 
-**Architecture:** `ContextAggregator` trait in `solo-tasks` with providers for Vault/Skills/Git/Tasks/Notes; the `Planner` module calls `agent_create_session` with a JSON-mode-style prompt and parses the returned JSON into `TaskDraft`s. Settings get a `planner_notes` freeform text field. Proactive firing uses the `agent:message` event interceptor (Phase 2) — when an `AgentSessionEnded` event arrives *and* it's not from a planner-spawned session, tick a token bucket and fire `plan_proactive()` if allowed.
+**Architecture:** `ContextAggregator` trait in `coltide-tasks` with providers for Vault/Skills/Git/Tasks/Notes; the `Planner` module calls `agent_create_session` with a JSON-mode-style prompt and parses the returned JSON into `TaskDraft`s. Settings get a `planner_notes` freeform text field. Proactive firing uses the `agent:message` event interceptor (Phase 2) — when an `AgentSessionEnded` event arrives *and* it's not from a planner-spawned session, tick a token bucket and fire `plan_proactive()` if allowed.
 
 **Tech Stack:** No new crates. Reuses existing agent-bridge + provider auth. Simple in-memory rate limiter.
 
@@ -21,12 +21,12 @@ Phase 5 intentionally **ships 4 of 6 context providers** (Vault, Skills, Git, Ex
 ## File map
 
 **Create (Rust):**
-- `crates/solo-tasks/src/context/mod.rs` — trait + orchestrator.
-- `crates/solo-tasks/src/context/fragment.rs` — `ContextFragment` type + token-estimate helper.
+- `crates/coltide-tasks/src/context/mod.rs` — trait + orchestrator.
+- `crates/coltide-tasks/src/context/fragment.rs` — `ContextFragment` type + token-estimate helper.
 - `apps/desktop/src-tauri/src/task_planner.rs` — Tauri-side planner that assembles context via existing Tauri state and calls the LLM.
 
 **Modify (Rust):**
-- `crates/solo-tasks/src/lib.rs` — export context module.
+- `crates/coltide-tasks/src/lib.rs` — export context module.
 - `apps/desktop/src-tauri/src/task_commands.rs` — `plan_from_goal`, `plan_accept_draft`, `plan_dismiss_draft`, `plan_proactive`.
 - `apps/desktop/src-tauri/src/task_executor.rs` — install a second listener for proactive hook; rate-limit gate.
 - `apps/desktop/src-tauri/src/lib.rs` — register new commands; no new state.
@@ -46,11 +46,11 @@ Phase 5 intentionally **ships 4 of 6 context providers** (Vault, Skills, Git, Ex
 ## Task 1 · `ContextFragment` + trait skeleton
 
 **Files:**
-- `crates/solo-tasks/src/context/fragment.rs` (new)
-- `crates/solo-tasks/src/context/mod.rs` (new)
-- `crates/solo-tasks/src/lib.rs`
+- `crates/coltide-tasks/src/context/fragment.rs` (new)
+- `crates/coltide-tasks/src/context/mod.rs` (new)
+- `crates/coltide-tasks/src/lib.rs`
 
-- [ ] **Step 1.1:** Create `crates/solo-tasks/src/context/fragment.rs`:
+- [ ] **Step 1.1:** Create `crates/coltide-tasks/src/context/fragment.rs`:
 
 ```rust
 //! A single fragment of context supplied to the planner.
@@ -76,7 +76,7 @@ impl ContextFragment {
 }
 ```
 
-- [ ] **Step 1.2:** Create `crates/solo-tasks/src/context/mod.rs`:
+- [ ] **Step 1.2:** Create `crates/coltide-tasks/src/context/mod.rs`:
 
 ```rust
 //! Context aggregator — pluggable providers that supply context fragments.
@@ -165,18 +165,18 @@ mod tests {
 }
 ```
 
-- [ ] **Step 1.3:** Register in `crates/solo-tasks/src/lib.rs`:
+- [ ] **Step 1.3:** Register in `crates/coltide-tasks/src/lib.rs`:
 ```rust
 pub mod context;
 pub use context::{ContextFragment, render_prompt, trim_to_budget, DEFAULT_BUNDLE, DEFAULT_TOKEN_BUDGET};
 ```
 
-- [ ] **Step 1.4:** `cargo test -p solo-tasks --lib` — expect 28 tests pass (26 + 2 new).
-`cargo clippy -p solo-tasks --all-targets -- -D warnings` clean.
+- [ ] **Step 1.4:** `cargo test -p coltide-tasks --lib` — expect 28 tests pass (26 + 2 new).
+`cargo clippy -p coltide-tasks --all-targets -- -D warnings` clean.
 
 - [ ] **Step 1.5:** Commit:
 ```bash
-git add crates/solo-tasks/src/context/ crates/solo-tasks/src/lib.rs
+git add crates/coltide-tasks/src/context/ crates/coltide-tasks/src/lib.rs
 git commit -m "feat(tasks): context aggregator core (fragment + prompt rendering)"
 ```
 
@@ -201,8 +201,8 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
-use solo_protocol::{Executor, TaskDraft, TaskPatch, TaskPriority, TaskStatus};
-use solo_tasks::{ContextFragment, TaskStore, render_prompt, trim_to_budget, DEFAULT_TOKEN_BUDGET, DEFAULT_BUNDLE};
+use coltide_protocol::{Executor, TaskDraft, TaskPatch, TaskPriority, TaskStatus};
+use coltide_tasks::{ContextFragment, TaskStore, render_prompt, trim_to_budget, DEFAULT_TOKEN_BUDGET, DEFAULT_BUNDLE};
 use tauri::{AppHandle, Manager as _};
 use tokio::sync::Mutex;
 use tracing::{info, warn};
@@ -248,12 +248,12 @@ pub async fn collect_vault_fragment(app: &AppHandle) -> Option<ContextFragment> 
     // Use whatever read-only list/search API the vault exposes. We grab the
     // most recent N entries as a proxy for "what the user is focused on".
     //
-    // Signature-wise: we need an Arc<solo_vault::Vault>. The Vault impls a
+    // Signature-wise: we need an Arc<coltide_vault::Vault>. The Vault impls a
     // list method we can call directly, not via a Tauri command.
     let guard = vault_state.inner.read().await;
     let Some(vault) = guard.as_ref() else { return None; };
 
-    let filters = solo_protocol::VaultListFilters::default();
+    let filters = coltide_protocol::VaultListFilters::default();
     let entries = vault.list(&filters).ok()?;
     let top = entries.into_iter().take(10).collect::<Vec<_>>();
     if top.is_empty() { return None; }
@@ -268,7 +268,7 @@ pub async fn collect_skills_fragment(app: &AppHandle) -> Option<ContextFragment>
     // Skills surface is large — we just want names + brief descriptions.
     // The simplest path: shell out to the existing skills listing command.
     // If the Tauri command call is fragile, fall back to reading the two
-    // skill directories (solo + adapter) directly.
+    // skill directories (coltide + adapter) directly.
     let body = match crate::skills_commands::skills_list_available_internal(app).await {
         Ok(skills) => skills.iter()
             .map(|s| format!("- {}: {}", s.name, s.description.as_deref().unwrap_or("")))
@@ -306,7 +306,7 @@ pub async fn collect_git_fragment(app: &AppHandle) -> Option<ContextFragment> {
 }
 
 pub async fn collect_tasks_fragment(store: &Arc<TaskStore>) -> Option<ContextFragment> {
-    let existing = store.list(&solo_protocol::TaskListFilters::default()).ok()?;
+    let existing = store.list(&coltide_protocol::TaskListFilters::default()).ok()?;
     let open: Vec<_> = existing.into_iter()
         .filter(|t| !matches!(t.status, TaskStatus::Done | TaskStatus::Archived))
         .take(20)
@@ -442,14 +442,14 @@ fn parse_drafts(raw: &str) -> Result<Vec<RawDraft>, String> {
 - [ ] **Step 2.3:** Verify needed dependencies. Checks to run:
 ```bash
 grep "git2" apps/desktop/src-tauri/Cargo.toml
-grep "fn list" crates/solo-vault/src/lib.rs  # confirm Vault::list exists
+grep "fn list" crates/coltide-vault/src/lib.rs  # confirm Vault::list exists
 grep "skills_list_available_internal" apps/desktop/src-tauri/src/skills_commands.rs
 grep "fn current_workspace_root" apps/desktop/src-tauri/src/fs_commands.rs
 ```
 
 Adjust any API call that doesn't match. If a helper function doesn't exist, replace with the closest existing command invoked directly from Rust (not via Tauri). Fall back gracefully — if a provider can't gather its fragment, it returns `None` and the planner just runs with fewer fragments.
 
-- [ ] **Step 2.4:** `cargo check -p solo-desktop-lib` — zero errors.
+- [ ] **Step 2.4:** `cargo check -p coltide-desktop-lib` — zero errors.
 
 - [ ] **Step 2.5:** Commit:
 ```bash
@@ -488,7 +488,7 @@ pub async fn plan_from_goal(
         goal,
         bundle,
     ).await?;
-    let _ = app.emit("backend-event", solo_protocol::BackendEvent::TasksChanged {
+    let _ = app.emit("backend-event", coltide_protocol::BackendEvent::TasksChanged {
         task_ids: draft_ids.clone(),
     });
     Ok(draft_ids)
@@ -501,11 +501,11 @@ pub async fn plan_accept_draft(
     state: State<'_, TaskState>,
 ) -> Result<(), String> {
     let store = get_store(&state).await?;
-    store.update(&id, solo_protocol::TaskPatch {
-        status: Some(solo_protocol::TaskStatus::Queued),
+    store.update(&id, coltide_protocol::TaskPatch {
+        status: Some(coltide_protocol::TaskStatus::Queued),
         ..Default::default()
     }).map_err(|e| e.to_string())?;
-    let _ = app.emit("backend-event", solo_protocol::BackendEvent::TasksChanged {
+    let _ = app.emit("backend-event", coltide_protocol::BackendEvent::TasksChanged {
         task_ids: vec![id],
     });
     Ok(())
@@ -519,7 +519,7 @@ pub async fn plan_dismiss_draft(
 ) -> Result<(), String> {
     let store = get_store(&state).await?;
     store.delete(&id).map_err(|e| e.to_string())?;
-    let _ = app.emit("backend-event", solo_protocol::BackendEvent::TasksChanged {
+    let _ = app.emit("backend-event", coltide_protocol::BackendEvent::TasksChanged {
         task_ids: vec![id],
     });
     Ok(())
@@ -543,7 +543,7 @@ pub async fn plan_proactive(
         "Based on my recent activity, suggest 3 useful next tasks.".to_string(),
         Vec::new(), // use default bundle
     ).await?;
-    let _ = app.emit("backend-event", solo_protocol::BackendEvent::TasksChanged {
+    let _ = app.emit("backend-event", coltide_protocol::BackendEvent::TasksChanged {
         task_ids: draft_ids.clone(),
     });
     Ok(draft_ids)
@@ -560,7 +560,7 @@ task_commands::plan_dismiss_draft,
 task_commands::plan_proactive,
 ```
 
-- [ ] **Step 3.4:** `cargo check -p solo-desktop-lib` zero errors.
+- [ ] **Step 3.4:** `cargo check -p coltide-desktop-lib` zero errors.
 
 - [ ] **Step 3.5:** Commit:
 ```bash
@@ -614,7 +614,7 @@ if message_type == "result" {
 
 **Placement note:** Add this INSIDE the existing listener closure's inner task, around the existing switch on message_type. If the existing structure doesn't have that shape, adapt carefully — the key is: a `result` event on a session NOT in executor_map → trigger `plan_proactive` via the rate-limited path.
 
-- [ ] **Step 4.2:** `cargo check -p solo-desktop-lib` zero errors.
+- [ ] **Step 4.2:** `cargo check -p coltide-desktop-lib` zero errors.
 
 - [ ] **Step 4.3:** Commit:
 ```bash
@@ -913,7 +913,7 @@ git commit -m "feat(tasks): inline Accept/Dismiss for Suggested rows"
 - [ ] **Step 10.1:**
 ```bash
 cargo test --workspace --lib
-cargo clippy -p solo-tasks --all-targets -- -D warnings
+cargo clippy -p coltide-tasks --all-targets -- -D warnings
 bun run check
 ```
 Green.

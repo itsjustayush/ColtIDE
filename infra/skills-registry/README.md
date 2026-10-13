@@ -1,6 +1,6 @@
 # ColtIDE Skills Registry
 
-The open-source catalog of skills for [ColtIDE](https://github.com/solo/solo).
+The open-source catalog of skills for [ColtIDE](https://github.com/coltide/coltide).
 
 A **skill** is a piece of markdown that teaches any AI agent how to do something well — writing poetry, formatting finance reports, generating UI mockups, answering math homework, anything. Skills are domain-agnostic by design. They're not coding assistants; they're reusable expertise packaged as plain text.
 
@@ -46,7 +46,7 @@ Only `name` and `description` are required.
 ## Install a skill in ColtIDE
 
 Open the vault sidebar → **Skills** → **Marketplace** tab → click **Install**.
-Or from the CLI: `solo skills install my-skill`.
+Or from the CLI: `coltide skills install my-skill`.
 
 Installed skills live at `~/.coltide/skills/<id>/` and are automatically available to any agent session.
 

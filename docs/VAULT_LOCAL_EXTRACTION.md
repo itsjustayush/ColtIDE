@@ -15,7 +15,7 @@ the extraction service pluggable for cloud indexing later.
    is available.
 
 The default extractor is `LocalTextExtractor` in
-`crates/solo-vault/src/extractors.rs`. The vault stores it behind the
+`crates/coltide-vault/src/extractors.rs`. The vault stores it behind the
 `TextExtractor` trait, so a cloud or chained extractor can be installed later
 with `Vault::set_text_extractor`.
 

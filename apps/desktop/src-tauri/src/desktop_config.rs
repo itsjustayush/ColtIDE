@@ -21,7 +21,7 @@ pub const COGNITO_DOMAIN_ENV_KEYS: &[&str] = &["COLTIDE_COGNITO_DOMAIN"];
 pub const COGNITO_CLIENT_ID_ENV_KEYS: &[&str] = &["COLTIDE_COGNITO_CLIENT_ID"];
 pub const COGNITO_REGION_ENV_KEYS: &[&str] = &["COLTIDE_AWS_REGION", "AWS_REGION"];
 pub const API_ENDPOINT_ENV_KEYS: &[&str] = &["COLTIDE_API_ENDPOINT"];
-pub const VAULT_API_ENDPOINT_ENV_KEYS: &[&str] = &["SOLO_VAULT_API_ENDPOINT"];
+pub const VAULT_API_ENDPOINT_ENV_KEYS: &[&str] = &["COLTIDE_VAULT_API_ENDPOINT"];
 
 const DEFAULT_AWS_REGION: &str = "us-east-1";
 const DEFAULT_API_ENDPOINT: &str = "https://9qpve9xe1b.execute-api.us-east-1.amazonaws.com";
@@ -38,7 +38,7 @@ static DEV_ENV_LOADED: OnceLock<()> = OnceLock::new();
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CognitoConfig {
     /// Fully-qualified Cognito domain, e.g.
-    /// `solo-ide-dev.auth.us-east-1.amazoncognito.com`.
+    /// `coltide-ide-dev.auth.us-east-1.amazoncognito.com`.
     pub domain: String,
     pub client_id: String,
     pub region: String,
@@ -99,7 +99,7 @@ pub fn vault_api_endpoint() -> &'static str {
     VAULT_API_ENDPOINT
         .get_or_init(|| {
             resolve_value(
-                option_env!("SOLO_VAULT_API_ENDPOINT"),
+                option_env!("COLTIDE_VAULT_API_ENDPOINT"),
                 read_env(VAULT_API_ENDPOINT_ENV_KEYS),
             )
             .unwrap_or_else(|| DEFAULT_VAULT_API_ENDPOINT.to_string())
@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn uses_compile_time_values_when_present() {
         let cfg = resolve_cognito_config(
-            Some("solo-ide-dev.auth.us-east-1.amazoncognito.com"),
+            Some("coltide-ide-dev.auth.us-east-1.amazoncognito.com"),
             Some("compile-client"),
             Some("us-east-1"),
             Some(sample_runtime_config().domain),
@@ -262,7 +262,7 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(cfg.domain, "solo-ide-dev.auth.us-east-1.amazoncognito.com");
+        assert_eq!(cfg.domain, "coltide-ide-dev.auth.us-east-1.amazoncognito.com");
         assert_eq!(cfg.client_id, "compile-client");
         assert_eq!(cfg.region, "us-east-1");
     }
@@ -317,7 +317,7 @@ mod tests {
     #[test]
     fn returns_actionable_missing_client_id_error() {
         let error = resolve_cognito_config(
-            Some("solo-ide-dev.auth.us-east-1.amazoncognito.com"),
+            Some("coltide-ide-dev.auth.us-east-1.amazoncognito.com"),
             None,
             None,
             None,

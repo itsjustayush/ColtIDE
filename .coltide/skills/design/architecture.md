@@ -41,7 +41,7 @@ Two layers, one data flow. Layer 0 produces tokens; Layer 1 consumes them.
 ## Directory plan
 
 ```
-solo/
+coltide/
 ├── scripts/codex-extract/                  Layer 0: extraction tooling
 │   ├── launch.ts                           Spawns Codex with CDP port
 │   ├── extract.ts                          CDP client + orchestrator

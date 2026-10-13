@@ -28,7 +28,7 @@ This skill never invents aesthetics in isolation. Every token has a source: eith
 ## When not to invoke
 
 - Panel-level redesigns (file explorer, terminal, agent chat, editor chrome, settings, auth). Those are Layer-1.x subsystems and get their own specs that *consume* this skill.
-- Rust/IPC/state changes — see `solo-conventions` skill.
+- Rust/IPC/state changes — see `coltide-conventions` skill.
 - Third-party CSS overrides (react-mosaic, streamdown, shiki, tw-animate-css) — those are kept in `apps/desktop/src/index.css` under their respective sections and don't flow through this skill's token pipeline.
 
 ## Supporting files
@@ -72,17 +72,17 @@ These cannot be violated without updating this skill first:
 Token regeneration after editing `tokens/*.ts`:
 
 ```bash
-cd solo && bun run --filter @colt/ui build-tokens
+cd coltide && bun run --filter @colt/ui build-tokens
 ```
 
 Run Codex extraction (requires Codex.app installed):
 
 ```bash
-cd solo && bun scripts/codex-extract/launch.ts
+cd coltide && bun scripts/codex-extract/launch.ts
 ```
 
 Verify primitive compliance:
 
 ```bash
-cd solo && bun run check && rg "bg-(white|black|gray|slate|zinc|stone|neutral)|rounded-\[|shadow-\[" packages/ui/src/components/
+cd coltide && bun run check && rg "bg-(white|black|gray|slate|zinc|stone|neutral)|rounded-\[|shadow-\[" packages/ui/src/components/
 ```

@@ -3,7 +3,7 @@ name: ui
 version: 1.0.0
 description: Build and refine user interfaces with Tailwind CSS. Use when the user asks to build, design, style, or refine web UI — landing pages, dashboards, marketing sections, forms, buttons, cards, pricing tables, hero sections, testimonials, or Tailwind markup cleanup. Generates multiple design variations on exploratory requests.
 categories: [design, frontend]
-author: solo-team
+author: coltide-team
 license: MIT
 tags: [tailwind, ui, design, css]
 ---

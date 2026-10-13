@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-use solo_core::plans;
+use coltide_core::plans;
 
 fn to_err<E: std::fmt::Display>(e: E) -> String {
     e.to_string()

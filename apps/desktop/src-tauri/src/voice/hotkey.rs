@@ -8,7 +8,7 @@ use core_graphics::event::{
     CGEvent, CGEventFlags, CGEventTap, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement,
     CGEventType, CGKeyCode,
 };
-use solo_protocol::ShortcutsConfig;
+use coltide_protocol::ShortcutsConfig;
 use std::sync::{Arc, RwLock};
 use std::thread;
 

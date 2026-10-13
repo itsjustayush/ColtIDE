@@ -1,11 +1,11 @@
 {
-  "name": "@solo/infra",
+  "name": "@coltide/infra",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "description": "AWS CDK infrastructure for ColtIDE — Cognito auth, stats API, leaderboard",
   "bin": {
-    "solo-infra": "bin/solo.ts"
+    "coltide-infra": "bin/coltide.ts"
   },
   "scripts": {
     "build": "tsc",
@@ -13,14 +13,14 @@
     "synth": "cdk synth",
     "synth:dev": "cdk synth --context stage=dev",
     "synth:prod": "cdk synth --context stage=prod",
-    "diff:dev": "cdk diff --context stage=dev --profile solo",
-    "diff:prod": "cdk diff --context stage=prod --profile solo",
-    "deploy:dev": "cdk deploy --all --context stage=dev --profile solo --require-approval never && bun run sync-env:dev",
-    "deploy:prod": "cdk deploy --all --context stage=prod --profile solo --require-approval any-change && bun run sync-env:prod",
+    "diff:dev": "cdk diff --context stage=dev --profile coltide",
+    "diff:prod": "cdk diff --context stage=prod --profile coltide",
+    "deploy:dev": "cdk deploy --all --context stage=dev --profile coltide --require-approval never && bun run sync-env:dev",
+    "deploy:prod": "cdk deploy --all --context stage=prod --profile coltide --require-approval any-change && bun run sync-env:prod",
     "sync-env:dev": "bun scripts/sync-env.mjs dev",
     "sync-env:prod": "bun scripts/sync-env.mjs prod",
-    "destroy:dev": "cdk destroy --all --context stage=dev --profile solo",
-    "bootstrap:dev": "cdk bootstrap --context stage=dev --profile solo",
+    "destroy:dev": "cdk destroy --all --context stage=dev --profile coltide",
+    "bootstrap:dev": "cdk bootstrap --context stage=dev --profile coltide",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

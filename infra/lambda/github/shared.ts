@@ -81,7 +81,7 @@ export function getSigningKeyKid(): Promise<string> {
   if (!cachedKidPromise) {
     cachedKidPromise = (async () => {
       const keyId = env("JWT_SIGNING_KEY_ID");
-      const h = createHmac("sha256", "solo-github-jwks-kid");
+      const h = createHmac("sha256", "coltide-github-jwks-kid");
       h.update(keyId);
       return h.digest("hex").slice(0, 16);
     })();

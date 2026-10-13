@@ -1,1 +1,1 @@
-/Users/sachin/Developer/Orbit_Main/solo/.coltide/skills/design/dev-console-snippet.js
+/Users/sachin/Developer/Orbit_Main/coltide/.coltide/skills/design/dev-console-snippet.js

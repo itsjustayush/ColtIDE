@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use reqwest::{Client, StatusCode};
 use serde_json::Value;
-use solo_protocol::{CloudSyncState, EntryKind, IndexStatus, MemoryType, VaultEntry, VaultScope};
+use coltide_protocol::{CloudSyncState, EntryKind, IndexStatus, MemoryType, VaultEntry, VaultScope};
 
 use crate::desktop_config;
 
@@ -391,7 +391,7 @@ pub async fn remote_poll_entry_until_terminal(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solo_protocol::{RetrievalStats, VaultScope};
+    use coltide_protocol::{RetrievalStats, VaultScope};
 
     fn sample_entry() -> VaultEntry {
         VaultEntry {

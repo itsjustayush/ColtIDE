@@ -4,7 +4,7 @@
 
 **Goal:** Let an `executor=Agent` task run in an isolated git worktree with full bypass permissions, blocked against a hard deny-list of destructive commands. When the run finishes, offer the user **Merge / Discard / Open PR** on the worktree's diff.
 
-**Architecture:** Promote `agent_config` from `Option<Value>` to a **typed `AgentConfig`** struct in `solo-protocol`. Teach `task_executor.rs` to (a) create a worktree when `execution_location=Worktree`, (b) pass a worktree-specific working dir to the agent session, (c) evaluate every `agent:permission_request` against a deny-list and auto-deny matches. On completion in a worktree, diff-check and emit `TaskReviewReady` if anything changed. Add `task_review_{merge,discard,open_pr}` commands. Frontend: **Review changes** modal triggered by the new event.
+**Architecture:** Promote `agent_config` from `Option<Value>` to a **typed `AgentConfig`** struct in `colt-core`. Teach `task_executor.rs` to (a) create a worktree when `execution_location=Worktree`, (b) pass a worktree-specific working dir to the agent session, (c) evaluate every `agent:permission_request` against a deny-list and auto-deny matches. On completion in a worktree, diff-check and emit `TaskReviewReady` if anything changed. Add `task_review_{merge,discard,open_pr}` commands. Frontend: **Review changes** modal triggered by the new event.
 
 **Tech Stack:** Existing ColtIDE worktree APIs (`worktree_commands.rs`), `git2` crate (already used), Claude Code permission-request contract. No new crate deps.
 
@@ -15,8 +15,8 @@
 ## File map for Phase 3
 
 **Modify (Rust):**
-- `crates/solo-protocol/src/lib.rs` — add `AgentConfig`, `PermissionMode`, `ExecutionLocation`. Replace `agent_config: Option<Value>` on `Task` with `Option<AgentConfig>`. Add BackendEvent `TaskReviewReady`.
-- `crates/solo-tasks/src/store.rs` — update serialization of `agent_config` (now typed); add `record_worktree_for_run(run_id, worktree_id)` + `review_state_for_task(task_id)` helpers.
+- `crates/colt-core/src/lib.rs` — add `AgentConfig`, `PermissionMode`, `ExecutionLocation`. Replace `agent_config: Option<Value>` on `Task` with `Option<AgentConfig>`. Add BackendEvent `TaskReviewReady`.
+- `crates/coltide-tasks/src/store.rs` — update serialization of `agent_config` (now typed); add `record_worktree_for_run(run_id, worktree_id)` + `review_state_for_task(task_id)` helpers.
 - `apps/desktop/src-tauri/src/task_executor.rs` — worktree spawn path, deny-list enforcement via `agent:permission_request` intercept, diff-check on finalize.
 - `apps/desktop/src-tauri/src/task_commands.rs` — `task_review_merge`, `task_review_discard`, `task_review_open_pr`.
 - `apps/desktop/src-tauri/src/lib.rs` — register new commands; pass a global deny-list via settings.
@@ -34,7 +34,7 @@
 
 ## Task 1 · Typed `AgentConfig` in protocol
 
-**File:** `crates/solo-protocol/src/lib.rs`
+**File:** `crates/colt-core/src/lib.rs`
 
 - [ ] **Step 1.1:** In the Task Allocator section (added in Phase 1), before the `Task` struct, insert:
 
@@ -146,11 +146,11 @@ bun run gen:bindings
 ```
 Expected new files: `AgentConfig.ts`, `PermissionMode.ts`, `ExecutionLocation.ts`. `Task.ts`, `TaskPatch.ts`, `BackendEvent.ts` updated.
 
-- [ ] **Step 1.6:** `cargo check -p solo-protocol` — but this will fail because `solo-tasks/store.rs` deserializes the old `Option<Value>`. That's fine; Task 2 fixes it. Just verify the protocol crate itself compiles in isolation.
+- [ ] **Step 1.6:** `cargo check -p colt-core` — but this will fail because `coltide-tasks/store.rs` deserializes the old `Option<Value>`. That's fine; Task 2 fixes it. Just verify the protocol crate itself compiles in isolation.
 
 - [ ] **Step 1.7:** Commit (protocol only — the store fix lands next task, keep commits atomic):
 ```bash
-git add crates/solo-protocol/src/lib.rs apps/desktop/src/bindings/AgentConfig.ts apps/desktop/src/bindings/PermissionMode.ts apps/desktop/src/bindings/ExecutionLocation.ts apps/desktop/src/bindings/Task.ts apps/desktop/src/bindings/TaskPatch.ts apps/desktop/src/bindings/BackendEvent.ts
+git add crates/colt-core/src/lib.rs apps/desktop/src/bindings/AgentConfig.ts apps/desktop/src/bindings/PermissionMode.ts apps/desktop/src/bindings/ExecutionLocation.ts apps/desktop/src/bindings/Task.ts apps/desktop/src/bindings/TaskPatch.ts apps/desktop/src/bindings/BackendEvent.ts
 git commit -m "feat(protocol): typed AgentConfig + TaskReviewReady event"
 ```
 
@@ -159,7 +159,7 @@ git commit -m "feat(protocol): typed AgentConfig + TaskReviewReady event"
 ## Task 2 · Store + patch handle `AgentConfig`
 
 **Files:**
-- `crates/solo-tasks/src/store.rs`
+- `crates/coltide-tasks/src/store.rs`
 
 The store's `insert` and `load_task_row` currently serialize `agent_config` via `serde_json::to_string(&Option<Value>)`. Because `AgentConfig: Serialize + Deserialize`, the existing `to_string` / `from_str` code works as-is. But `update()` needs to accept `patch.agent_config`.
 
@@ -184,7 +184,7 @@ pub fn record_worktree_for_run(&self, run_id: &str, worktree_id: &str) -> TaskRe
 ```rust
 #[test]
 fn update_sets_agent_config() {
-    use solo_protocol::{AgentConfig, ExecutionLocation, PermissionMode};
+    use coltide_protocol::{AgentConfig, ExecutionLocation, PermissionMode};
     let store = TaskStore::open_in_memory().unwrap();
     let t = store.create(TaskDraft {
         title: "run".into(), description: String::new(),
@@ -205,12 +205,12 @@ fn update_sets_agent_config() {
 }
 ```
 
-- [ ] **Step 2.4:** `cargo test -p solo-tasks --lib` — expect 12 passing tests.
-`cargo clippy -p solo-tasks --all-targets -- -D warnings` — zero warnings.
+- [ ] **Step 2.4:** `cargo test -p coltide-tasks --lib` — expect 12 passing tests.
+`cargo clippy -p coltide-tasks --all-targets -- -D warnings` — zero warnings.
 
 - [ ] **Step 2.5:** Commit:
 ```bash
-git add crates/solo-tasks/src/store.rs
+git add crates/coltide-tasks/src/store.rs
 git commit -m "feat(tasks): store accepts typed AgentConfig + worktree run recording"
 ```
 
@@ -218,7 +218,7 @@ git commit -m "feat(tasks): store accepts typed AgentConfig + worktree run recor
 
 ## Task 3 · Deny-list module
 
-**File:** `crates/solo-tasks/src/deny_list.rs` (new)
+**File:** `crates/coltide-tasks/src/deny_list.rs` (new)
 
 Pure function: given a command string, return true if it matches any pattern. Simple glob/contains semantics (v1):
 - Patterns beginning/ending with `*` use `str::contains`.
@@ -309,7 +309,7 @@ mod tests {
 }
 ```
 
-- [ ] **Step 3.2:** Register in `crates/solo-tasks/src/lib.rs`:
+- [ ] **Step 3.2:** Register in `crates/coltide-tasks/src/lib.rs`:
 ```rust
 pub mod deny_list;
 pub use deny_list::{DEFAULT_DENY_LIST, is_denied};
@@ -317,14 +317,14 @@ pub use deny_list::{DEFAULT_DENY_LIST, is_denied};
 
 - [ ] **Step 3.3:** Test + clippy:
 ```bash
-cargo test -p solo-tasks --lib
-cargo clippy -p solo-tasks --all-targets -- -D warnings
+cargo test -p coltide-tasks --lib
+cargo clippy -p coltide-tasks --all-targets -- -D warnings
 ```
 Expect 16 tests pass (12 + 4 new).
 
 - [ ] **Step 3.4:** Commit:
 ```bash
-git add crates/solo-tasks/src/deny_list.rs crates/solo-tasks/src/lib.rs
+git add crates/coltide-tasks/src/deny_list.rs crates/coltide-tasks/src/lib.rs
 git commit -m "feat(tasks): deny-list module with default destructive-command patterns"
 ```
 
@@ -383,10 +383,10 @@ async fn create_worktree_for_run(
     run_id: &str,
 ) -> Result<String, String> {
     // Invoke the existing worktree_create command directly via Tauri state.
-    // Name pattern: solo/task-<short-task-id>-run-<short-run-id>
+    // Name pattern: coltide/task-<short-task-id>-run-<short-run-id>
     use tauri::Manager as _;
     let short = |s: &str| s.chars().take(8).collect::<String>();
-    let branch = format!("solo/task-{}-{}", short(task_id), short(run_id));
+    let branch = format!("coltide/task-{}-{}", short(task_id), short(run_id));
 
     let wt_state = app.state::<crate::worktree_commands::WorktreeState>();
     let fs_state = app.state::<crate::fs_commands::FsState>();
@@ -428,7 +428,7 @@ If `SessionConfig` doesn't have a `cwd` field, grep the struct, find the right f
 
 - [ ] **Step 4.6:** Update the `ExecutorMap::insert` call with the worktree_id and deny-patterns:
 ```rust
-let all_deny: Vec<String> = solo_tasks::DEFAULT_DENY_LIST.iter().map(|s| (*s).to_string())
+let all_deny: Vec<String> = coltide_tasks::DEFAULT_DENY_LIST.iter().map(|s| (*s).to_string())
     .chain(cfg.deny_list.iter().cloned())
     .collect();
 executor_map.insert(session_id.clone(), task_id.clone(), run_id.clone(), worktree_id.clone(), all_deny).await;
@@ -456,7 +456,7 @@ app.listen("agent:permission_request", {
             let cmd_opt = extract_command(&tool_name, &tool_input);
             if let Some(cmd) = cmd_opt {
                 let patterns: Vec<&str> = run.deny_patterns.iter().map(String::as_str).collect();
-                if let Some(matched) = solo_tasks::is_denied(&cmd, &patterns) {
+                if let Some(matched) = coltide_tasks::is_denied(&cmd, &patterns) {
                     warn!(cmd, matched, "deny-list blocked command");
                     // Emit a synthetic permission response via agent_commands
                     let _ = app__.emit("task:permission_deny", serde_json::json!({
@@ -502,7 +502,7 @@ if let Some(wid) = &run.worktree_id {
                     diff_summary: summary,
                 });
                 // Override status to NeedsReview
-                let patch = solo_protocol::TaskPatch {
+                let patch = coltide_protocol::TaskPatch {
                     status: Some(TaskStatus::NeedsReview),
                     ..Default::default()
                 };
@@ -532,7 +532,7 @@ fn diff_summary_for_worktree(worktree_id: &str) -> Result<Option<String>, String
 
 **Known limitation:** Computing a proper diff summary from inside `finalize_run` needs access to app state and git. The plan ships a placeholder; full impl is a follow-up. Mark clearly in the commit message. The Review modal still opens; user sees "changes detected" and can click Open PR to see actual diff.
 
-- [ ] **Step 4.9:** `cargo check -p solo-desktop-lib` — zero errors.
+- [ ] **Step 4.9:** `cargo check -p coltide-desktop-lib` — zero errors.
 
 - [ ] **Step 4.10:** Commit:
 ```bash
@@ -573,11 +573,11 @@ pub async fn task_review_discard(
     let wt_state = app.state::<crate::worktree_commands::WorktreeState>();
     crate::worktree_commands::worktree_remove(wid, true, wt_state, app.clone()).await?;
     // Flip task to Done (work discarded; run row keeps summary)
-    store.update(&id, solo_protocol::TaskPatch {
-        status: Some(solo_protocol::TaskStatus::Done),
+    store.update(&id, coltide_protocol::TaskPatch {
+        status: Some(coltide_protocol::TaskStatus::Done),
         ..Default::default()
     }).map_err(|e| e.to_string())?;
-    let _ = app.emit("backend-event", solo_protocol::BackendEvent::TasksChanged { task_ids: vec![id] });
+    let _ = app.emit("backend-event", coltide_protocol::BackendEvent::TasksChanged { task_ids: vec![id] });
     Ok(())
 }
 
@@ -603,11 +603,11 @@ pub async fn task_review_merge(
     // Clean up worktree post-merge
     crate::worktree_commands::worktree_remove(wid, false, wt_state, app.clone()).await.ok();
 
-    store.update(&id, solo_protocol::TaskPatch {
-        status: Some(solo_protocol::TaskStatus::Done),
+    store.update(&id, coltide_protocol::TaskPatch {
+        status: Some(coltide_protocol::TaskStatus::Done),
         ..Default::default()
     }).map_err(|e| e.to_string())?;
-    let _ = app.emit("backend-event", solo_protocol::BackendEvent::TasksChanged { task_ids: vec![id] });
+    let _ = app.emit("backend-event", coltide_protocol::BackendEvent::TasksChanged { task_ids: vec![id] });
     Ok(())
 }
 
@@ -642,7 +642,7 @@ task_commands::task_review_discard,
 task_commands::task_review_open_pr,
 ```
 
-- [ ] **Step 5.4:** `cargo check -p solo-desktop-lib` — zero errors.
+- [ ] **Step 5.4:** `cargo check -p coltide-desktop-lib` — zero errors.
 
 - [ ] **Step 5.5:** Commit:
 ```bash
@@ -995,7 +995,7 @@ git commit -m "feat(tasks): AgentConfigTab (permission mode / location / deny-li
 
 - [ ] **Step 12.1:** Run checks:
 ```bash
-cargo test --workspace --lib && cargo clippy -p solo-tasks --all-targets -- -D warnings && bun run check
+cargo test --workspace --lib && cargo clippy -p coltide-tasks --all-targets -- -D warnings && bun run check
 ```
 Expect: green.
 

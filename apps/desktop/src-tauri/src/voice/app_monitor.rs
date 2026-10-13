@@ -1,4 +1,4 @@
-use solo_voice::formatter::AppContext;
+use coltide_voice::formatter::AppContext;
 
 /// Returns the current frontmost app's bundle_id + app_name.
 /// `window_title` is always `None` in Phase 2 — obtaining it requires

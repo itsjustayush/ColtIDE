@@ -21,9 +21,9 @@ use crate::plugins_commands::PluginsState;
 use crate::provider_commands::ProviderAuthState;
 use git2::{DiffOptions, Repository};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use solo_auth::provider::ProviderType;
-use solo_core::settings as settings_io;
-use solo_plugins::{
+use coltide_auth::provider::ProviderType;
+use coltide_core::settings as settings_io;
+use coltide_plugins::{
     expand_mcp_server_config, list_plugins, normalize_mcp_servers, LoaderConfig, PluginRecord,
 };
 
@@ -70,7 +70,7 @@ async fn collect_enabled_plugin_mcp_servers(
 ) -> Result<Option<JsonValue>> {
     let workspace = PathBuf::from(cwd);
     let config = settings_io::load_plugins_config(&workspace).unwrap_or_default();
-    let solo_home = plugins_state.solo_home();
+    let coltide_home = plugins_state.coltide_home();
     let claude_plugins_dir = {
         let dir = plugins_state.claude_plugins_dir();
         dir.exists().then_some(dir)
@@ -81,7 +81,7 @@ async fn collect_enabled_plugin_mcp_servers(
     };
 
     let outcome = list_plugins(LoaderConfig {
-        solo_home: &solo_home,
+        coltide_home: &coltide_home,
         claude_plugins_dir,
         codex_cache_dir,
         adapter_claude_plugins: config.adapter_claude_plugins,
@@ -203,12 +203,12 @@ pub(crate) async fn create_session_internal(
     session_manager
         .create_session(&session_id, Some(config))
         .map_err(to_error)?;
-    stats.record(solo_stats::StatsEvent::SessionCreated).await;
+    stats.record(coltide_stats::StatsEvent::SessionCreated).await;
 
     session_manager
         .send_message(&session_id, &prompt, None, None)
         .map_err(to_error)?;
-    stats.record(solo_stats::StatsEvent::MessageSent).await;
+    stats.record(coltide_stats::StatsEvent::MessageSent).await;
 
     Ok(session_id)
 }
@@ -265,10 +265,10 @@ pub async fn agent_create_session(
                     .map_err(to_error)?;
 
                 if let Some(info) = resolved {
-                    use solo_auth::credentials::CredentialSource as CS;
+                    use coltide_auth::credentials::CredentialSource as CS;
                     config.credentials = Some(
                         if provider_type == ProviderType::OpenAI
-                            && matches!(info.source, CS::SoloOAuth | CS::CodexOAuthFile)
+                            && matches!(info.source, CS::ColtIDEOAuth | CS::CodexOAuthFile)
                         {
                             let account_id = provider_state
                                 .credentials
@@ -326,7 +326,7 @@ pub async fn agent_create_session(
     state
         .create_session(&session_id, Some(config))
         .map_err(to_error)?;
-    stats.record(solo_stats::StatsEvent::SessionCreated).await;
+    stats.record(coltide_stats::StatsEvent::SessionCreated).await;
     Ok(())
 }
 
@@ -354,7 +354,7 @@ pub async fn agent_send_message(
     state
         .send_message(&session_id, &message, attachments, vault_auth)
         .map_err(to_error)?;
-    stats.record(solo_stats::StatsEvent::MessageSent).await;
+    stats.record(coltide_stats::StatsEvent::MessageSent).await;
     Ok(())
 }
 
@@ -663,7 +663,7 @@ pub fn setup_event_callbacks(app: &AppHandle, session_manager: &Arc<SessionManag
                 tauri::async_runtime::spawn(async move {
                     let stats = stats_app.state::<crate::stats_commands::StatsState>();
                     stats
-                        .record(solo_stats::StatsEvent::TokensConsumed { count: token_count })
+                        .record(coltide_stats::StatsEvent::TokensConsumed { count: token_count })
                         .await;
                 });
             }

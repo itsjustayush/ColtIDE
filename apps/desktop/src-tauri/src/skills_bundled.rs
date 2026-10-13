@@ -85,7 +85,7 @@ mod tests {
             .expect("origin must be present after extraction");
         assert_eq!(meta.id, BUNDLED_UI_ID);
         assert_eq!(meta.version, BUNDLED_UI_VERSION);
-        assert_eq!(meta.source, solo_protocol::OriginSource::Bundled);
+        assert_eq!(meta.source, coltide_protocol::OriginSource::Bundled);
         assert!(!meta.modified);
     }
 }

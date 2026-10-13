@@ -2,7 +2,7 @@ import { RemovalPolicy } from "aws-cdk-lib";
 
 export type Stage = "dev" | "prod";
 
-export interface SoloStageConfig {
+export interface ColtIDEStageConfig {
   readonly stage: Stage;
   readonly region: string;
   readonly cognitoDomainPrefix: string;
@@ -16,10 +16,10 @@ export interface SoloStageConfig {
   };
 }
 
-const DEV: SoloStageConfig = {
+const DEV: ColtIDEStageConfig = {
   stage: "dev",
   region: "us-east-1",
-  cognitoDomainPrefix: "solo-ide-dev",
+  cognitoDomainPrefix: "coltide-ide-dev",
   removalPolicy: RemovalPolicy.DESTROY,
   pointInTimeRecovery: false,
   githubOidcEnabled: true,
@@ -27,10 +27,10 @@ const DEV: SoloStageConfig = {
   apiThrottling: { rateLimit: 10, burstLimit: 100 },
 };
 
-const PROD: SoloStageConfig = {
+const PROD: ColtIDEStageConfig = {
   stage: "prod",
   region: "us-east-1",
-  cognitoDomainPrefix: "solo-ide-prod",
+  cognitoDomainPrefix: "coltide-ide-prod",
   removalPolicy: RemovalPolicy.RETAIN,
   pointInTimeRecovery: true,
   githubOidcEnabled: true,
@@ -38,7 +38,7 @@ const PROD: SoloStageConfig = {
   apiThrottling: { rateLimit: 50, burstLimit: 500 },
 };
 
-export function resolveStageConfig(stage: string): SoloStageConfig {
+export function resolveStageConfig(stage: string): ColtIDEStageConfig {
   switch (stage) {
     case "dev":
       return DEV;

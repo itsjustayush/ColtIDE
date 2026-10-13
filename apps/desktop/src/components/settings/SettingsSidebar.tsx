@@ -92,7 +92,7 @@ export function SettingsSidebar() {
 
       <div className="space-y-1 border-t border-border/60 pt-4">
         <button
-          onClick={() => window.open('https://docs.solo.dev', '_blank')}
+          onClick={() => window.open('https://docs.coltide.dev', '_blank')}
           className="w-full flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm transition-colors cursor-pointer text-muted-foreground hover:bg-background/60 hover:text-foreground"
         >
           <ReaderIcon className="w-4 h-4" />

@@ -39,7 +39,7 @@ Three principles define the architecture:
 │  │        │                                           │  │
 │  │   Tauri invoke() / listen()                        │  │
 │  └────────────────┬───────────────────────────────────┘  │
-│                   │ IPC (JSON, typed via solo-protocol)   │
+│                   │ IPC (JSON, typed via colt-core)   │
 │  ┌────────────────┴───────────────────────────────────┐  │
 │  │              Rust Backend (Tokio async)              │  │
 │  │                                                    │  │
@@ -48,8 +48,8 @@ Three principles define the architecture:
 │  │   auth · commands                                  │  │
 │  │        │                                           │  │
 │  │   Workspace crates:                                │  │
-│  │   solo-agent · solo-fs · solo-core · solo-parse ·  │  │
-│  │   solo-embeddings · solo-protocol                  │  │
+│  │   colt-core · colt-fs · colt-core · colt-core ·  │  │
+│  │   coltide-embeddings · colt-core                  │  │
 │  └────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -58,18 +58,18 @@ Three principles define the architecture:
 
 | Crate | Responsibility |
 |-------|---------------|
-| `solo-agent` | Multi-provider AI client (Anthropic, OpenAI), streaming, tool registry, session management, middleware pipeline, OAuth/PKCE |
-| `solo-fs` | File CRUD, directory tree (lazy-loaded), file watching (notify + debounce), path traversal protection |
-| `solo-core` | Shared error types, `Service` trait, configuration structs |
-| `solo-parse` | Tree-sitter parsing for 7 languages, symbol extraction (functions, classes, methods, enums) |
-| `solo-embeddings` | OpenAI embedding provider, in-memory vector index, cosine similarity search, code chunking |
-| `solo-protocol` | All IPC message types with `serde` + `ts-rs` for TypeScript generation; single source of truth for the frontend/backend contract |
+| `colt-core` | Multi-provider AI client (Anthropic, OpenAI), streaming, tool registry, session management, middleware pipeline, OAuth/PKCE |
+| `colt-fs` | File CRUD, directory tree (lazy-loaded), file watching (notify + debounce), path traversal protection |
+| `colt-core` | Shared error types, `Service` trait, configuration structs |
+| `colt-core` | Tree-sitter parsing for 7 languages, symbol extraction (functions, classes, methods, enums) |
+| `coltide-embeddings` | OpenAI embedding provider, in-memory vector index, cosine similarity search, code chunking |
+| `colt-core` | All IPC message types with `serde` + `ts-rs` for TypeScript generation; single source of truth for the frontend/backend contract |
 
 ### IPC Model
 
 - **Commands** (frontend → backend): Typed Tauri `invoke()` calls. 41 commands registered across agent, filesystem, terminal, parsing, embeddings, and auth modules.
 - **Events** (backend → frontend): Tauri `emit()` for streaming data. The `BackendEvent` enum defines 15 event types covering agent streaming chunks, tool call lifecycle, terminal output, and file change notifications.
-- **Type safety**: All request/response types are defined once in `solo-protocol` (Rust) and generated into TypeScript via `ts-rs`. No hand-written type duplication.
+- **Type safety**: All request/response types are defined once in `colt-core` (Rust) and generated into TypeScript via `ts-rs`. No hand-written type duplication.
 
 ### Event Streaming
 
@@ -113,13 +113,13 @@ This is not a convenience feature — it is the core trust mechanism that makes 
 
 ### Workspace-Scoped Filesystem
 
-All filesystem operations in `solo-fs` enforce workspace containment. Path traversal attempts (e.g., `../../etc/passwd`) are rejected before reaching the OS. The file watcher is scoped to the workspace root and respects `.gitignore` patterns. This means the agent's file tools can only operate within the project the user has opened.
+All filesystem operations in `colt-fs` enforce workspace containment. Path traversal attempts (e.g., `../../etc/passwd`) are rejected before reaching the OS. The file watcher is scoped to the workspace root and respects `.gitignore` patterns. This means the agent's file tools can only operate within the project the user has opened.
 
 ### Credential Management
 
 Credentials are resolved in priority order:
 
-1. **macOS Keychain** — stored under service names like `solo.provider.anthropic.apiKey`
+1. **macOS Keychain** — stored under service names like `coltide.provider.anthropic.apiKey`
 2. **Claude Code OAuth** — for Anthropic, reads existing credentials from Claude Code's keychain entry (if installed)
 3. **Environment variables** — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`
 

@@ -53,8 +53,8 @@ export const VaultDropZone: FC = () => {
       const paths = detail?.paths ?? [];
       stagePaths(paths);
     };
-    window.addEventListener('solo:vault-files-selected', handler);
-    return () => window.removeEventListener('solo:vault-files-selected', handler);
+    window.addEventListener('coltide:vault-files-selected', handler);
+    return () => window.removeEventListener('coltide:vault-files-selected', handler);
     // stagePaths intentionally reads current setters only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadLabels]);

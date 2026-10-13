@@ -16,10 +16,10 @@ Nothing currently blocks an end user from installing v0.1.x, but:
 ## 2. Architecture — two-repo split
 
 ```
-ColtIDE-UDE/solo (PRIVATE, source)                ColtIDE-UDE/solo-releases (PUBLIC, downloads)
+ColtIDE-UDE/coltide (PRIVATE, source)                ColtIDE-UDE/coltide-releases (PUBLIC, downloads)
 ────────────────────────────────                ──────────────────────────────────────────
 master branch                                   Release v0.2.0-beta.1
-  └─ .github/workflows/release.yml                ├─ Solo_0.2.0-beta.1_aarch64.dmg
+  └─ .github/workflows/release.yml                ├─ ColtIDE_0.2.0-beta.1_aarch64.dmg
        on: push tags: v*                          ├─ ColtIDE.app.tar.gz
        build → sign → notarize → stage            ├─ ColtIDE.app.tar.gz.sig
        publish via RELEASE_PAT ─────────────►    └─ latest.json   ◄── anonymous HTTPS GET
@@ -28,7 +28,7 @@ master branch                                   Release v0.2.0-beta.1
 
 **Why the split:** Tauri's updater does an anonymous `GET` of `latest.json`. Private repos require auth for release-asset downloads; public repos serve anonymously. Keeping source private while making releases public requires two repos. VoiceFlow uses the same pattern.
 
-## 3. Secrets (all on `ColtIDE-UDE/solo`, repo-level)
+## 3. Secrets (all on `ColtIDE-UDE/coltide`, repo-level)
 
 | Secret | Source | Scope |
 |---|---|---|
@@ -38,9 +38,9 @@ master branch                                   Release v0.2.0-beta.1
 | `APPLE_APP_PASSWORD` | app-specific password (appleid.apple.com) | Notarization |
 | `APPLE_TEAM_ID` | Apple team ID | Notarization |
 | `APPLE_SIGN_IDENTITY` | e.g. `"Developer ID Application: Name (TEAM)"` | `codesign` `--sign` value |
-| `TAURI_SIGNING_PRIVATE_KEY` | contents of `~/.tauri/solo-ide.key` | Tauri updater artifact signing |
+| `TAURI_SIGNING_PRIVATE_KEY` | contents of `~/.tauri/coltide-ide.key` | Tauri updater artifact signing |
 | `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | empty string | Tauri updater artifact signing |
-| `RELEASE_PAT` | fine-grained PAT, `Contents: write` on `ColtIDE-UDE/solo-releases` | Cross-repo publish |
+| `RELEASE_PAT` | fine-grained PAT, `Contents: write` on `ColtIDE-UDE/coltide-releases` | Cross-repo publish |
 
 The Apple cert is wildcard per Apple team, so the same `.p12` that signs other apps also signs ColtIDE. `TAURI_SIGNING_PRIVATE_KEY` is app-specific — must be the exact ColtIDE key whose public half is baked into `tauri.conf.json`; using any other key will cause every auto-update to fail signature verification with no in-app recovery path.
 
@@ -72,7 +72,7 @@ Org-level secrets are not used. ColtIDE-UDE is on the GitHub free plan, which do
 5. `bun install`.
 6. `bun run gen:bindings`.
 7. `cd apps/desktop && bunx tsc --noEmit` — typecheck gate.
-8. Validate `SOLO_SUPABASE_URL` / `SOLO_SUPABASE_ANON_KEY` are present (existing guard).
+8. Validate `COLTIDE_SUPABASE_URL` / `COLTIDE_SUPABASE_ANON_KEY` are present (existing guard).
 9. Import Apple cert into temp keychain:
    - base64-decode `APPLE_CERTIFICATE_P12` → temp `.p12`
    - `security create-keychain` → random password
@@ -92,7 +92,7 @@ Org-level secrets are not used. ColtIDE-UDE is on the GitHub free plan, which do
 13. Create DMG:
     - Read version from `tauri.conf.json` (jq).
     - Staging folder with `/Applications` symlink for drag-to-install.
-    - `hdiutil create -format UDZO -imagekey zlib-level=9 Solo_${VERSION}_aarch64.dmg`
+    - `hdiutil create -format UDZO -imagekey zlib-level=9 ColtIDE_${VERSION}_aarch64.dmg`
     - Retry up to 3× (runner disk flakiness is a known GitHub-runner issue).
     - `codesign` the DMG itself.
 14. Create updater archive:
@@ -108,20 +108,20 @@ Org-level secrets are not used. ColtIDE-UDE is on the GitHub free plan, which do
       "platforms": {
         "darwin-aarch64": {
           "signature": "<contents of ColtIDE.app.tar.gz.sig>",
-          "url": "https://github.com/ColtIDE-UDE/solo-releases/releases/download/v0.2.0-beta.1/ColtIDE.app.tar.gz"
+          "url": "https://github.com/ColtIDE-UDE/coltide-releases/releases/download/v0.2.0-beta.1/ColtIDE.app.tar.gz"
         }
       }
     }
     ```
-16. Publish to `ColtIDE-UDE/solo-releases`:
+16. Publish to `ColtIDE-UDE/coltide-releases`:
     ```bash
     GH_TOKEN=$RELEASE_PAT gh release create "v$VERSION" \
-      --repo ColtIDE-UDE/solo-releases \
+      --repo ColtIDE-UDE/coltide-releases \
       --title "ColtIDE v$VERSION" \
       --notes "$(git tag -l --format='%(contents)' v$VERSION)" \
-      Solo_${VERSION}_aarch64.dmg ColtIDE.app.tar.gz ColtIDE.app.tar.gz.sig latest.json
+      ColtIDE_${VERSION}_aarch64.dmg ColtIDE.app.tar.gz ColtIDE.app.tar.gz.sig latest.json
     ```
-    `RELEASE_PAT` is required because the built-in `GITHUB_TOKEN` only has write access to the workflow's own repo (`ColtIDE-UDE/solo`), not the sibling `solo-releases`.
+    `RELEASE_PAT` is required because the built-in `GITHUB_TOKEN` only has write access to the workflow's own repo (`ColtIDE-UDE/coltide`), not the sibling `coltide-releases`.
 17. Cleanup keychain (`if: always()`).
 
 **Targets:** `aarch64-apple-darwin` only for v0.2.0-beta.1. Intel (`x86_64-apple-darwin`) and Universal2 can be added as a second matrix entry later if needed.
@@ -131,8 +131,8 @@ Org-level secrets are not used. ColtIDE-UDE is on the GitHub free plan, which do
 **File:** `apps/desktop/src-tauri/tauri.conf.json`
 
 - `version` → `"0.2.0-beta.1"`
-- `plugins.updater.endpoints[0]` → `"https://github.com/ColtIDE-UDE/solo-releases/releases/latest/download/latest.json"` (was pointing at `ColtIDE-UDE/solo`)
-- `plugins.updater.pubkey` → **unchanged** (the embedded pubkey already matches `~/.tauri/solo-ide.key`; changing it would strand v0.1.x installs)
+- `plugins.updater.endpoints[0]` → `"https://github.com/ColtIDE-UDE/coltide-releases/releases/latest/download/latest.json"` (was pointing at `ColtIDE-UDE/coltide`)
+- `plugins.updater.pubkey` → **unchanged** (the embedded pubkey already matches `~/.tauri/coltide-ide.key`; changing it would strand v0.1.x installs)
 - `bundle.macOS.signingIdentity` → **leave `null`** (actual identity comes from `APPLE_SIGN_IDENTITY` env var used by `codesign` step; we do our own signing, not `tauri-action`'s)
 
 ## 7. Workflows kept as-is
@@ -146,8 +146,8 @@ Neither is part of the release pipeline; they continue to guard day-to-day work.
 
 ```
 Phase 0 — Setup (user)
-  ✅ 9 secrets on ColtIDE-UDE/solo
-  ⬜ Create ColtIDE-UDE/solo-releases (public, empty)
+  ✅ 9 secrets on ColtIDE-UDE/coltide
+  ⬜ Create ColtIDE-UDE/coltide-releases (public, empty)
 
 Phase 1 — Code changes (one commit per file, no Claude attribution)
   1. Rewrite .github/workflows/release.yml
@@ -170,7 +170,7 @@ Phase 3 — Ship
 
 Phase 4 — Monitor & verify
   - gh run watch
-  - Verify 4 artifacts on solo-releases (.dmg, .tar.gz, .sig, latest.json)
+  - Verify 4 artifacts on coltide-releases (.dmg, .tar.gz, .sig, latest.json)
   - Download DMG, open — Gatekeeper should NOT warn
   - If a v0.1.2 install exists, launch it, confirm auto-update toast + restart flow
 ```
@@ -213,9 +213,9 @@ Each is easy to add once the base pipeline is green.
 | `RELEASE_PAT` lacks cross-repo scope | Medium | Verify with `gh api` before tag push; documented in rollout §8 |
 | Notarization fails on entitlements mismatch | Low | Current Entitlements.plist is permissive (network client, JIT); `spctl --assess` gate catches this before publish |
 | hdiutil flake | Medium | Built-in 3× retry |
-| Wrong minisign key uploaded | Low but catastrophic | Design doc explicitly flags; user already set secret correctly from `~/.tauri/solo-ide.key` |
+| Wrong minisign key uploaded | Low but catastrophic | Design doc explicitly flags; user already set secret correctly from `~/.tauri/coltide-ide.key` |
 | Tag-push triggers workflow before secrets are final | Low | All 9 secrets already verified present via `gh secret list` |
-| `solo-releases` repo doesn't exist at publish time | Medium (currently true) | Rollout §8 Phase 0 explicitly blocks on this; verified with `gh repo view` before pushing tag |
+| `coltide-releases` repo doesn't exist at publish time | Medium (currently true) | Rollout §8 Phase 0 explicitly blocks on this; verified with `gh repo view` before pushing tag |
 
 ## 11. File reference
 
@@ -233,4 +233,4 @@ Each is easy to add once the base pipeline is green.
 | `apps/desktop/package.json` | Version string (synced) |
 | `scripts/bump-version.mjs` | Three-way version sync |
 | `docs/RELEASES.md` | Operator-facing release procedure |
-| `~/.tauri/solo-ide.key` | Tauri minisign private key (local-only, never committed) |
+| `~/.tauri/coltide-ide.key` | Tauri minisign private key (local-only, never committed) |

@@ -6,17 +6,17 @@ AWS CDK v2 (TypeScript) for ColtIDE's cloud backend: Cognito auth, stats sync, l
 
 | Stack | Contents |
 |---|---|
-| `SoloAuth-{stage}` | Cognito User Pool + Identity Pool + IdP secrets |
-| `SoloData-{stage}` | DynamoDB: user-stats, daily-activity, share-cards |
-| `SoloStorage-{stage}` | S3 bucket for share card PNGs (7-day TTL) |
-| `SoloApi-{stage}` | HTTP API Gateway + 6 Lambdas |
+| `ColtIDEAuth-{stage}` | Cognito User Pool + Identity Pool + IdP secrets |
+| `ColtIDEData-{stage}` | DynamoDB: user-stats, daily-activity, share-cards |
+| `ColtIDEStorage-{stage}` | S3 bucket for share card PNGs (7-day TTL) |
+| `ColtIDEApi-{stage}` | HTTP API Gateway + 6 Lambdas |
 
 Stages: `dev`, `prod`. Configured in `lib/config.ts`.
 
 ## Quick start
 
 ```bash
-# From the solo/ workspace root (uses bun workspaces)
+# From the coltide/ workspace root (uses bun workspaces)
 bun install
 
 cd infra
@@ -31,7 +31,7 @@ See `SETUP.md` for the full browser walkthrough (GitHub + Google OAuth apps).
 
 ```
 infra/
-├── bin/solo.ts           # CDK app entry
+├── bin/coltide.ts           # CDK app entry
 ├── lib/
 │   ├── config.ts         # Stage configuration (dev/prod)
 │   ├── auth-stack.ts     # Cognito + IdP + IAM
@@ -76,16 +76,16 @@ bun run destroy:dev        # tear down dev stage (retains prod)
 After first deploy, populate OAuth client credentials:
 
 ```bash
-aws secretsmanager put-secret-value --profile solo \
-  --secret-id solo/dev/google-oidc-client \
+aws secretsmanager put-secret-value --profile coltide \
+  --secret-id coltide/dev/google-oidc-client \
   --secret-string '{"clientId":"...","clientSecret":"..."}'
 ```
 
 Do the same for:
 
-- `solo/dev/github-oidc-client`
-- `solo/prod/google-oidc-client`
-- `solo/prod/github-oidc-client`
+- `coltide/dev/github-oidc-client`
+- `coltide/prod/google-oidc-client`
+- `coltide/prod/github-oidc-client`
 
 Then redeploy the target stage so Cognito picks up the updated provider credentials:
 

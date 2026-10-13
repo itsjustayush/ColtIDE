@@ -4,11 +4,11 @@
 
 **Goal:** Let the user hold `Fn` from any macOS app, speak, release, and have cleaned-up text pasted into whatever they're focused on. Cursor-pill HUD shows progress. ColtIDE's chat-mic already works from Phase 1 — Phase 2 adds the global dictation surface on top.
 
-**Architecture:** Two new kinds of work sit on top of the existing `solo-voice` pipeline: (1) macOS platform glue under `apps/desktop/src-tauri/src/voice/` — CGEvent hotkey tap, NSPasteboard clipboard injection, NSWorkspace frontmost-app monitor, cursor-following HUD window controller — and (2) an additional Tauri window (`label: "voice-hud"`) rendered by a new React entry (`apps/desktop/src/hud/`) that subscribes to `voice:state` + `voice:level` events. The existing `voice_commands` surface stays the same; new Tauri commands register/configure hotkeys and HUD.
+**Architecture:** Two new kinds of work sit on top of the existing `coltide-voice` pipeline: (1) macOS platform glue under `apps/desktop/src-tauri/src/voice/` — CGEvent hotkey tap, NSPasteboard clipboard injection, NSWorkspace frontmost-app monitor, cursor-following HUD window controller — and (2) an additional Tauri window (`label: "voice-hud"`) rendered by a new React entry (`apps/desktop/src/hud/`) that subscribes to `voice:state` + `voice:level` events. The existing `voice_commands` surface stays the same; new Tauri commands register/configure hotkeys and HUD.
 
 **Tech Stack:** Rust (objc2 + core-graphics for macOS APIs), Tauri 2 (second window), React 19 + Zustand (HUD component), existing cpal/sherpa/Claude pipeline from Phase 1.
 
-**Reference:** `docs/superpowers/specs/2026-04-17-voice-in-solo-design.md` — this plan implements Phase 2 of that spec.
+**Reference:** `docs/superpowers/specs/2026-04-17-voice-in-coltide-design.md` — this plan implements Phase 2 of that spec.
 
 ---
 
@@ -50,7 +50,7 @@
 | `apps/desktop/src/stores/voiceStore.ts` | Add `shortcuts`, `permissions`, `level` fields |
 | `apps/desktop/src/components/settings/tabs/VoiceTab.tsx` | Add Shortcuts + Permissions sections |
 | `apps/desktop/vite.config.ts` | Configure second entry point for the HUD bundle |
-| `crates/solo-protocol/src/lib.rs` | Add `ShortcutsConfig` type (serialized to settings) + `VoicePermissions` snapshot |
+| `crates/colt-core/src/lib.rs` | Add `ShortcutsConfig` type (serialized to settings) + `VoicePermissions` snapshot |
 
 ---
 
@@ -60,11 +60,11 @@
 - **Commit style:** Conventional commits. One task = one commit unless noted.
 - **Rust tests:** `cargo test -p <crate>` from worktree root.
 - **Frontend tests:** `bun test <path>` from `apps/desktop/`.
-- **Regenerating TS bindings:** after any change to `crates/solo-protocol/src/lib.rs`, run `bun run gen:bindings` from the worktree root.
+- **Regenerating TS bindings:** after any change to `crates/colt-core/src/lib.rs`, run `bun run gen:bindings` from the worktree root.
 - **Never skip pre-commit hooks.** If a hook fails, fix and commit fresh.
-- **Per-task quality gate:** `cargo check --workspace --exclude solo-desktop`, `cargo check -p solo-desktop`, and `bun run --filter '@solo/desktop' typecheck` must pass before commit.
+- **Per-task quality gate:** `cargo check --workspace --exclude coltide-desktop`, `cargo check -p coltide-desktop`, and `bun run --filter '@coltide/desktop' typecheck` must pass before commit.
 - **No Claude / Anthropic / model attribution in commit messages.** Project policy.
-- **Worktree guardrail:** all work in `/Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/voice-phase-1/`. Verify `pwd` + `git branch --show-current` before every commit. Never cd to `/Users/sachin/Developer/Orbit_Main/solo/` (main repo, different branch).
+- **Worktree guardrail:** all work in `/Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/voice-phase-1/`. Verify `pwd` + `git branch --show-current` before every commit. Never cd to `/Users/sachin/Developer/Orbit_Main/coltide/` (main repo, different branch).
 
 ---
 
@@ -76,7 +76,7 @@
 
 - [ ] **Step 1: Add workspace deps**
 
-In `Cargo.toml`, inside `[workspace.dependencies]`, after the existing `# Audio + ML for solo-voice` block add:
+In `Cargo.toml`, inside `[workspace.dependencies]`, after the existing `# Audio + ML for coltide-voice` block add:
 
 ```toml
 # macOS platform glue for voice Phase 2
@@ -105,7 +105,7 @@ tauri-plugin-macos-permissions.workspace = true
 
 - [ ] **Step 3: Verify workspace still compiles**
 
-Run: `cargo check --workspace --exclude solo-desktop && cargo check -p solo-desktop`.
+Run: `cargo check --workspace --exclude coltide-desktop && cargo check -p coltide-desktop`.
 Expected: clean.
 
 - [ ] **Step 4: Commit**
@@ -157,7 +157,7 @@ In `apps/desktop/src-tauri/src/lib.rs`, add `mod voice;` near the other `mod` de
 
 - [ ] **Step 4: Verify**
 
-`cargo check -p solo-desktop` must pass.
+`cargo check -p coltide-desktop` must pass.
 
 - [ ] **Step 5: Commit**
 
@@ -200,7 +200,7 @@ mod tests {
 Replace the stub with:
 
 ```rust
-use solo_voice::formatter::AppContext;
+use coltide_voice::formatter::AppContext;
 
 /// Returns the current frontmost app's bundle_id + app_name.
 /// `window_title` is always `None` in Phase 2 — obtaining it requires
@@ -242,8 +242,8 @@ Note: exact method names on `NSRunningApplication` via objc2 may need adjustment
 - [ ] **Step 3: Verify**
 
 ```
-cargo test -p solo-desktop --lib voice::app_monitor::tests::frontmost_app_is_non_empty_in_test_harness
-cargo check -p solo-desktop
+cargo test -p coltide-desktop --lib voice::app_monitor::tests::frontmost_app_is_non_empty_in_test_harness
+cargo check -p coltide-desktop
 ```
 
 - [ ] **Step 4: Commit**
@@ -292,7 +292,7 @@ And in the `voice:transcript` payload, swap the two null literals for the captur
 
 - [ ] **Step 2: Verify**
 
-`cargo check -p solo-desktop` must pass. Existing tests unaffected.
+`cargo check -p coltide-desktop` must pass. Existing tests unaffected.
 
 - [ ] **Step 3: Commit**
 
@@ -392,7 +392,7 @@ Note: objc2-app-kit's `NSPasteboard` API methods may use slightly different name
 
 - [ ] **Step 2: Verify**
 
-`cargo check -p solo-desktop` must pass. No unit tests — this is unobservable without a live desktop + focus target.
+`cargo check -p coltide-desktop` must pass. No unit tests — this is unobservable without a live desktop + focus target.
 
 - [ ] **Step 3: Commit**
 
@@ -437,7 +437,7 @@ Note: `ChatInput` target (Phase 1) continues to emit `voice:transcript` only —
 
 - [ ] **Step 2: Verify**
 
-`cargo check -p solo-desktop` clean.
+`cargo check -p coltide-desktop` clean.
 
 - [ ] **Step 3: Commit**
 
@@ -451,12 +451,12 @@ git commit -m "feat(voice): dictate paste path via inject_text"
 ## Task 7: `ShortcutsConfig` protocol type + settings persistence
 
 **Files:**
-- Modify: `crates/solo-protocol/src/lib.rs`
+- Modify: `crates/colt-core/src/lib.rs`
 - Modify: `apps/desktop/src/stores/settingsStore.ts`
 
 - [ ] **Step 1: Add `ShortcutsConfig` + `VoicePermissions`**
 
-Append to `crates/solo-protocol/src/lib.rs`:
+Append to `crates/colt-core/src/lib.rs`:
 
 ```rust
 #[derive(TS, Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -509,14 +509,14 @@ setVoiceShortcuts: (s: ShortcutsConfig) => void;
 - [ ] **Step 4: Verify**
 
 ```
-cargo check --workspace --exclude solo-desktop
-bun run --filter '@solo/desktop' typecheck
+cargo check --workspace --exclude coltide-desktop
+bun run --filter '@coltide/desktop' typecheck
 ```
 
 - [ ] **Step 5: Commit**
 
 ```
-git add crates/solo-protocol/src/lib.rs apps/desktop/src/stores/settingsStore.ts apps/desktop/src/bindings
+git add crates/colt-core/src/lib.rs apps/desktop/src/stores/settingsStore.ts apps/desktop/src/bindings
 git commit -m "feat(voice): ShortcutsConfig + VoicePermissions protocol types"
 ```
 
@@ -545,7 +545,7 @@ use core_graphics::event::{
     CGEvent, CGEventFlags, CGEventTap, CGEventTapLocation, CGEventTapOptions,
     CGEventTapPlacement, CGEventType, CGKeyCode,
 };
-use solo_protocol::ShortcutsConfig;
+use coltide_protocol::ShortcutsConfig;
 use std::sync::{Arc, RwLock};
 use std::thread;
 
@@ -767,8 +767,8 @@ mod tests {
 - [ ] **Step 2: Verify**
 
 ```
-cargo test -p solo-desktop --lib voice::hotkey::tests
-cargo check -p solo-desktop
+cargo test -p coltide-desktop --lib voice::hotkey::tests
+cargo check -p coltide-desktop
 ```
 
 Expected: 2 tests pass.
@@ -858,7 +858,7 @@ pub async fn voice_set_shortcuts(
 }
 ```
 
-Import `solo_protocol::ShortcutsConfig` at the top.
+Import `coltide_protocol::ShortcutsConfig` at the top.
 
 - [ ] **Step 4: Register in `generate_handler!`**
 
@@ -866,7 +866,7 @@ Add `voice_commands::voice_get_shortcuts`, `voice_commands::voice_set_shortcuts`
 
 - [ ] **Step 5: Verify**
 
-`cargo check -p solo-desktop` clean.
+`cargo check -p coltide-desktop` clean.
 
 - [ ] **Step 6: Commit**
 
@@ -885,7 +885,7 @@ git commit -m "feat(voice): spawn hotkey manager on voice_enable + shortcut IPC"
 - [ ] **Step 1: Add permission helpers**
 
 ```rust
-use solo_protocol::VoicePermissions;
+use coltide_protocol::VoicePermissions;
 
 #[tauri::command]
 pub async fn voice_check_permissions() -> Result<VoicePermissions, String> {
@@ -924,7 +924,7 @@ Add `voice_commands::voice_check_permissions`, `voice_commands::voice_request_pe
 
 - [ ] **Step 3: Verify**
 
-`cargo check -p solo-desktop` clean.
+`cargo check -p coltide-desktop` clean.
 
 - [ ] **Step 4: Commit**
 
@@ -938,7 +938,7 @@ git commit -m "feat(voice): permission check + request commands"
 ## Task 11: Emit `voice:level` at 50 Hz during Recording
 
 **Files:**
-- Modify: `crates/solo-voice/src/pipeline.rs`
+- Modify: `crates/coltide-voice/src/pipeline.rs`
 
 - [ ] **Step 1: Add a level-emitter thread**
 
@@ -987,7 +987,7 @@ tokio::spawn(async move {
         }
         // Peek last ~480 samples without draining
         let snapshot = ring_sampler.peek_last(480);
-        let rms = solo_voice::vad::rms(&snapshot);
+        let rms = coltide_voice::vad::rms(&snapshot);
         emitter(rms);
     }
 });
@@ -995,7 +995,7 @@ tokio::spawn(async move {
 
 - [ ] **Step 3: Add `AudioRing::peek_last`**
 
-In `crates/solo-voice/src/audio.rs`, add:
+In `crates/coltide-voice/src/audio.rs`, add:
 
 ```rust
 impl AudioRing {
@@ -1025,8 +1025,8 @@ let on_level = Arc::new(move |rms: f32| {
 - [ ] **Step 5: Verify**
 
 ```
-cargo test -p solo-voice
-cargo check -p solo-desktop
+cargo test -p coltide-voice
+cargo check -p coltide-desktop
 ```
 
 All tests pass (pipeline + integration tests updated for the new `on_level` argument).
@@ -1034,7 +1034,7 @@ All tests pass (pipeline + integration tests updated for the new `on_level` argu
 - [ ] **Step 6: Commit**
 
 ```
-git add crates/solo-voice apps/desktop/src-tauri/src/voice_commands.rs
+git add crates/coltide-voice apps/desktop/src-tauri/src/voice_commands.rs
 git commit -m "feat(voice): 50 Hz voice:level emission during Recording"
 ```
 
@@ -1131,8 +1131,8 @@ export function HudPill() {
 - [ ] **Step 6: Verify**
 
 ```
-bun run --filter '@solo/desktop' typecheck
-cargo check -p solo-desktop
+bun run --filter '@coltide/desktop' typecheck
+cargo check -p coltide-desktop
 ```
 
 - [ ] **Step 7: Commit**
@@ -1255,7 +1255,7 @@ export function HudPill() {
 
 - [ ] **Step 3: Verify**
 
-`bun run --filter '@solo/desktop' typecheck` passes.
+`bun run --filter '@coltide/desktop' typecheck` passes.
 
 - [ ] **Step 4: Commit**
 
@@ -1402,7 +1402,7 @@ Add to the `.manage()` chain in `lib.rs`:
 
 - [ ] **Step 4: Verify**
 
-`cargo check -p solo-desktop` clean.
+`cargo check -p coltide-desktop` clean.
 
 - [ ] **Step 5: Commit**
 
@@ -1467,7 +1467,7 @@ Defaults: `shortcuts = { dictation_ptt: 'fn', dispatch_ptt: 'ctrl+alt+space', ca
 
 - [ ] **Step 3: Verify**
 
-`bun run --filter '@solo/desktop' typecheck` passes.
+`bun run --filter '@coltide/desktop' typecheck` passes.
 
 - [ ] **Step 4: Commit**
 
@@ -1519,7 +1519,7 @@ Import `onVoiceHotkey` from `@/lib/tauri/voice`. Keep the existing chat-mic `sta
 
 - [ ] **Step 2: Verify**
 
-`bun run --filter '@solo/desktop' typecheck` passes.
+`bun run --filter '@coltide/desktop' typecheck` passes.
 
 - [ ] **Step 3: Commit**
 
@@ -1649,7 +1649,7 @@ Add another section:
 
 - [ ] **Step 4: Verify**
 
-`bun run --filter '@solo/desktop' typecheck` passes.
+`bun run --filter '@coltide/desktop' typecheck` passes.
 
 - [ ] **Step 5: Commit**
 
@@ -1663,12 +1663,12 @@ git commit -m "feat(voice): Voice settings shortcuts + permissions sections"
 ## Task 18: Integration test — hotkey dispatch drives the pipeline
 
 **Files:**
-- Create: `crates/solo-voice/tests/pipeline_level_emission.rs`
+- Create: `crates/coltide-voice/tests/pipeline_level_emission.rs`
 
 - [ ] **Step 1: Test that `voice:level`-style emission happens**
 
 ```rust
-use solo_voice::{
+use coltide_voice::{
     audio::AudioRing,
     formatter::{ChatClient, CloudFormatter, DictationOptions, AppContext, FormatterProvider},
     mode::{PipelineTarget, VoiceMode},
@@ -1682,7 +1682,7 @@ struct CannedChat(&'static str);
 #[async_trait]
 impl ChatClient for CannedChat {
     async fn simple_completion(&self, _m: &str, _s: &str, _u: &str)
-        -> solo_voice::error::Result<String>
+        -> coltide_voice::error::Result<String>
     { Ok(self.0.to_string()) }
 }
 
@@ -1719,14 +1719,14 @@ async fn rms_level_emits_during_recording() {
 - [ ] **Step 2: Run**
 
 ```
-cargo test -p solo-voice --test pipeline_level_emission
+cargo test -p coltide-voice --test pipeline_level_emission
 ```
 
 - [ ] **Step 3: Commit**
 
 ```
-git add crates/solo-voice/tests/pipeline_level_emission.rs
-git commit -m "test(solo-voice): voice:level emission regression test"
+git add crates/coltide-voice/tests/pipeline_level_emission.rs
+git commit -m "test(coltide-voice): voice:level emission regression test"
 ```
 
 ---
@@ -1756,7 +1756,7 @@ In `testing.md`, append:
 
 - [ ] **Step 2: Update CLAUDE.md**
 
-In `CLAUDE.md`, add a line under the `solo-voice` entry:
+In `CLAUDE.md`, add a line under the `coltide-voice` entry:
 
 ```markdown
   - Phase 2 adds `apps/desktop/src-tauri/src/voice/{hotkey,injection,app_monitor,hud}.rs`
@@ -1777,10 +1777,10 @@ git commit -m "docs: voice Phase 2 QA checklist + module notes"
 - [ ] **Step 1: Full sweep**
 
 ```
-cargo check --workspace --exclude solo-desktop
-cargo check -p solo-desktop
-cargo test -p solo-voice
-bun run --filter '@solo/desktop' typecheck
+cargo check --workspace --exclude coltide-desktop
+cargo check -p coltide-desktop
+cargo test -p coltide-voice
+bun run --filter '@coltide/desktop' typecheck
 cd apps/desktop && bun test src/stores/__tests__/voiceStore.test.ts
 ```
 

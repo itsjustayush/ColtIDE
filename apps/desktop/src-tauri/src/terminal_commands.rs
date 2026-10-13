@@ -6,7 +6,7 @@
 
 use portable_pty::{native_pty_system, Child, CommandBuilder, MasterPty, PtySize};
 use serde::Serialize;
-use solo_protocol::BackendEvent;
+use coltide_protocol::BackendEvent;
 use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -17,12 +17,12 @@ use tracing::{debug, error, info, warn};
 
 const BATCH_FLUSH_INTERVAL: Duration = Duration::from_millis(16);
 
-const SHELL_CONFIG_VERSION: &str = "# solo-shell-v2";
+const SHELL_CONFIG_VERSION: &str = "# coltide-shell-v2";
 
-const ZSH_RC: &str = r#"# solo-shell-v2
+const ZSH_RC: &str = r#"# coltide-shell-v2
 # Restore original ZDOTDIR for subshells
-if [[ -n "$_SOLO_ORIG_ZDOTDIR" ]]; then
-  export ZDOTDIR="$_SOLO_ORIG_ZDOTDIR"
+if [[ -n "$_COLTIDE_ORIG_ZDOTDIR" ]]; then
+  export ZDOTDIR="$_COLTIDE_ORIG_ZDOTDIR"
 else
   unset ZDOTDIR
 fi
@@ -31,9 +31,9 @@ fi
 [[ -f "${HOME}/.zshrc" ]] && source "${HOME}/.zshrc"
 
 # ColtIDE prompt — only inside ColtIDE terminal
-[[ -z "$SOLO_TERMINAL" ]] && return
+[[ -z "$COLTIDE_TERMINAL" ]] && return
 
-__solo_git_info() {
+__coltide_git_info() {
   local branch
   branch=$(git symbolic-ref --short HEAD 2>/dev/null) || return
   local dirty=""
@@ -44,14 +44,14 @@ __solo_git_info() {
   echo " %F{cyan}git:(%F{red}${branch}%F{cyan})%f${dirty}"
 }
 
-precmd() { PROMPT="%F{cyan}→%f  %F{red}%n%f %F{green}%~%f$(__solo_git_info) " }
+precmd() { PROMPT="%F{cyan}→%f  %F{red}%n%f %F{green}%~%f$(__coltide_git_info) " }
 "#;
 
-const BASH_RC: &str = r#"# solo-shell-v2
+const BASH_RC: &str = r#"# coltide-shell-v2
 [[ -f "${HOME}/.bashrc" ]] && source "${HOME}/.bashrc"
-[[ -z "$SOLO_TERMINAL" ]] && return
+[[ -z "$COLTIDE_TERMINAL" ]] && return
 
-__solo_git_info() {
+__coltide_git_info() {
   local branch
   branch=$(git symbolic-ref --short HEAD 2>/dev/null) || return
   local dirty=""
@@ -62,12 +62,12 @@ __solo_git_info() {
   echo " \[\e[36m\]git:(\[\e[31m\]${branch}\[\e[36m\])\[\e[0m\]${dirty}"
 }
 
-PROMPT_COMMAND='PS1="\[\e[36m\]→\[\e[0m\]  \[\e[31m\]\u\[\e[0m\] \[\e[32m\]\w\[\e[0m\]$(__solo_git_info) "'
+PROMPT_COMMAND='PS1="\[\e[36m\]→\[\e[0m\]  \[\e[31m\]\u\[\e[0m\] \[\e[32m\]\w\[\e[0m\]$(__coltide_git_info) "'
 "#;
 
-fn solo_shell_dir() -> PathBuf {
+fn coltide_shell_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    PathBuf::from(home).join(".solo").join("shell")
+    PathBuf::from(home).join(".coltide").join("shell")
 }
 
 /// Write a file only if it's missing or the version header doesn't match.
@@ -84,7 +84,7 @@ fn write_if_outdated(path: &Path, content: &str) -> Result<(), String> {
 
 /// Create ColtIDE shell RC files in ~/.coltide/shell/ (best-effort).
 fn ensure_shell_configs() -> Result<(), String> {
-    let base = solo_shell_dir();
+    let base = coltide_shell_dir();
     let zsh_dir = base.join("zsh");
     let bash_dir = base.join("bash");
 
@@ -198,7 +198,7 @@ pub fn spawn_pty(
 
     let mut cmd = if is_bash {
         // Bash: use --rcfile to source our custom config
-        let rc_path = solo_shell_dir().join("bash").join(".bashrc");
+        let rc_path = coltide_shell_dir().join("bash").join(".bashrc");
         let mut c = CommandBuilder::new(&shell_path);
         c.arg("--rcfile");
         c.arg(rc_path.to_string_lossy().as_ref());
@@ -210,14 +210,14 @@ pub fn spawn_pty(
     cmd.cwd(&working_dir);
     cmd.env("TERM", "xterm-256color");
     cmd.env("COLORTERM", "truecolor");
-    cmd.env("SOLO_TERMINAL", "1");
+    cmd.env("COLTIDE_TERMINAL", "1");
 
     if is_zsh {
         // Save original ZDOTDIR so our .zshrc can restore it for subshells
         if let Ok(orig) = std::env::var("ZDOTDIR") {
-            cmd.env("_SOLO_ORIG_ZDOTDIR", &orig);
+            cmd.env("_COLTIDE_ORIG_ZDOTDIR", &orig);
         }
-        let zsh_dir = solo_shell_dir().join("zsh");
+        let zsh_dir = coltide_shell_dir().join("zsh");
         cmd.env("ZDOTDIR", zsh_dir.to_string_lossy().as_ref());
     }
 

@@ -3,31 +3,31 @@ import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as rds from "aws-cdk-lib/aws-rds";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
-import type { SoloStageConfig } from "./config.js";
+import type { ColtIDEStageConfig } from "./config.js";
 
-export interface SoloRdsStackProps extends cdk.StackProps {
-  readonly config: SoloStageConfig;
+export interface ColtIDERdsStackProps extends cdk.StackProps {
+  readonly config: ColtIDEStageConfig;
 }
 
 /**
- * RDS PostgreSQL instance for solo-web relational data (waitlist + future
+ * RDS PostgreSQL instance for coltide-web relational data (waitlist + future
  * user/admin tables). Sized for pre-launch traffic: `db.t4g.micro` Single-AZ,
  * 20 GB storage, publicly accessible via locked-down security group + SSL.
  *
  * No NAT gateway, no RDS Proxy, no Multi-AZ. Those are ~$30-50/month each and
  * unnecessary until we have real traffic.
  */
-export class SoloRdsStack extends cdk.Stack {
+export class ColtIDERdsStack extends cdk.Stack {
   public readonly cluster: rds.DatabaseInstance;
   public readonly adminSecret: secretsmanager.ISecret;
   public readonly vpc: ec2.Vpc;
 
-  constructor(scope: Construct, id: string, props: SoloRdsStackProps) {
+  constructor(scope: Construct, id: string, props: ColtIDERdsStackProps) {
     super(scope, id, props);
     const { config } = props;
 
     this.vpc = new ec2.Vpc(this, "Vpc", {
-      vpcName: `solo-${config.stage}-vpc`,
+      vpcName: `coltide-${config.stage}-vpc`,
       maxAzs: 2,
       natGateways: 0,
       subnetConfiguration: [
@@ -41,7 +41,7 @@ export class SoloRdsStack extends cdk.Stack {
 
     const securityGroup = new ec2.SecurityGroup(this, "DbSecurityGroup", {
       vpc: this.vpc,
-      securityGroupName: `solo-${config.stage}-db-sg`,
+      securityGroupName: `coltide-${config.stage}-db-sg`,
       description: "RDS Postgres - restricted ingress on port 5432",
       allowAllOutbound: false,
     });
@@ -62,7 +62,7 @@ export class SoloRdsStack extends cdk.Stack {
     });
 
     this.cluster = new rds.DatabaseInstance(this, "DbInstance", {
-      instanceIdentifier: `solo-db-${config.stage}`,
+      instanceIdentifier: `coltide-db-${config.stage}`,
       engine: rds.DatabaseInstanceEngine.postgres({
         version: rds.PostgresEngineVersion.VER_16_4,
       }),
@@ -80,9 +80,9 @@ export class SoloRdsStack extends cdk.Stack {
       deletionProtection: config.stage === "prod",
       removalPolicy: config.removalPolicy,
       parameterGroup,
-      databaseName: "solo",
-      credentials: rds.Credentials.fromGeneratedSecret("solo_admin", {
-        secretName: `solo/${config.stage}/rds-admin`,
+      databaseName: "coltide",
+      credentials: rds.Credentials.fromGeneratedSecret("coltide_admin", {
+        secretName: `coltide/${config.stage}/rds-admin`,
       }),
       enablePerformanceInsights: false,
       monitoringInterval: cdk.Duration.seconds(0),
@@ -96,21 +96,21 @@ export class SoloRdsStack extends cdk.Stack {
     new cdk.CfnOutput(this, "DbEndpoint", {
       value: this.cluster.instanceEndpoint.hostname,
       description: "RDS Postgres endpoint hostname",
-      exportName: `solo-${config.stage}-db-endpoint`,
+      exportName: `coltide-${config.stage}-db-endpoint`,
     });
     new cdk.CfnOutput(this, "DbPort", {
       value: this.cluster.instanceEndpoint.port.toString(),
-      exportName: `solo-${config.stage}-db-port`,
+      exportName: `coltide-${config.stage}-db-port`,
     });
     new cdk.CfnOutput(this, "DbName", {
-      value: "solo",
-      exportName: `solo-${config.stage}-db-name`,
+      value: "coltide",
+      exportName: `coltide-${config.stage}-db-name`,
     });
     new cdk.CfnOutput(this, "DbAdminSecretArn", {
       value: this.adminSecret.secretArn,
       description:
         "Secrets Manager ARN holding { username, password }. Read via `aws secretsmanager get-secret-value --secret-id <ARN>`",
-      exportName: `solo-${config.stage}-db-admin-secret-arn`,
+      exportName: `coltide-${config.stage}-db-admin-secret-arn`,
     });
   }
 }

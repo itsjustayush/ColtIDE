@@ -11,7 +11,7 @@ The desktop app reads these values:
 
 | Variable | Purpose |
 |---|---|
-| `COLTIDE_COGNITO_DOMAIN` | Cognito Hosted UI domain, for example `solo-ide-dev.auth.us-east-1.amazoncognito.com` |
+| `COLTIDE_COGNITO_DOMAIN` | Cognito Hosted UI domain, for example `coltide-ide-dev.auth.us-east-1.amazoncognito.com` |
 | `COLTIDE_COGNITO_CLIENT_ID` | Cognito desktop app client ID |
 | `COLTIDE_AWS_REGION` | AWS region for Cognito and related APIs |
 | `COLTIDE_API_ENDPOINT` | ColtIDE API Gateway base URL used after sign-in |
@@ -30,7 +30,7 @@ The desktop app reads these values:
 ### Recommended path
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 
 bun run auth:doctor
 bun run dev:auth
@@ -93,7 +93,7 @@ the `coltide://` deep link must be handled by an installed app bundle in
 Use:
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 
 bun run auth:doctor
 bun run dev:auth:mac
@@ -120,7 +120,7 @@ If you want a local desktop bundle instead of `tauri dev`, export the desktop
 env contract first, then build:
 
 ```bash
-export COLTIDE_COGNITO_DOMAIN="solo-ide-dev.auth.us-east-1.amazoncognito.com"
+export COLTIDE_COGNITO_DOMAIN="coltide-ide-dev.auth.us-east-1.amazoncognito.com"
 export COLTIDE_COGNITO_CLIENT_ID="3lvjbkkev35ejmm927rkfn13d3"
 export COLTIDE_AWS_REGION="us-east-1"
 export COLTIDE_API_ENDPOINT="https://vd8wm2yqle.execute-api.us-east-1.amazonaws.com"
@@ -143,10 +143,10 @@ contract at build time:
 
 These expect:
 
-- `SOLO_DEV_COGNITO_DOMAIN`
-- `SOLO_DEV_COGNITO_CLIENT_ID`
-- `SOLO_DEV_AWS_REGION`
-- `SOLO_DEV_API_ENDPOINT`
+- `COLTIDE_DEV_COGNITO_DOMAIN`
+- `COLTIDE_DEV_COGNITO_CLIENT_ID`
+- `COLTIDE_DEV_AWS_REGION`
+- `COLTIDE_DEV_API_ENDPOINT`
 
 ### Release workflow
 
@@ -154,10 +154,10 @@ These expect:
 
 This expects:
 
-- `SOLO_PROD_COGNITO_DOMAIN`
-- `SOLO_PROD_COGNITO_CLIENT_ID`
-- `SOLO_PROD_AWS_REGION`
-- `SOLO_PROD_API_ENDPOINT`
+- `COLTIDE_PROD_COGNITO_DOMAIN`
+- `COLTIDE_PROD_COGNITO_CLIENT_ID`
+- `COLTIDE_PROD_AWS_REGION`
+- `COLTIDE_PROD_API_ENDPOINT`
 
 ## Troubleshooting
 

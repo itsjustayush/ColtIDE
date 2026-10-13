@@ -5,8 +5,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use solo_protocol::{BackendEvent, Task, TaskDraft, TaskListFilters, TaskPatch, TaskStatus};
-use solo_tasks::TaskStore;
+use coltide_protocol::{BackendEvent, Task, TaskDraft, TaskListFilters, TaskPatch, TaskStatus};
+use coltide_tasks::TaskStore;
 use tauri::{AppHandle, Emitter as _, State};
 use tokio::sync::RwLock;
 use tracing::{debug, info};
@@ -51,7 +51,7 @@ pub(crate) async fn get_store(state: &State<'_, TaskState>) -> Result<Arc<TaskSt
     }
 
     let home = dirs::home_dir().ok_or_else(|| "home dir not found".to_string())?;
-    let path: PathBuf = home.join(".solo").join("tasks").join("tasks.db");
+    let path: PathBuf = home.join(".coltide").join("tasks").join("tasks.db");
     info!(path = %path.display(), "Opening task store");
     let store = Arc::new(TaskStore::open(&path).map_err(|e| e.to_string())?);
     *guard = Some(store.clone());
@@ -273,7 +273,7 @@ pub async fn task_review_discard(
         .worktree_id
         .ok_or_else(|| "run has no worktree".to_string())?;
 
-    let request = solo_protocol::RemoveWorktreeRequest {
+    let request = coltide_protocol::RemoveWorktreeRequest {
         id: wid,
         force: true,
     };
@@ -314,7 +314,7 @@ pub async fn task_review_merge(
         .worktree_id
         .ok_or_else(|| "run has no worktree".to_string())?;
 
-    let stable_branch = format!("solo-review/{}", &wid);
+    let stable_branch = format!("coltide-review/{}", &wid);
     crate::worktree_commands::worktree_promote(
         wid.clone(),
         stable_branch.clone(),
@@ -324,7 +324,7 @@ pub async fn task_review_merge(
     .await?;
 
     // Remove the worktree directory; the branch persists for manual git merge.
-    let request = solo_protocol::RemoveWorktreeRequest {
+    let request = coltide_protocol::RemoveWorktreeRequest {
         id: wid,
         force: false,
     };
@@ -377,12 +377,12 @@ pub async fn get_store_for_setup(app: &AppHandle) -> Result<Arc<TaskStore>, Stri
 // =============================================================================
 
 #[tauri::command]
-pub async fn task_schedule_preview(schedule: solo_protocol::Schedule) -> Result<Vec<i64>, String> {
+pub async fn task_schedule_preview(schedule: coltide_protocol::Schedule) -> Result<Vec<i64>, String> {
     let now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| i64::try_from(d.as_millis()).unwrap_or(0))
         .unwrap_or(0);
-    solo_tasks::next_fires(&schedule, now_ms, 5).map_err(|e| e.to_string())
+    coltide_tasks::next_fires(&schedule, now_ms, 5).map_err(|e| e.to_string())
 }
 
 // =============================================================================
@@ -402,7 +402,7 @@ pub async fn plan_from_goal(
     let draft_ids = planner_run(&app, store, session_manager.inner().clone(), goal, bundle).await?;
     let _ = app.emit(
         "backend-event",
-        solo_protocol::BackendEvent::TasksChanged {
+        coltide_protocol::BackendEvent::TasksChanged {
             task_ids: draft_ids.clone(),
         },
     );
@@ -419,15 +419,15 @@ pub async fn plan_accept_draft(
     store
         .update(
             &id,
-            solo_protocol::TaskPatch {
-                status: Some(solo_protocol::TaskStatus::Queued),
+            coltide_protocol::TaskPatch {
+                status: Some(coltide_protocol::TaskStatus::Queued),
                 ..Default::default()
             },
         )
         .map_err(|e| e.to_string())?;
     let _ = app.emit(
         "backend-event",
-        solo_protocol::BackendEvent::TasksChanged { task_ids: vec![id] },
+        coltide_protocol::BackendEvent::TasksChanged { task_ids: vec![id] },
     );
     Ok(())
 }
@@ -442,7 +442,7 @@ pub async fn plan_dismiss_draft(
     store.delete(&id).map_err(|e| e.to_string())?;
     let _ = app.emit(
         "backend-event",
-        solo_protocol::BackendEvent::TasksChanged { task_ids: vec![id] },
+        coltide_protocol::BackendEvent::TasksChanged { task_ids: vec![id] },
     );
     Ok(())
 }
@@ -468,7 +468,7 @@ pub async fn plan_proactive(
     .await?;
     let _ = app.emit(
         "backend-event",
-        solo_protocol::BackendEvent::TasksChanged {
+        coltide_protocol::BackendEvent::TasksChanged {
             task_ids: draft_ids.clone(),
         },
     );

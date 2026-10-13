@@ -6,20 +6,20 @@ Captures the visual DNA of Codex.app (or any Electron app) as structured JSON fo
 
 ```bash
 # Automated — launches Codex with remote debugging and runs every extractor
-cd solo && bun scripts/codex-extract/launch.ts
+cd coltide && bun scripts/codex-extract/launch.ts
 
 # Dry run — prints what would happen without spawning Codex
-cd solo && bun scripts/codex-extract/launch.ts --dry-run
+cd coltide && bun scripts/codex-extract/launch.ts --dry-run
 
 # Attach to an already-running instance
-cd solo && bun scripts/codex-extract/extract.ts --attach ws://127.0.0.1:9222/devtools/page/...
+cd coltide && bun scripts/codex-extract/extract.ts --attach ws://127.0.0.1:9222/devtools/page/...
 
 # Manual dev-console fallback
 #   1. Open Codex DevTools (Cmd+Opt+I)
-#   2. Paste solo/.coltide/skills/design/dev-console-snippet.js into Console
+#   2. Paste coltide/.coltide/skills/design/dev-console-snippet.js into Console
 #   3. Drop the downloaded codex-dump-*.json into packages/ui/design-dump/codex/manual/
 #   4. Run:
-cd solo && bun scripts/codex-extract/post-process.ts
+cd coltide && bun scripts/codex-extract/post-process.ts
 ```
 
 ## Output
@@ -27,7 +27,7 @@ cd solo && bun scripts/codex-extract/post-process.ts
 All extraction runs produce the same layout:
 
 ```
-solo/packages/ui/design-dump/codex/
+coltide/packages/ui/design-dump/codex/
 ├── stylesheets/NN-<hash>.css    # raw CSS texts, one per source stylesheet
 ├── computed-styles.json         # { archetype: { selector, states: {default, hover, focus, ...} } }
 ├── tokens.json                  # CSS custom properties with resolved values

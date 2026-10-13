@@ -74,6 +74,6 @@ export function useAppearanceTheme(surface: ThemeSurface): void {
     root.style.colorScheme = surface;
     root.dataset.translucentSidebar = String(theme.translucentSidebar);
     root.dataset.fontSmoothing = theme.fontSmoothing ? 'antialiased' : 'auto';
-    root.dataset.soloThemeSurface = surface;
+    root.dataset.coltideThemeSurface = surface;
   }, [surface, theme]);
 }

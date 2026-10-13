@@ -5,7 +5,7 @@
 //! locally tweaked it. Absence of the file means "user-authored" — we never
 //! touch hand-crafted skills.
 
-use solo_protocol::{InstalledSkillMeta, OriginSource};
+use coltide_protocol::{InstalledSkillMeta, OriginSource};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 

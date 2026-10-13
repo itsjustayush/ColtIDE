@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "solo-web",
+      "name": "coltide-web",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["run", "--cwd", "/Users/sachin/Developer/Orbit_Main/solo-web", "dev"],
+      "runtimeArgs": ["run", "--cwd", "/Users/sachin/Developer/Orbit_Main/coltide-web", "dev"],
       "port": 3001
     }
   ]

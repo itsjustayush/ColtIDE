@@ -248,7 +248,7 @@ export function parseAuthCallbackPayload(rawUrl: string): AuthCallbackPayload {
   const url = new URL(rawUrl);
   const pathname = url.pathname.replace(/\/+$/, "") || "/";
 
-  if (url.protocol !== "soloide:") {
+  if (url.protocol !== "coltideide:") {
     return {
       kind: "invalid",
       url: rawUrl,

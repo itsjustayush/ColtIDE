@@ -5,8 +5,8 @@
 
 use std::path::PathBuf;
 
-use solo_core::{permissions, settings};
-use solo_protocol::{
+use coltide_core::{permissions, settings};
+use coltide_protocol::{
     BackendEvent, PermissionCheckRequest, PermissionDecision, PermissionMode, PermissionsConfig,
     SettingsScope, ColtIDESettings,
 };
@@ -225,7 +225,7 @@ pub async fn settings_get_planner_notes() -> Result<String, String> {
     let home = dirs::home_dir().ok_or_else(|| "home directory not found".to_string())?;
     tokio::task::spawn_blocking(move || {
         let user =
-            settings::load_scope(solo_protocol::SettingsScope::User, &home).map_err(to_err)?;
+            settings::load_scope(coltide_protocol::SettingsScope::User, &home).map_err(to_err)?;
         Ok::<String, String>(user.planner_notes)
     })
     .await
@@ -242,7 +242,7 @@ pub async fn settings_set_planner_notes(
     let notes_clone = notes.clone();
     let home_clone = home.clone();
     tokio::task::spawn_blocking(move || {
-        settings::update_scope(solo_protocol::SettingsScope::User, &home_clone, |s| {
+        settings::update_scope(coltide_protocol::SettingsScope::User, &home_clone, |s| {
             s.planner_notes = notes_clone;
         })
         .map_err(to_err)
@@ -259,7 +259,7 @@ pub async fn settings_set_planner_notes(
         if let Ok(merged) = merged {
             let _ = app.emit(
                 "backend-event",
-                solo_protocol::BackendEvent::SettingsChanged { settings: merged },
+                coltide_protocol::BackendEvent::SettingsChanged { settings: merged },
             );
         }
     }

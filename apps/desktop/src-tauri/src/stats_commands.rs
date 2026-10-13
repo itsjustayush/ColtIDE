@@ -1,4 +1,4 @@
-//! Tauri bridge for `solo-stats` — the tier / gamification system.
+//! Tauri bridge for `coltide-stats` — the tier / gamification system.
 //!
 //! The `StatsState` owns a lazily-constructed `StatsCollector` so the tauri
 //! setup hook can register this `.manage(...)` without blocking on disk I/O.
@@ -9,10 +9,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use solo_protocol::{
+use coltide_protocol::{
     CumulativeStats, DailyActivityEntry, LeaderboardEntry, StatsSnapshot, TierInfo,
 };
-use solo_stats::{DailyActivity, StatsCollector, StatsEvent, TokenProvider};
+use coltide_stats::{DailyActivity, StatsCollector, StatsEvent, TokenProvider};
 use tauri::{AppHandle, Manager as _, State};
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
@@ -318,9 +318,9 @@ pub async fn stats_generate_card(
     Ok(wrap.url)
 }
 
-fn to_protocol(snap: solo_stats::StatsSnapshot) -> StatsSnapshot {
+fn to_protocol(snap: coltide_stats::StatsSnapshot) -> StatsSnapshot {
     StatsSnapshot {
-        pending: solo_protocol::StatsDelta {
+        pending: coltide_protocol::StatsDelta {
             commits: snap.pending.commits,
             tokens: snap.pending.tokens,
             worktrees: snap.pending.worktrees,
@@ -343,7 +343,7 @@ fn to_daily_activity_entry(row: DailyActivity) -> DailyActivityEntry {
     }
 }
 
-fn to_cumulative(c: solo_stats::CumulativeStats) -> CumulativeStats {
+fn to_cumulative(c: coltide_stats::CumulativeStats) -> CumulativeStats {
     CumulativeStats {
         commits: c.commits,
         tokens: c.tokens,

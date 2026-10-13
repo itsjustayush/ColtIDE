@@ -2,13 +2,13 @@
 import "source-map-support/register.js";
 import * as cdk from "aws-cdk-lib";
 import { resolveStageConfig } from "../lib/config.js";
-import { SoloAuthStack } from "../lib/auth-stack.js";
-import { SoloDataStack } from "../lib/data-stack.js";
-import { SoloStorageStack } from "../lib/storage-stack.js";
-import { SoloApiStack } from "../lib/api-stack.js";
-import { SoloConnectorsStack } from "../lib/connectors-stack.js";
-import { SoloGitHubStack } from "../lib/github-stack.js";
-import { SoloRdsStack } from "../lib/rds-stack.js";
+import { ColtIDEAuthStack } from "../lib/auth-stack.js";
+import { ColtIDEDataStack } from "../lib/data-stack.js";
+import { ColtIDEStorageStack } from "../lib/storage-stack.js";
+import { ColtIDEApiStack } from "../lib/api-stack.js";
+import { ColtIDEConnectorsStack } from "../lib/connectors-stack.js";
+import { ColtIDEGitHubStack } from "../lib/github-stack.js";
+import { ColtIDERdsStack } from "../lib/rds-stack.js";
 
 const app = new cdk.App();
 
@@ -20,29 +20,29 @@ const env: cdk.Environment = {
   region: config.region,
 };
 
-cdk.Tags.of(app).add("Project", "solo");
+cdk.Tags.of(app).add("Project", "coltide");
 cdk.Tags.of(app).add("Stage", config.stage);
 cdk.Tags.of(app).add("ManagedBy", "cdk");
 
-new SoloRdsStack(app, `SoloRds-${config.stage}`, {
+new ColtIDERdsStack(app, `ColtIDERds-${config.stage}`, {
   env,
   config,
-  description: `ColtIDE — RDS Postgres for solo-web (${config.stage})`,
+  description: `ColtIDE — RDS Postgres for coltide-web (${config.stage})`,
 });
 
-const github = new SoloGitHubStack(app, `SoloGitHub-${config.stage}`, {
+const github = new ColtIDEGitHubStack(app, `ColtIDEGitHub-${config.stage}`, {
   env,
   config,
   description: `ColtIDE — GitHub OIDC wrapper + token storage (${config.stage})`,
 });
 
-const connectors = new SoloConnectorsStack(app, `SoloConnectors-${config.stage}`, {
+const connectors = new ColtIDEConnectorsStack(app, `ColtIDEConnectors-${config.stage}`, {
   env,
   config,
   description: `ColtIDE — generic app connector token storage (${config.stage})`,
 });
 
-const auth = new SoloAuthStack(app, `SoloAuth-${config.stage}`, {
+const auth = new ColtIDEAuthStack(app, `ColtIDEAuth-${config.stage}`, {
   env,
   config,
   githubOidcIssuerUrl: github.oidcApi.apiEndpoint,
@@ -52,21 +52,21 @@ const auth = new SoloAuthStack(app, `SoloAuth-${config.stage}`, {
 });
 auth.addDependency(github);
 
-const data = new SoloDataStack(app, `SoloData-${config.stage}`, {
+const data = new ColtIDEDataStack(app, `ColtIDEData-${config.stage}`, {
   env,
   config,
   authenticatedRole: auth.authenticatedRole,
   description: `ColtIDE — DynamoDB tables (${config.stage})`,
 });
 
-const storage = new SoloStorageStack(app, `SoloStorage-${config.stage}`, {
+const storage = new ColtIDEStorageStack(app, `ColtIDEStorage-${config.stage}`, {
   env,
   config,
   authenticatedRole: auth.authenticatedRole,
   description: `ColtIDE — S3 share cards bucket (${config.stage})`,
 });
 
-const api = new SoloApiStack(app, `SoloApi-${config.stage}`, {
+const api = new ColtIDEApiStack(app, `ColtIDEApi-${config.stage}`, {
   env,
   config,
   userPool: auth.userPool,

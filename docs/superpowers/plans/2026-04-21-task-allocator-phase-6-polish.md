@@ -43,7 +43,7 @@
 pub async fn collect_sessions_fragment(app: &AppHandle) -> Option<ContextFragment> {
     // ColtIDE keeps recent agent sessions in the agentStore (frontend). Rust
     // side reads them from disk (~/.coltide/sessions/*.json) via the helper
-    // in solo-core or session_commands. If session listing from Rust is
+    // in colt-core or session_commands. If session listing from Rust is
     // fragile, return None — planner degrades gracefully.
     use tauri::Manager as _;
     let session_mgr = app.state::<std::sync::Arc<crate::agent::SessionManager>>();
@@ -66,7 +66,7 @@ If `SessionManager::list_sessions` doesn't exist, the simpler fallback:
 pub async fn collect_sessions_fragment(_app: &AppHandle) -> Option<ContextFragment> {
     // Phase 6 fallback: read recent session JSON files directly.
     let home = dirs::home_dir()?;
-    let sess_dir = home.join(".solo").join("sessions");
+    let sess_dir = home.join(".coltide").join("sessions");
     let mut entries: Vec<std::path::PathBuf> = std::fs::read_dir(&sess_dir).ok()?
         .filter_map(|e| e.ok())
         .map(|e| e.path())
@@ -113,12 +113,12 @@ Actually cleaner: implement Task 1 and Task 2 as one atomic commit. See Task 2.
 "notes"    => collect_notes_fragment(app).await,
 ```
 
-- [ ] **Step 1.4:** Update `DEFAULT_BUNDLE` in `crates/solo-tasks/src/context/mod.rs` to include the two new sources:
+- [ ] **Step 1.4:** Update `DEFAULT_BUNDLE` in `crates/coltide-tasks/src/context/mod.rs` to include the two new sources:
 ```rust
 pub const DEFAULT_BUNDLE: &[&str] = &["vault", "skills", "git", "tasks", "sessions", "notes"];
 ```
 
-- [ ] **Step 1.5:** `cargo check -p solo-desktop-lib`.
+- [ ] **Step 1.5:** `cargo check -p coltide-desktop-lib`.
 
 - [ ] **Step 1.6:** Commit as part of Task 2's commit (atomic).
 
@@ -253,11 +253,11 @@ export const TasksSettingsModal: FC<Props> = ({ open, onClose }) => (
 
 Add a gear button to `FiltersBar` and wire open-state through `TasksSection` the way `NewPlanDialog` is wired. Import `Settings` from `lucide-react`.
 
-- [ ] **Step 2.8:** `cargo check -p solo-desktop-lib` + `bun run check` zero errors.
+- [ ] **Step 2.8:** `cargo check -p coltide-desktop-lib` + `bun run check` zero errors.
 
 - [ ] **Step 2.9:** Commit (this captures Task 1 + Task 2):
 ```bash
-git add crates/solo-tasks/src/context/mod.rs apps/desktop/src-tauri/src/task_planner.rs apps/desktop/src-tauri/src/settings_commands.rs apps/desktop/src-tauri/src/lib.rs apps/desktop/src/components/vault/tasks/PlannerNotesSetting.tsx apps/desktop/src/components/vault/tasks/TasksSettingsModal.tsx apps/desktop/src/components/vault/tasks/FiltersBar.tsx apps/desktop/src/components/sidebar/vault/TasksSection.tsx
+git add crates/coltide-tasks/src/context/mod.rs apps/desktop/src-tauri/src/task_planner.rs apps/desktop/src-tauri/src/settings_commands.rs apps/desktop/src-tauri/src/lib.rs apps/desktop/src/components/vault/tasks/PlannerNotesSetting.tsx apps/desktop/src/components/vault/tasks/TasksSettingsModal.tsx apps/desktop/src/components/vault/tasks/FiltersBar.tsx apps/desktop/src/components/sidebar/vault/TasksSection.tsx
 git commit -m "feat(tasks): Sessions + Notes context providers + planner_notes setting"
 ```
 
@@ -708,7 +708,7 @@ If skipped, note in wrap-up and move on.
 - [ ] **Step 9.1:** All checks:
 ```bash
 cargo test --workspace --lib
-cargo clippy -p solo-tasks --all-targets -- -D warnings
+cargo clippy -p coltide-tasks --all-targets -- -D warnings
 bun run check
 ```
 

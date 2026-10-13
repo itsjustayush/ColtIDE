@@ -7,9 +7,9 @@
 **Depends on:** SP1 (foundation crate) ✓, SP3 (plugins UI) ✓
 **Parallel with:** SP4 ✓, SP5 (no dependency either way)
 **Prior docs:**
-- SP1 design: `specs/2026-04-17-solo-plugins-foundation-design.md`
-- SP4 design: `specs/2026-04-18-solo-plugins-sp4-mcp-design.md`
-- SP5 design: `specs/2026-04-18-solo-plugins-sp5-app-connectors-design.md`
+- SP1 design: `specs/2026-04-17-coltide-plugins-foundation-design.md`
+- SP4 design: `specs/2026-04-18-coltide-plugins-sp4-mcp-design.md`
+- SP5 design: `specs/2026-04-18-coltide-plugins-sp5-app-connectors-design.md`
 
 ---
 
@@ -69,14 +69,14 @@ SP6 has **no dependency on SP4 or SP5**. Plugins installed via SP6 light up MCP 
 
 ## What ships in SP6
 
-1. **`remote.rs`** — *new module* in `solo-plugins`. Git transport (shells out to `git`), repo-to-plugin-root probing, install-to-cache, basic validation.
+1. **`remote.rs`** — *new module* in `coltide-plugins`. Git transport (shells out to `git`), repo-to-plugin-root probing, install-to-cache, basic validation.
 2. **`marketplace.rs`** — ports codex's module with two ColtIDE-specific changes: marketplace sources are local files *or* git URLs (codex reads local only); marketplace metadata includes a `icon` for the UI tile.
 3. **`marketplace_upgrade.rs`** — ports codex's git upgrade logic.
 4. **Protocol types** — `MarketplaceIndex`, `MarketplaceEntry`, `InstallFromGitRequest`, `UpgradeOutcome`, `MarketplaceSource`.
 5. **Tauri command surface** — seven commands.
 6. **Zustand store** — `marketplaceStore.ts` (parallel to `pluginsStore.ts`).
 7. **UI** — new "Browse" tab in the Plugins panel: grid of marketplace entries, install button, installed-state badges. Existing Plugins tab gets an "Upgrade available" chip.
-8. **Built-in ColtIDE marketplace** — one curated index at `https://github.com/ColtIDE-UDE/solo-marketplace` (or similar). Ships pre-subscribed.
+8. **Built-in ColtIDE marketplace** — one curated index at `https://github.com/ColtIDE-UDE/coltide-marketplace` (or similar). Ships pre-subscribed.
 9. **"Install from URL" entry point** — modal in Plugins tab: paste a git URL, install.
 10. **Promotion to top-level sidebar** (deferred from SP3) — the Plugins panel becomes a first-class sidebar item, with Installed / Browse sub-tabs. Optional polish; can also stay inside Settings.
 
@@ -90,10 +90,10 @@ SP6 has **no dependency on SP4 or SP5**. Plugins installed via SP6 light up MCP 
 │   └── <marketplace>/
 │       └── <plugin-name>/
 │           ├── local/                         # SP1 dev installs
-│           │   └── .solo-plugin/plugin.json
+│           │   └── .coltide-plugin/plugin.json
 │           └── <version>/                     # SP6 — git-installed versions
-│               ├── .solo-plugin/plugin.json
-│               └── .solo-install.json         # SP6 — install provenance (NEW)
+│               ├── .coltide-plugin/plugin.json
+│               └── .coltide-install.json         # SP6 — install provenance (NEW)
 ├── marketplaces/
 │   ├── subscriptions.json                     # SP6 — which marketplace indexes the user subscribes to (NEW)
 │   └── cache/
@@ -108,9 +108,9 @@ Version is the **git ref's resolved commit SHA (first 12 chars)**, not the tag o
 
 - Two different SHAs shouldn't share a directory even if they were both tagged `v1.0`.
 - Tag renames/force-pushes would cause silent drift if tag-named.
-- The `.solo-install.json` preserves the human-readable `requested_ref` separately.
+- The `.coltide-install.json` preserves the human-readable `requested_ref` separately.
 
-### `.solo-install.json` — install provenance
+### `.coltide-install.json` — install provenance
 
 ```json
 {
@@ -120,7 +120,7 @@ Version is the **git ref's resolved commit SHA (first 12 chars)**, not the tag o
     "requested_ref": "v1.2.3",
     "resolved_sha": "abcd1234ef56"
   },
-  "marketplace": "solo-official",
+  "marketplace": "coltide-official",
   "installed_at": "2026-04-18T14:30:00Z",
   "installed_by": "user",
   "last_upgrade_check": "2026-04-18T14:30:00Z"
@@ -138,12 +138,12 @@ This file is **owned by ColtIDE**, not the plugin. It enables:
 {
   "subscriptions": [
     {
-      "name": "solo-official",
+      "name": "coltide-official",
       "source": {
         "kind": "git",
-        "url": "https://github.com/ColtIDE-UDE/solo-marketplace.git",
+        "url": "https://github.com/ColtIDE-UDE/coltide-marketplace.git",
         "ref": "main",
-        "manifest_path": ".solo-marketplace/marketplace.json"
+        "manifest_path": ".coltide-marketplace/marketplace.json"
       },
       "subscribed_at": "2026-04-18T10:00:00Z",
       "last_synced_at": "2026-04-18T14:00:00Z"
@@ -176,7 +176,7 @@ pub enum MarketplaceSource {
         #[serde(default)]
         r#ref: Option<String>,
         /// Path inside the repo where the marketplace.json lives.
-        /// Defaults to ".solo-marketplace/marketplace.json".
+        /// Defaults to ".coltide-marketplace/marketplace.json".
         #[serde(default)]
         manifest_path: Option<String>,
     },
@@ -324,10 +324,10 @@ pub struct PluginOrigin {
 
 ---
 
-## Module layout inside `solo-plugins`
+## Module layout inside `coltide-plugins`
 
 ```
-crates/solo-plugins/src/
+crates/coltide-plugins/src/
 ├── (SP1 files unchanged)
 ├── mcp.rs                   # SP4
 ├── apps.rs                  # SP5
@@ -364,7 +364,7 @@ Install-from-git works in four steps:
 
 1. **Clone to a staging directory** under `~/.coltide/plugins/cache/.tmp/<uuid>/` at the requested ref.
 2. **Run `git rev-parse HEAD`** in the staging dir to resolve the full SHA.
-3. **Probe the plugin root**: if `subpath` is given, use that; else use the repo root. Validate `.solo-plugin/plugin.json` (or `.codex-plugin/` or `.claude-plugin/`) exists by calling `find_plugin_manifest_path` from SP1.
+3. **Probe the plugin root**: if `subpath` is given, use that; else use the repo root. Validate `.coltide-plugin/plugin.json` (or `.codex-plugin/` or `.claude-plugin/`) exists by calling `find_plugin_manifest_path` from SP1.
 4. **Move** staging → `~/.coltide/plugins/cache/<marketplace>/<plugin-name>/<sha12>/`. Delete the staging tree on any failure path.
 
 ### Authentication for private repos
@@ -379,7 +379,7 @@ Install-from-git works in four steps:
 
 ### Subscribing
 
-On app first-run, `solo-official` is seeded in `subscriptions.json`. Users can add more via a "Add marketplace" modal that accepts a git URL. Subscriptions are user-editable JSON, not magic.
+On app first-run, `coltide-official` is seeded in `subscriptions.json`. Users can add more via a "Add marketplace" modal that accepts a git URL. Subscriptions are user-editable JSON, not magic.
 
 ### Sync
 
@@ -416,7 +416,7 @@ Looks up the entry in the cached index, reads its `source`, and hands off to `in
 plugins_install_from_url(request: InstallFromGitRequest) → PluginInstallResult
 ```
 
-No index involvement. `marketplace` in `.solo-install.json` defaults to `"url"` to disambiguate from curated marketplaces.
+No index involvement. `marketplace` in `.coltide-install.json` defaults to `"url"` to disambiguate from curated marketplaces.
 
 ---
 
@@ -424,7 +424,7 @@ No index involvement. `marketplace` in `.solo-install.json` defaults to `"url"` 
 
 `marketplace_upgrade::check_upgrade(plugin_id) → Option<String>`:
 
-1. Read `.solo-install.json` for the plugin.
+1. Read `.coltide-install.json` for the plugin.
 2. If `source.kind != git`, return `None` (ad-hoc / local plugins don't upgrade).
 3. Call `git_ls_remote(url, requested_ref)`.
 4. If the remote SHA equals `resolved_sha`, return `None` (nothing to upgrade).
@@ -441,7 +441,7 @@ No index involvement. `marketplace` in `.solo-install.json` defaults to `"url"` 
 
 SP1's `active_plugin_version` picks the highest-semver directory name (falling back to `local` sentinel). `abcd1234ef56` is not semver-orderable against `deadbeef1234`. Two fixes considered:
 
-- **A (proposed):** store a `current_version` pointer in `.solo-install.json` and have the SP1 store preferentially read that. Falls back to semver-sort for locally-installed (non-SP6) plugins.
+- **A (proposed):** store a `current_version` pointer in `.coltide-install.json` and have the SP1 store preferentially read that. Falls back to semver-sort for locally-installed (non-SP6) plugins.
 - **B:** use a monotonic counter (`v1`, `v2`, …) instead of SHA. Loses traceability, wins simplicity.
 
 **Chosen A.** It requires a small change to SP1's `active_plugin_version` to consult the pointer file, but keeps SHA-named directories for traceability. The SP1 interface stays source-compatible for local installs.
@@ -558,7 +558,7 @@ Six distinct failure classes:
 ### Non-errors (silent handling)
 
 - Marketplace's `marketplace.json` missing fields → permissive parse, warn at `debug!`.
-- Upgrade check on an ad-hoc URL-installed plugin with no `.solo-install.json` → skip (no provenance to use).
+- Upgrade check on an ad-hoc URL-installed plugin with no `.coltide-install.json` → skip (no provenance to use).
 - Git clone of a very large repo → proceeds but with sparse-checkout hint in docs (not enforced automatically).
 
 ---
@@ -590,21 +590,21 @@ Six distinct failure classes:
 - **`marketplace.rs::parse_index`** — valid, malformed JSON, invalid fields, missing fields (tolerant), unknown fields (tolerant).
 - **`marketplace.rs::subscribe + sync`** — round-trip with a local bare repo standing in for a marketplace.
 - **`marketplace_upgrade.rs`** — no-op case (SHA unchanged), upgrade-available case, apply-upgrade happy path, apply-upgrade rollback.
-- **`store.rs` pointer integration** — `active_plugin_version` reads `.solo-install.json`'s pointer if present, falls back to semver-sort.
+- **`store.rs` pointer integration** — `active_plugin_version` reads `.coltide-install.json`'s pointer if present, falls back to semver-sort.
 
-### Integration test (`crates/solo-plugins/tests/marketplace_round_trip.rs`)
+### Integration test (`crates/coltide-plugins/tests/marketplace_round_trip.rs`)
 
 Use `tempfile::tempdir()` to stand up both a local bare git repo (as a plugin) and another local bare repo (as a marketplace index pointing to the first). Subscribe to the marketplace, list it, install the plugin, verify it appears in `plugins_list` with correct origin. Upgrade it (force-push the bare repo to a new SHA) and verify `check_upgrade` + `apply_upgrade` behave correctly.
 
 ### Smoke test (manual, pre-merge)
 
-1. Add `https://github.com/ColtIDE-UDE/solo-marketplace` as a subscription (or use the seeded default).
+1. Add `https://github.com/ColtIDE-UDE/coltide-marketplace` as a subscription (or use the seeded default).
 2. Browse → install the first plugin listed.
 3. Enable it, run a session, verify its MCP/skills work (SP4/SP2 path).
 4. Force a new revision in the marketplace plugin repo.
 5. Click "Check for updates" → chip appears → click upgrade → new version installed, old version still on disk, active pointer flipped.
 6. Install an ad-hoc plugin via "Install from URL" (any small public ColtIDE plugin repo).
-7. Uninstall that → verify both the cache dir and `.solo-install.json` removed.
+7. Uninstall that → verify both the cache dir and `.coltide-install.json` removed.
 
 ### Not tested in SP6
 
@@ -630,7 +630,7 @@ Use `tempfile::tempdir()` to stand up both a local bare git repo (as a plugin) a
 
 ## Acceptance criteria
 
-- `bun run check` + `cargo test -p solo-plugins` pass.
+- `bun run check` + `cargo test -p coltide-plugins` pass.
 - `cargo clippy --workspace` clean.
 - `bun run gen:bindings` has been run; new types in `apps/desktop/src/bindings/`.
 - Devtools smoke with the ColtIDE-official marketplace seeded:
@@ -650,7 +650,7 @@ Use `tempfile::tempdir()` to stand up both a local bare git repo (as a plugin) a
 ## Open questions (for implementation phase)
 
 1. **SHA-pointer vs semver-sort in `active_plugin_version`.** Proposed pointer-first. Requires changing SP1 code — is that acceptable, or do we duplicate the logic in a SP6-specific resolver?
-2. **Where does the ColtIDE-official marketplace repo live?** `https://github.com/ColtIDE-UDE/solo-marketplace` proposed; needs an owner decision + initial curation.
+2. **Where does the ColtIDE-official marketplace repo live?** `https://github.com/ColtIDE-UDE/coltide-marketplace` proposed; needs an owner decision + initial curation.
 3. **How many plugins ship in the ColtIDE-official marketplace at SP6 launch?** Minimum useful catalog: 3–5 genuinely useful plugins. Who owns assembling this?
 4. **Progress events granularity.** Clone-only progress (3 stages) vs. live percentage from `git`'s `--progress` output. Proposed: stages only. Revisit if users complain.
 5. **Promotion to top-level sidebar** — SP3 deferred this. Do we ship it in SP6 (natural given the new Browse tab) or leave for later? Proposed: ship it.

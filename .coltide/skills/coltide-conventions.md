@@ -1,5 +1,5 @@
 ---
-name: solo-conventions
+name: coltide-conventions
 description: ColtIDE coding conventions - Tauri IPC, Zustand stores, component patterns
 enabled: true
 priority: 20
@@ -9,7 +9,7 @@ priority: 20
 
 ## IPC Pattern
 
-1. Define types in `crates/solo-protocol/src/lib.rs` with `#[derive(TS, Serialize, Deserialize)]`
+1. Define types in `crates/colt-core/src/lib.rs` with `#[derive(TS, Serialize, Deserialize)]`
 2. Write command in `apps/desktop/src-tauri/src/{domain}_commands.rs`
 3. Register in `lib.rs` via `generate_handler![]`
 4. Run `bun run gen:bindings`

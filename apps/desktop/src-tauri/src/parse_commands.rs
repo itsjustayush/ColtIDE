@@ -3,8 +3,8 @@
 //! This module provides tree-sitter based code parsing via IPC.
 
 use crate::fs_commands::FsState;
-use solo_parse::{Parser, ParserError};
-use solo_protocol::{
+use coltide_parse::{Parser, ParserError};
+use coltide_protocol::{
     FileErrorCode, FileOperationError, ParseErrorInfo, ParseRequest, ParseResponse, Symbol,
     SymbolKind, SymbolRange,
 };
@@ -21,8 +21,8 @@ fn get_parser() -> &'static Parser {
     PARSER.get_or_init(Parser::new)
 }
 
-/// Convert solo-parse Symbol to protocol Symbol
-fn convert_symbol(s: solo_parse::Symbol) -> Symbol {
+/// Convert colt-core Symbol to protocol Symbol
+fn convert_symbol(s: coltide_parse::Symbol) -> Symbol {
     Symbol {
         name: s.name,
         kind: convert_symbol_kind(s.kind),
@@ -33,30 +33,30 @@ fn convert_symbol(s: solo_parse::Symbol) -> Symbol {
     }
 }
 
-/// Convert solo-parse SymbolKind to protocol SymbolKind
-fn convert_symbol_kind(kind: solo_parse::SymbolKind) -> SymbolKind {
+/// Convert colt-core SymbolKind to protocol SymbolKind
+fn convert_symbol_kind(kind: coltide_parse::SymbolKind) -> SymbolKind {
     match kind {
-        solo_parse::SymbolKind::Function => SymbolKind::Function,
-        solo_parse::SymbolKind::Method => SymbolKind::Method,
-        solo_parse::SymbolKind::Class => SymbolKind::Class,
-        solo_parse::SymbolKind::Struct => SymbolKind::Struct,
-        solo_parse::SymbolKind::Enum => SymbolKind::Enum,
-        solo_parse::SymbolKind::Interface => SymbolKind::Interface,
-        solo_parse::SymbolKind::TypeAlias => SymbolKind::TypeAlias,
-        solo_parse::SymbolKind::Constant => SymbolKind::Constant,
-        solo_parse::SymbolKind::Variable => SymbolKind::Variable,
-        solo_parse::SymbolKind::Module => SymbolKind::Module,
-        solo_parse::SymbolKind::Property => SymbolKind::Property,
-        solo_parse::SymbolKind::EnumMember => SymbolKind::EnumMember,
-        solo_parse::SymbolKind::Trait => SymbolKind::Trait,
-        solo_parse::SymbolKind::Impl => SymbolKind::Impl,
-        solo_parse::SymbolKind::Macro => SymbolKind::Macro,
-        solo_parse::SymbolKind::Unknown => SymbolKind::Unknown,
+        coltide_parse::SymbolKind::Function => SymbolKind::Function,
+        coltide_parse::SymbolKind::Method => SymbolKind::Method,
+        coltide_parse::SymbolKind::Class => SymbolKind::Class,
+        coltide_parse::SymbolKind::Struct => SymbolKind::Struct,
+        coltide_parse::SymbolKind::Enum => SymbolKind::Enum,
+        coltide_parse::SymbolKind::Interface => SymbolKind::Interface,
+        coltide_parse::SymbolKind::TypeAlias => SymbolKind::TypeAlias,
+        coltide_parse::SymbolKind::Constant => SymbolKind::Constant,
+        coltide_parse::SymbolKind::Variable => SymbolKind::Variable,
+        coltide_parse::SymbolKind::Module => SymbolKind::Module,
+        coltide_parse::SymbolKind::Property => SymbolKind::Property,
+        coltide_parse::SymbolKind::EnumMember => SymbolKind::EnumMember,
+        coltide_parse::SymbolKind::Trait => SymbolKind::Trait,
+        coltide_parse::SymbolKind::Impl => SymbolKind::Impl,
+        coltide_parse::SymbolKind::Macro => SymbolKind::Macro,
+        coltide_parse::SymbolKind::Unknown => SymbolKind::Unknown,
     }
 }
 
-/// Convert solo-parse Range to protocol SymbolRange
-fn convert_range(r: solo_parse::Range) -> SymbolRange {
+/// Convert colt-core Range to protocol SymbolRange
+fn convert_range(r: coltide_parse::Range) -> SymbolRange {
     SymbolRange {
         start_line: r.start_line,
         start_col: r.start_col,
@@ -207,5 +207,5 @@ pub async fn parse_content(
 /// Check if a file extension is supported for parsing
 #[tauri::command]
 pub fn is_parseable(path: String) -> bool {
-    solo_parse::LanguageRegistry::new().is_supported(&path)
+    coltide_parse::LanguageRegistry::new().is_supported(&path)
 }

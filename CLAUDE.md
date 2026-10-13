@@ -15,8 +15,8 @@ Tauri 2 desktop IDE — Rust backend, React 19 frontend, monorepo with Cargo + B
 Always use `bun` (not npm/yarn/pnpm). The lockfile is `bun.lock`.
 
 ## Monorepo Layout
-- `crates/` — Rust libraries (solo-core, solo-protocol, solo-fs, solo-agent, solo-parse, solo-embeddings, solo-voice)
-  - `solo-voice` — voice input pipeline: cpal audio capture, Silero VAD,
+- `crates/` — Rust libraries (colt-core, colt-core, colt-fs, colt-core, colt-core, coltide-embeddings, coltide-voice)
+  - `coltide-voice` — voice input pipeline: cpal audio capture, Silero VAD,
     Sherpa-ONNX Parakeet STT, cloud formatter (Claude Haiku / GPT-5 nano).
     Phase 1 drives the chat mic only; global dictation and agent dispatch
     arrive in Phases 2 and 3.
@@ -34,10 +34,10 @@ All frontend-backend communication goes through Tauri's IPC bridge:
 3. **Backend->Frontend streaming**: `app_handle.emit("backend-event", &BackendEvent::Variant { ... })`
 4. **Frontend listener**: `listen("backend-event", handler)` in `src/hooks/use*Stream.ts`
 
-When adding a new command: define types in `solo-protocol`, write the command fn, register in `lib.rs`, run `bun run gen:bindings`, write the TS wrapper.
+When adding a new command: define types in `colt-core`, write the command fn, register in `lib.rs`, run `bun run gen:bindings`, write the TS wrapper.
 
 ## Type Bindings (ts-rs)
-- All IPC types live in `crates/solo-protocol/src/lib.rs`
+- All IPC types live in `crates/colt-core/src/lib.rs`
 - Derive `ts_rs::TS` + `serde::Serialize/Deserialize`
 - Run `bun run gen:bindings` after changing protocol types
 - Generated TS files go to `apps/desktop/src/bindings/`
@@ -87,13 +87,13 @@ Use "ColtIDE" or "the legacy codebase" / "the reference codebase" if historical 
 
 | Skill | Purpose | Location |
 |-------|---------|----------|
-| `solo-migration` | Migration status, translation rules, pitfalls | `.claude/skills/solo-migration-skill/` |
-| `solo-tauri-commands` | Templates for new command modules | `.claude/skills/solo-tauri-commands-skill/` |
-| `solo-ui` | UI design system, component patterns | `.claude/skills/coltide-ui-skill/` |
+| `coltide-migration` | Migration status, translation rules, pitfalls | `.claude/skills/coltide-migration-skill/` |
+| `coltide-tauri-commands` | Templates for new command modules | `.claude/skills/coltide-tauri-commands-skill/` |
+| `coltide-ui` | UI design system, component patterns | `.claude/skills/coltide-ui-skill/` |
 
 ### Adding a New Domain (Quick Reference)
 
-1. Protocol types in `crates/solo-protocol/src/lib.rs`
+1. Protocol types in `crates/colt-core/src/lib.rs`
 2. BackendEvent variants (if streaming)
 3. `bun run gen:bindings`
 4. `{domain}_commands.rs` in `apps/desktop/src-tauri/src/`
@@ -102,4 +102,4 @@ Use "ColtIDE" or "the legacy codebase" / "the reference codebase" if historical 
 7. Zustand store in `apps/desktop/src/stores/{domain}Store.ts`
 8. UI components in `apps/desktop/src/components/{domain}/`
 
-Full 16-step checklist: `.claude/skills/solo-tauri-commands-skill/new-domain-checklist.md`
+Full 16-step checklist: `.claude/skills/coltide-tauri-commands-skill/new-domain-checklist.md`

@@ -199,7 +199,7 @@ else
 fi
 
 echo "==> Creating annotated tag $TAG"
-cleanup_notes="$(mktemp -t solo-release-notes.XXXXXX)"
+cleanup_notes="$(mktemp -t coltide-release-notes.XXXXXX)"
 write_notes_file "$cleanup_notes"
 git tag -a "$TAG" -F "$cleanup_notes"
 

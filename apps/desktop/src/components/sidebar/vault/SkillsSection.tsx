@@ -3,7 +3,7 @@
  *
  * Three tabs:
  *  - Installed   — every skill on disk (ColtIDE + adapter sources)
- *  - Marketplace — browse and install from `solo/skills-registry`
+ *  - Marketplace — browse and install from `coltide/skills-registry`
  *  - Forks       — installed skills the user has locally tweaked
  *
  * The heavy lifting lives in the three tab components — this file is the

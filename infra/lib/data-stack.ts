@@ -2,24 +2,24 @@ import * as cdk from "aws-cdk-lib";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
-import type { SoloStageConfig } from "./config.js";
+import type { ColtIDEStageConfig } from "./config.js";
 
-export interface SoloDataStackProps extends cdk.StackProps {
-  readonly config: SoloStageConfig;
+export interface ColtIDEDataStackProps extends cdk.StackProps {
+  readonly config: ColtIDEStageConfig;
   readonly authenticatedRole: iam.Role;
 }
 
-export class SoloDataStack extends cdk.Stack {
+export class ColtIDEDataStack extends cdk.Stack {
   public readonly statsTable: dynamodb.Table;
   public readonly dailyActivityTable: dynamodb.Table;
   public readonly shareCardsTable: dynamodb.Table;
 
-  constructor(scope: Construct, id: string, props: SoloDataStackProps) {
+  constructor(scope: Construct, id: string, props: ColtIDEDataStackProps) {
     super(scope, id, props);
     const { config, authenticatedRole } = props;
 
     this.statsTable = new dynamodb.Table(this, "StatsTable", {
-      tableName: `solo-user-stats-${config.stage}`,
+      tableName: `coltide-user-stats-${config.stage}`,
       partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       pointInTimeRecoverySpecification: {
@@ -44,7 +44,7 @@ export class SoloDataStack extends cdk.Stack {
     });
 
     this.dailyActivityTable = new dynamodb.Table(this, "DailyActivityTable", {
-      tableName: `solo-daily-activity-${config.stage}`,
+      tableName: `coltide-daily-activity-${config.stage}`,
       partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "date", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -57,7 +57,7 @@ export class SoloDataStack extends cdk.Stack {
     });
 
     this.shareCardsTable = new dynamodb.Table(this, "ShareCardsTable", {
-      tableName: `solo-share-cards-${config.stage}`,
+      tableName: `coltide-share-cards-${config.stage}`,
       partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "cardId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -77,15 +77,15 @@ export class SoloDataStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "StatsTableName", {
       value: this.statsTable.tableName,
-      exportName: `solo-${config.stage}-stats-table`,
+      exportName: `coltide-${config.stage}-stats-table`,
     });
     new cdk.CfnOutput(this, "DailyActivityTableName", {
       value: this.dailyActivityTable.tableName,
-      exportName: `solo-${config.stage}-daily-activity-table`,
+      exportName: `coltide-${config.stage}-daily-activity-table`,
     });
     new cdk.CfnOutput(this, "ShareCardsTableName", {
       value: this.shareCardsTable.tableName,
-      exportName: `solo-${config.stage}-share-cards-table`,
+      exportName: `coltide-${config.stage}-share-cards-table`,
     });
   }
 }

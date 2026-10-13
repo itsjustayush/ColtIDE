@@ -7,10 +7,10 @@
 // file named `codex-dump.json`.
 //
 // Drop the downloaded file into:
-//   solo/packages/ui/design-dump/codex/manual/codex-dump.json
+//   coltide/packages/ui/design-dump/codex/manual/codex-dump.json
 //
 // Then run the post-processor:
-//   cd solo && bun scripts/codex-extract/post-process.ts
+//   cd coltide && bun scripts/codex-extract/post-process.ts
 //
 // The post-processor splits the manual dump into the same layout as the
 // automated CDP extraction (stylesheets/*.css, tokens.json, fonts.json).
@@ -18,7 +18,7 @@
 
 (async () => {
   const start = performance.now();
-  console.log('[solo-design] beginning extraction...');
+  console.log('[coltide-design] beginning extraction...');
 
   // ---------------------------------------------------------------------------
   // Stylesheets — text of every loaded stylesheet, with CORS-safe fallback
@@ -159,7 +159,7 @@
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 
-  console.log(`[solo-design] done in ${meta.durationMs}ms`, {
+  console.log(`[coltide-design] done in ${meta.durationMs}ms`, {
     stylesheets: stylesheets.length,
     stylesheetsWithText: stylesheets.filter(s => s.rules).length,
     fonts: loadedFonts.length,

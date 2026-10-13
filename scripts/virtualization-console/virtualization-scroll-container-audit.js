@@ -63,5 +63,5 @@
   }
   console.groupEnd();
 
-  window.__soloScrollContainerAudit = { suspects };
+  window.__coltideScrollContainerAudit = { suspects };
 })();

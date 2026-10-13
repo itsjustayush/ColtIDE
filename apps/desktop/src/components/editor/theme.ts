@@ -214,7 +214,7 @@ let lightThemeRegistered = false;
 /**
  * Register the ColtIDE dark theme with Monaco
  */
-export function registerSoloTheme(monaco: typeof Monaco): void {
+export function registerColtIDETheme(monaco: typeof Monaco): void {
   if (themeRegistered) return;
 
   try {
@@ -229,17 +229,21 @@ export function registerSoloTheme(monaco: typeof Monaco): void {
 /**
  * Register the ColtIDE light theme with Monaco
  */
-export function registerSoloLightTheme(monaco: typeof Monaco): void {
+export function registerColtIDELightTheme(monaco: typeof Monaco): void {
   if (lightThemeRegistered) return;
 
   try {
     const themeData = buildMonacoLightTheme();
-    monaco.editor.defineTheme('solo-light', themeData);
+    monaco.editor.defineTheme('coltide-light', themeData);
     lightThemeRegistered = true;
   } catch (err) {
     console.error('Failed to register Monaco light theme:', err);
   }
 }
 
-export const SOLO_THEME_NAME = 'coltide';
-export const SOLO_LIGHT_THEME_NAME = 'solo-light';
+export const COLTIDE_THEME_NAME = 'coltide';
+export const COLTIDE_LIGHT_THEME_NAME = 'coltide-light';
+export const registerColtIDETheme = registerColtIDETheme;
+export const registerColtIDELightTheme = registerColtIDELightTheme;
+export const COLTIDE_THEME_NAME = COLTIDE_THEME_NAME;
+export const COLTIDE_LIGHT_THEME_NAME = COLTIDE_LIGHT_THEME_NAME;

@@ -32,7 +32,7 @@ export const TRANSITIONS = {
 
 /**
  * Model ID constants — single source of truth for the frontend.
- * Must match the IDs in the backend registry (crates/solo-agent/src/models.rs).
+ * Must match the IDs in the backend registry (crates/colt-core/src/models.rs).
  */
 
 // Anthropic

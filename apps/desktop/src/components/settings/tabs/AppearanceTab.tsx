@@ -19,7 +19,7 @@ const SURFACES: Array<{ value: ThemeSurface; label: string; icon: typeof Sun }> 
 ];
 
 const PRESET_OPTIONS = [
-  { value: 'coltide', label: APPEARANCE_PRESETS.solo.label },
+  { value: 'coltide', label: APPEARANCE_PRESETS.coltide.label },
   { value: 'watermelon', label: APPEARANCE_PRESETS.watermelon.label },
 ] as const;
 
@@ -84,9 +84,9 @@ function parseThemeCss(css: string): Partial<ThemePalette> {
     const name = match[1];
     const color = parseCssColor(match[2] ?? '');
     if (!color) continue;
-    if (name === 'background' || name === 'solo-theme-background') patch.background = color;
-    if (name === 'foreground' || name === 'solo-theme-foreground') patch.foreground = color;
-    if (name === 'primary' || name === 'accent' || name === 'solo-theme-accent') patch.accent = color;
+    if (name === 'background' || name === 'coltide-theme-background') patch.background = color;
+    if (name === 'foreground' || name === 'coltide-theme-foreground') patch.foreground = color;
+    if (name === 'primary' || name === 'accent' || name === 'coltide-theme-accent') patch.accent = color;
   }
   return patch;
 }

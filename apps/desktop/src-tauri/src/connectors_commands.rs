@@ -12,16 +12,16 @@ use std::path::PathBuf;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Value as JsonValue};
-use solo_auth::{
+use coltide_auth::{
     oauth::{
         generate_code_challenge, generate_code_verifier, generate_state, start_callback_server,
         OAuthFlowResult, OAuthState,
     },
     CredentialManager,
 };
-use solo_core::settings as settings_io;
-use solo_plugins::{list_plugins, load_plugin_apps, LoaderConfig};
-use solo_protocol::{
+use coltide_core::settings as settings_io;
+use coltide_plugins::{list_plugins, load_plugin_apps, LoaderConfig};
+use coltide_protocol::{
     ConnectorAccountSummary, ConnectorOAuthCallbackResult, ConnectorPluginRequirement,
     ConnectorStoreTokenRequest, PluginId,
 };
@@ -104,7 +104,7 @@ pub(crate) fn infer_connector_provider(
 
 fn env_key_for_provider(provider: &str, suffix: &str) -> String {
     format!(
-        "SOLO_CONNECTOR_{}_{}",
+        "COLTIDE_CONNECTOR_{}_{}",
         provider.replace('-', "_").to_ascii_uppercase(),
         suffix
     )
@@ -380,7 +380,7 @@ fn expand_with_connector_vault(
     }
 }
 
-fn plugin_display_name(record: &solo_plugins::PluginRecord) -> String {
+fn plugin_display_name(record: &coltide_plugins::PluginRecord) -> String {
     record
         .manifest
         .as_ref()
@@ -644,7 +644,7 @@ pub async fn connectors_list_plugin_requirements(
     plugins_state: State<'_, PluginsState>,
     provider_state: State<'_, ProviderAuthState>,
 ) -> Result<Vec<ConnectorPluginRequirement>, String> {
-    let solo_home = plugins_state.solo_home();
+    let coltide_home = plugins_state.coltide_home();
     let workspace = PathBuf::from(&cwd);
     let config = settings_io::load_plugins_config(&workspace).unwrap_or_default();
     let claude_plugins_dir = {
@@ -656,7 +656,7 @@ pub async fn connectors_list_plugin_requirements(
         dir.exists().then_some(dir)
     };
     let outcome = list_plugins(LoaderConfig {
-        solo_home: &solo_home,
+        coltide_home: &coltide_home,
         claude_plugins_dir,
         codex_cache_dir,
         adapter_claude_plugins: config.adapter_claude_plugins,

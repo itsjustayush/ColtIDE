@@ -20,16 +20,16 @@ Everything lands in one PR. Three phases — auth, routing, UX — ship together
 
 - MCP tool support on OpenAI sessions (deferred; Anthropic-only in v1).
 - Cross-provider session resumption — switching providers mid-chat starts a new session.
-- Dynamic model discovery via `/v1/models`; model list stays static in `crates/solo-auth/src/models.rs`.
+- Dynamic model discovery via `/v1/models`; model list stays static in `crates/coltide-auth/src/models.rs`.
 - Proactive plan-based gating of OpenAI models (we accept whatever the ChatGPT backend returns and surface 429s to the UI).
 - Windows or Linux parity testing in this round — macOS keychain flow is the bar for v1.
 
 ## 3. Context
 
 **What already exists in ColtIDE:**
-- `crates/solo-auth/src/models.rs` has placeholder OpenAI model entries (`gpt-5.2-*`).
+- `crates/coltide-auth/src/models.rs` has placeholder OpenAI model entries (`gpt-5.2-*`).
 - `apps/desktop/src/stores/provider-store.ts` is multi-provider-shaped already (`activeProvider`, `providerStatus`, `authMethodInfo`).
-- `crates/solo-auth/src/credentials.rs` has vault slots for `openai.oauth` and `openai.apiKey` with partial refresh logic.
+- `crates/coltide-auth/src/credentials.rs` has vault slots for `openai.oauth` and `openai.apiKey` with partial refresh logic.
 - Cognito OAuth for ColtIDE user identity (`apps/desktop/src-tauri/src/auth_commands.rs`) is unrelated to provider auth and stays untouched.
 
 **What blocks OpenAI today:**
@@ -56,15 +56,15 @@ Four layers change:
 └──────────────┼───────────────────────────────────────────┘
                │ invoke(provider_*) / listen(backend-event)
 ┌──────────────┼───────────────────────────────────────────┐
-│  Tauri / Rust (apps/desktop/src-tauri + crates/solo-*)   │
+│  Tauri / Rust (apps/desktop/src-tauri + crates/coltide-*)   │
 │  ┌─ provider_commands.rs (generic over provider)────────┐│
 │  │  start_oauth, set_api_key, list_profiles,            ││
 │  │  set_active_profile, sign_out, remove_profile        ││
 │  └──────────┬───────────────────────────────────────────┘│
-│  ┌─ solo-auth/oauth/openai.rs (new) ────────────────────┐│
+│  ┌─ coltide-auth/oauth/openai.rs (new) ────────────────────┐│
 │  │  PKCE, Hyper callback server, token exchange/refresh ││
 │  └──────────┬───────────────────────────────────────────┘│
-│  ┌─ solo-auth/credentials.rs (profile-aware) ──────────┐│
+│  ┌─ coltide-auth/credentials.rs (profile-aware) ──────────┐│
 │  │  get_credentials(provider, profile?)                ││
 │  └──────────┬───────────────────────────────────────────┘│
 │             │                                             │
@@ -89,7 +89,7 @@ Four layers change:
 
 Standard OAuth2 PKCE against `auth.openai.com`. Mirrors Codex CLI's flow.
 
-**Constants** (`crates/solo-auth/src/oauth/openai.rs`):
+**Constants** (`crates/coltide-auth/src/oauth/openai.rs`):
 - Issuer: `https://auth.openai.com`
 - Client ID: `app_EMoamEEZ73f0CkXaXp7hrann` (Codex's public client; see §9 risks)
 - Redirect URI: `http://localhost:1455/auth/callback`
@@ -135,7 +135,7 @@ Returns `ResolvedCredential { kind: Oauth | ApiKey, token, account_id? }`.
 
 ### 5.4 Vault schema
 
-Single-service keychain (`com.solo-ide.credentials`), JSON-valued keys:
+Single-service keychain (`com.coltide-ide.credentials`), JSON-valued keys:
 
 | Key | Shape | Notes |
 |---|---|---|
@@ -144,7 +144,7 @@ Single-service keychain (`com.solo-ide.credentials`), JSON-valued keys:
 | `openai.oauth` | `ProviderOAuthStore` | **NEW** |
 | `openai.apiKey` | `string` | **NEW** |
 
-`ProviderOAuthStore` (new type in `crates/solo-auth/src/types.rs`):
+`ProviderOAuthStore` (new type in `crates/coltide-auth/src/types.rs`):
 
 ```rust
 #[derive(Serialize, Deserialize, TS)]
@@ -204,7 +204,7 @@ The OAuth callback is handled entirely inside the Hyper server spawned by `provi
 
 ### 5.7 BackendEvent additions
 
-In `crates/solo-protocol/src/lib.rs`:
+In `crates/colt-core/src/lib.rs`:
 
 ```rust
 pub enum BackendEvent {
@@ -311,7 +311,7 @@ The session manager (sidecar caller) accepts the new `session.create` message sh
 
 ### 5.10 Model registry
 
-`crates/solo-auth/src/models.rs` — replace the three `gpt-5.2-*` placeholder entries with:
+`crates/coltide-auth/src/models.rs` — replace the three `gpt-5.2-*` placeholder entries with:
 
 ```rust
 ModelInfo {
@@ -368,16 +368,16 @@ Capability numbers are provisional; refined during implementation if OpenAI's pu
 ### 5.12 Files touched summary
 
 **New files:**
-- `crates/solo-auth/src/types.rs`
-- `crates/solo-auth/src/oauth/openai.rs`
+- `crates/coltide-auth/src/types.rs`
+- `crates/coltide-auth/src/oauth/openai.rs`
 - `agent-bridge/src/providers/types.ts`
 - `agent-bridge/src/providers/anthropic.ts`
 - `agent-bridge/src/providers/openai.ts`
 
 **Modified files:**
-- `crates/solo-auth/src/models.rs`
-- `crates/solo-auth/src/credentials.rs`
-- `crates/solo-protocol/src/lib.rs`
+- `crates/coltide-auth/src/models.rs`
+- `crates/coltide-auth/src/credentials.rs`
+- `crates/colt-core/src/lib.rs`
 - `apps/desktop/src-tauri/src/provider_commands.rs`
 - `apps/desktop/src-tauri/src/agent_commands.rs`
 - `apps/desktop/src-tauri/src/lib.rs`
@@ -414,7 +414,7 @@ Capability numbers are provisional; refined during implementation if OpenAI's pu
 Single PR, but implementation order matters:
 
 1. Protocol types + migration + vault schema.
-2. `solo-auth/oauth/openai.rs` + `provider_commands.rs` OAuth commands.
+2. `coltide-auth/oauth/openai.rs` + `provider_commands.rs` OAuth commands.
 3. `credentials.rs` profile-aware resolution + `agent_commands.rs` un-hardcoding.
 4. Sidecar refactor: extract Anthropic into `providers/anthropic.ts`, add `providers/openai.ts`, wire dispatch in `session-manager.ts`.
 5. Frontend: provider store profile additions, Settings panel, Model picker, Onboarding.

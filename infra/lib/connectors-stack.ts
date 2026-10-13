@@ -8,7 +8,7 @@ import { Construct } from "constructs";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
-import type { SoloStageConfig } from "./config.js";
+import type { ColtIDEStageConfig } from "./config.js";
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,11 +23,11 @@ function resolveEntryPath(entryPath: string): string {
   return abs;
 }
 
-export interface SoloConnectorsStackProps extends cdk.StackProps {
-  readonly config: SoloStageConfig;
+export interface ColtIDEConnectorsStackProps extends cdk.StackProps {
+  readonly config: ColtIDEStageConfig;
 }
 
-export class SoloConnectorsStack extends cdk.Stack {
+export class ColtIDEConnectorsStack extends cdk.Stack {
   public readonly tokenEncryptionKey: kms.Key;
   public readonly tokensTable: dynamodb.Table;
   public readonly listTokensLambda: lambdaNodejs.NodejsFunction;
@@ -35,19 +35,19 @@ export class SoloConnectorsStack extends cdk.Stack {
   public readonly putTokenLambda: lambdaNodejs.NodejsFunction;
   public readonly deleteTokenLambda: lambdaNodejs.NodejsFunction;
 
-  constructor(scope: Construct, id: string, props: SoloConnectorsStackProps) {
+  constructor(scope: Construct, id: string, props: ColtIDEConnectorsStackProps) {
     super(scope, id, props);
     const { config } = props;
 
     this.tokenEncryptionKey = new kms.Key(this, "ConnectorTokenEncryptionKey", {
-      alias: `alias/solo-connector-tokens-${config.stage}`,
+      alias: `alias/coltide-connector-tokens-${config.stage}`,
       description: "Encrypts ColtIDE connector OAuth tokens at rest in DynamoDB",
       enableKeyRotation: true,
       removalPolicy: config.removalPolicy,
     });
 
     this.tokensTable = new dynamodb.Table(this, "ConnectorTokensTable", {
-      tableName: `solo-connector-tokens-${config.stage}`,
+      tableName: `coltide-connector-tokens-${config.stage}`,
       partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "connectorKey", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -70,7 +70,7 @@ export class SoloConnectorsStack extends cdk.Stack {
       entryPath: string,
       opts: Partial<lambdaNodejs.NodejsFunctionProps> = {},
     ): lambdaNodejs.NodejsFunction => {
-      const functionName = `solo-connectors-${name}-${config.stage}`;
+      const functionName = `coltide-connectors-${name}-${config.stage}`;
       const logGroup = new logs.LogGroup(this, `${name}LogGroup`, {
         logGroupName: `/aws/lambda/${functionName}`,
         retention: logs.RetentionDays.TWO_WEEKS,
@@ -115,11 +115,11 @@ export class SoloConnectorsStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "ConnectorTokensTableName", {
       value: this.tokensTable.tableName,
-      exportName: `solo-${config.stage}-connector-tokens-table`,
+      exportName: `coltide-${config.stage}-connector-tokens-table`,
     });
     new cdk.CfnOutput(this, "ConnectorTokenKeyArn", {
       value: this.tokenEncryptionKey.keyArn,
-      exportName: `solo-${config.stage}-connector-token-key-arn`,
+      exportName: `coltide-${config.stage}-connector-token-key-arn`,
     });
   }
 }

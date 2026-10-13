@@ -236,7 +236,7 @@ if (changed.length > 0) {
 }
 
 const releaseHead = git(["rev-parse", "HEAD"], { capture: true });
-const noteDir = mkdtempSync(resolve(tmpdir(), "solo-release-notes-"));
+const noteDir = mkdtempSync(resolve(tmpdir(), "coltide-release-notes-"));
 const notePath = resolve(noteDir, "notes.md");
 writeFileSync(notePath, releaseNotes());
 

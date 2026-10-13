@@ -11,14 +11,14 @@
 
 1. [Problem Statement & Use Case](#1-problem-statement--use-case)
 2. [How Claude Code Stores Data](#2-how-claude-code-stores-data)
-3. [How ColtIDE Stores Data Today](#3-how-solo-stores-data-today)
+3. [How ColtIDE Stores Data Today](#3-how-coltide-stores-data-today)
 4. [Architecture Decision: The Three Approaches](#4-architecture-decision-the-three-approaches)
-5. [Chosen Approach: Hybrid (Read .claude/ + Write .solo/)](#5-chosen-approach-hybrid)
+5. [Chosen Approach: Hybrid (Read .claude/ + Write .coltide/)](#5-chosen-approach-hybrid)
 6. [Claude Code Storage — Full Reference](#6-claude-code-storage--full-reference)
 7. [JSONL Session Format — Complete Schema](#7-jsonl-session-format--complete-schema)
-8. [ColtIDE Connector Architecture](#8-solo-connector-architecture)
+8. [ColtIDE Connector Architecture](#8-coltide-connector-architecture)
 9. [Implementation Phases](#9-implementation-phases)
-10. [Format Translation: Claude Code → ColtIDE](#10-format-translation-claude-code--solo)
+10. [Format Translation: Claude Code → ColtIDE](#10-format-translation-claude-code--coltide)
 11. [Edge Cases & Gotchas](#11-edge-cases--gotchas)
 12. [Things Not Yet Considered](#12-things-not-yet-considered)
 13. [File & Directory Reference](#13-file--directory-reference)
@@ -123,8 +123,8 @@ Project directories use a simple encoding:
 - The leading `/` becomes the first dash
 
 ```
-/Users/sachin/Developer/Orbit_Main/solo
-→ -Users-sachin-Developer-Orbit-Main-solo
+/Users/sachin/Developer/Orbit_Main/coltide
+→ -Users-sachin-Developer-Orbit-Main-coltide
 ```
 
 **To decode:** Replace first `-` with `/`, then all remaining `-` with `/`.
@@ -322,7 +322,7 @@ The frontend sees a single `UnifiedSession` type regardless of source:
 interface UnifiedSession {
   // Identity
   id: string;                          // ColtIDE ID or Claude Code UUID
-  source: 'solo' | 'claude-code';      // Where it came from
+  source: 'coltide' | 'claude-code';      // Where it came from
   externalId?: string;                 // Claude Code UUID (if source is claude-code)
 
   // Metadata

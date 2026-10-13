@@ -14,7 +14,7 @@ const launchServicesPath =
   "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
 const installMarkerPath = path.join(
   liveAppPath,
-  "Contents/Resources/solo-local-auth-install.json",
+  "Contents/Resources/coltide-local-auth-install.json",
 );
 
 function fail(message, exitCode = 1) {
@@ -45,7 +45,7 @@ function hasCargoTauri() {
 }
 
 function isManagedInstall(appPath = liveAppPath) {
-  return exists(path.join(appPath, "Contents/Resources/solo-local-auth-install.json"));
+  return exists(path.join(appPath, "Contents/Resources/coltide-local-auth-install.json"));
 }
 
 function ensureBackupIfNeeded() {

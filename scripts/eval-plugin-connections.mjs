@@ -52,13 +52,13 @@ const results = [];
 
 try {
   if (withCargo) {
-    runStep('cargo: solo-plugins', () => {
-      const cargo = spawnSync('cargo', ['test', '-p', 'solo-plugins'], {
+    runStep('cargo: coltide-plugins', () => {
+      const cargo = spawnSync('cargo', ['test', '-p', 'coltide-plugins'], {
         cwd: repoRoot,
         stdio: 'inherit',
       });
       if (cargo.status !== 0) {
-        throw new Error(`cargo test -p solo-plugins exited ${cargo.status ?? 'unknown'}`);
+        throw new Error(`cargo test -p coltide-plugins exited ${cargo.status ?? 'unknown'}`);
       }
     });
   }
@@ -80,8 +80,8 @@ function printHelp() {
   console.log(`Usage: node scripts/eval-plugin-connections.mjs [options]
 
 Options:
-  --with-cargo          Run cargo test -p solo-plugins before the MCP eval.
-  --installed           Also scan real ~/.solo, ~/.codex, and ~/.claude plugin roots.
+  --with-cargo          Run cargo test -p coltide-plugins before the MCP eval.
+  --installed           Also scan real ~/.coltide, ~/.codex, and ~/.claude plugin roots.
   --connect-installed   Connect to installed stdio MCP servers and list tools.
   --connect-remote      With --connect-installed, try remote HTTP/SSE MCP servers too.
   --keep                Keep the temporary fixture home for inspection.
@@ -137,11 +137,11 @@ function printSummary() {
 }
 
 async function runFixtureEval() {
-  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'solo-plugin-eval-'));
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), 'coltide-plugin-eval-'));
   const home = path.join(tempRoot, 'home');
   const workspace = path.join(tempRoot, 'workspace');
   const connectorTokens = new Map([
-    ['coltide', { accessToken: 'solo-access-token', refreshToken: 'solo-refresh-token' }],
+    ['coltide', { accessToken: 'coltide-access-token', refreshToken: 'coltide-refresh-token' }],
     ['codex', { accessToken: 'codex-access-token', refreshToken: 'codex-refresh-token' }],
     ['claude', { accessToken: 'claude-access-token', refreshToken: 'claude-refresh-token' }],
   ]);
@@ -151,9 +151,9 @@ async function runFixtureEval() {
     await mkdir(workspace, { recursive: true });
 
     await writeFixturePlugin({
-      root: path.join(home, '.solo', 'plugins', 'cache', 'local', 'solo-fixture', 'local'),
-      manifestDir: '.solo-plugin',
-      name: 'solo-fixture',
+      root: path.join(home, '.coltide', 'plugins', 'cache', 'local', 'coltide-fixture', 'local'),
+      manifestDir: '.coltide-plugin',
+      name: 'coltide-fixture',
       displayName: 'ColtIDE Fixture',
       sourceLabel: 'coltide',
     });
@@ -195,12 +195,12 @@ async function runFixtureEval() {
 
     const plugins = await runAsyncStep('fixture discovery', async () => {
       const discovered = await discoverPlugins(home, {
-        includeSolo: true,
+        includeColtIDE: true,
         includeCodex: true,
         includeClaude: true,
       });
       const keys = discovered.map((plugin) => plugin.key).sort();
-      expectIncludes(keys, 'local/solo-fixture');
+      expectIncludes(keys, 'local/coltide-fixture');
       expectIncludes(keys, 'openai-curated/codex-fixture');
       expectIncludes(keys, 'openai-curated/claude-fixture');
       console.log(`  discovered: ${keys.join(', ')}`);
@@ -210,7 +210,7 @@ async function runFixtureEval() {
     await runAsyncStep('fixture skill activation', async () => {
       const skills = await collectPluginSkills(plugins);
       const names = skills.map((skill) => skill.name).sort();
-      expectIncludes(names, 'solo-fixture-skill');
+      expectIncludes(names, 'coltide-fixture-skill');
       expectIncludes(names, 'codex-fixture-skill');
       expectIncludes(names, 'claude-fixture-skill');
       console.log(`  skills: ${names.join(', ')}`);
@@ -219,7 +219,7 @@ async function runFixtureEval() {
     await runAsyncStep('fixture app connector parsing', async () => {
       const apps = await collectPluginApps(plugins);
       const keys = apps.map((app) => `${app.pluginKey}:${app.appId}`).sort();
-      expectIncludes(keys, 'local/solo-fixture:solo');
+      expectIncludes(keys, 'local/coltide-fixture:coltide');
       expectIncludes(keys, 'openai-curated/codex-fixture:codex');
       expectIncludes(keys, 'openai-curated/claude-fixture:claude');
       if (!apps.every((app) => app.supported === true && app.status === 'needs_connection')) {
@@ -233,7 +233,7 @@ async function runFixtureEval() {
       const names = Object.keys(merged).sort();
       expectIncludes(names, 'echo');
       expectIncludes(names, 'plugin__openai-curated__codex-fixture__echo');
-      expectIncludes(names, 'plugin__local__solo-fixture__echo');
+      expectIncludes(names, 'plugin__local__coltide-fixture__echo');
       for (const config of Object.values(merged)) {
         const args = Array.isArray(config.args) ? config.args : [];
         if (args.some((arg) => String(arg).includes('${PLUGIN_ROOT}'))) {
@@ -279,7 +279,7 @@ async function runInstalledEval({ connect, connectRemote }) {
   const workspace = process.cwd();
   const plugins = await runAsyncStep('installed discovery', async () => {
     const discovered = await discoverPlugins(home, {
-      includeSolo: true,
+      includeColtIDE: true,
       includeCodex: true,
       includeClaude: true,
     });
@@ -379,7 +379,7 @@ function handle(line) {
     result(message.id, {
       protocolVersion: message.params?.protocolVersion ?? '2024-11-05',
       capabilities: { tools: {} },
-      serverInfo: { name: 'solo-plugin-eval-' + label, version: '0.0.0' },
+      serverInfo: { name: 'coltide-plugin-eval-' + label, version: '0.0.0' },
     });
     return;
   }
@@ -483,15 +483,15 @@ async function writeFixturePlugin({
 
 async function discoverPlugins(home, options) {
   const plugins = [];
-  const toggles = await readToggles(path.join(home, '.solo', 'plugins'));
+  const toggles = await readToggles(path.join(home, '.coltide', 'plugins'));
 
-  if (options.includeSolo) {
-    const soloCache = path.join(home, '.solo', 'plugins', 'cache');
-    for (const marketplace of await readDirNames(soloCache)) {
-      for (const name of await readDirNames(path.join(soloCache, marketplace))) {
-        const version = await pickActiveVersion(path.join(soloCache, marketplace, name));
+  if (options.includeColtIDE) {
+    const coltideCache = path.join(home, '.coltide', 'plugins', 'cache');
+    for (const marketplace of await readDirNames(coltideCache)) {
+      for (const name of await readDirNames(path.join(coltideCache, marketplace))) {
+        const version = await pickActiveVersion(path.join(coltideCache, marketplace, name));
         if (!version) continue;
-        const root = path.join(soloCache, marketplace, name, version);
+        const root = path.join(coltideCache, marketplace, name, version);
         const record = await pluginRecord({
           marketplace,
           name,
@@ -606,7 +606,7 @@ async function resolvePluginRootAndName(installPath) {
 
 async function loadPluginManifest(root) {
   for (const relative of [
-    '.solo-plugin/plugin.json',
+    '.coltide-plugin/plugin.json',
     '.codex-plugin/plugin.json',
     '.claude-plugin/plugin.json',
   ]) {
@@ -804,7 +804,7 @@ function expandServerConfig(value, pluginRoot, workspace, { connectorTokens = nu
 
 async function connectAndPing(name, config, { callPing }) {
   const client = new Client(
-    { name: 'solo-plugin-connection-eval', version: '0.0.0' },
+    { name: 'coltide-plugin-connection-eval', version: '0.0.0' },
     { capabilities: {} },
   );
   const transport = makeTransport(config);
@@ -902,8 +902,8 @@ function withTimeout(promise, ms, message) {
   ]);
 }
 
-async function readToggles(soloPluginsDir) {
-  const raw = await readJsonSafe(path.join(soloPluginsDir, 'toggles.json'));
+async function readToggles(coltidePluginsDir) {
+  const raw = await readJsonSafe(path.join(coltidePluginsDir, 'toggles.json'));
   const entries = raw?.entries && isPlainObject(raw.entries) ? raw.entries : {};
   const map = new Map();
   for (const [key, value] of Object.entries(entries)) {

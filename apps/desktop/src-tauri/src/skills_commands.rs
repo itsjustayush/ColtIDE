@@ -15,8 +15,8 @@
 //! etc.). Skills from higher-priority sources override those from lower
 //! ones on name collision — see `SkillSource::priority()`.
 
-use solo_core::settings as settings_io;
-use solo_protocol::{
+use coltide_core::settings as settings_io;
+use coltide_protocol::{
     OnboardingImportMode, SkillInfo, SkillSource, SkillWriteRequest, SkillsConfig,
     SkillsOnboardingStatus,
 };
@@ -144,8 +144,8 @@ fn home_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-fn solo_user_skills_dir() -> Option<PathBuf> {
-    home_dir().map(|h| h.join(".solo").join("skills"))
+fn coltide_user_skills_dir() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".coltide").join("skills"))
 }
 
 fn claude_user_skills_dir() -> Option<PathBuf> {
@@ -158,15 +158,15 @@ fn codex_user_skills_dir() -> Option<PathBuf> {
 
 // ─── Adapters ────────────────────────────────────────────────────────
 
-async fn discover_solo_user() -> Vec<SkillInfo> {
-    match solo_user_skills_dir() {
+async fn discover_coltide_user() -> Vec<SkillInfo> {
+    match coltide_user_skills_dir() {
         Some(d) => scan_skills_dir(&d, SkillSource::User).await,
         None => Vec::new(),
     }
 }
 
-async fn discover_solo_project(cwd: &Path) -> Vec<SkillInfo> {
-    let dir = cwd.join(".solo").join("skills");
+async fn discover_coltide_project(cwd: &Path) -> Vec<SkillInfo> {
+    let dir = cwd.join(".coltide").join("skills");
     scan_skills_dir(&dir, SkillSource::Project).await
 }
 
@@ -205,7 +205,7 @@ async fn discover_claude_project(cwd: &Path) -> Vec<SkillInfo> {
 }
 
 /// Discover skills bundled inside Claude Code plugins, delegating installed-
-/// plugins.json parsing + path resolution to the `solo-plugins` crate.
+/// plugins.json parsing + path resolution to the `coltide-plugins` crate.
 ///
 /// Falls back to an empty list if `~/.claude/plugins/` does not exist.
 async fn discover_claude_plugins() -> Vec<SkillInfo> {
@@ -216,7 +216,7 @@ async fn discover_claude_plugins() -> Vec<SkillInfo> {
         return Vec::new();
     }
 
-    let adapter_plugins = solo_plugins::discover_claude_adapter(&plugins_dir);
+    let adapter_plugins = coltide_plugins::discover_claude_adapter(&plugins_dir);
     let mut skills = Vec::new();
     for plugin in adapter_plugins {
         let skills_dir = plugin.root.join("skills");
@@ -243,10 +243,10 @@ async fn discover_codex_plugins() -> Vec<SkillInfo> {
         return Vec::new();
     }
 
-    let adapter_plugins = solo_plugins::discover_codex_adapter(&cache_dir);
+    let adapter_plugins = coltide_plugins::discover_codex_adapter(&cache_dir);
     let mut skills = Vec::new();
     for plugin in adapter_plugins {
-        let manifest = solo_plugins::load_plugin_manifest(&plugin.root);
+        let manifest = coltide_plugins::load_plugin_manifest(&plugin.root);
         let skills_dir = manifest
             .as_ref()
             .and_then(|m| m.paths.skills.as_ref())
@@ -287,8 +287,8 @@ pub async fn skills_list_available(cwd: String) -> Result<Vec<SkillInfo>, String
     let config = settings_io::load_skills_config(&workspace).unwrap_or_default();
 
     let mut all = Vec::new();
-    all.extend(discover_solo_user().await);
-    all.extend(discover_solo_project(&workspace).await);
+    all.extend(discover_coltide_user().await);
+    all.extend(discover_coltide_project(&workspace).await);
 
     if config.import_claude_user {
         all.extend(discover_claude_user().await);
@@ -326,14 +326,14 @@ pub async fn skills_write_skill(req: SkillWriteRequest) -> Result<String, String
 
     let base_dir = match req.scope {
         SkillSource::User => {
-            solo_user_skills_dir().ok_or_else(|| "could not resolve home directory".to_string())?
+            coltide_user_skills_dir().ok_or_else(|| "could not resolve home directory".to_string())?
         }
         SkillSource::Project => {
             let cwd = req
                 .cwd
                 .clone()
                 .ok_or_else(|| "cwd is required for project-scoped skill writes".to_string())?;
-            PathBuf::from(cwd).join(".solo").join("skills")
+            PathBuf::from(cwd).join(".coltide").join("skills")
         }
         other => {
             return Err(format!(
@@ -364,8 +364,8 @@ pub async fn skills_onboarding_status(cwd: String) -> Result<SkillsOnboardingSta
     let workspace = PathBuf::from(&cwd);
     let config: SkillsConfig = settings_io::load_skills_config(&workspace).unwrap_or_default();
 
-    let solo_skills = discover_solo_user().await;
-    let has_solo_skills = !solo_skills.is_empty();
+    let coltide_skills = discover_coltide_user().await;
+    let has_coltide_skills = !coltide_skills.is_empty();
 
     let mut importable: Vec<SkillInfo> = Vec::new();
     importable.extend(discover_claude_user().await);
@@ -376,9 +376,9 @@ pub async fn skills_onboarding_status(cwd: String) -> Result<SkillsOnboardingSta
     let importable_count = u32::try_from(importable.len()).unwrap_or(u32::MAX);
 
     Ok(SkillsOnboardingStatus {
-        should_prompt: !config.onboarding_shown && !has_solo_skills && importable_count > 0,
+        should_prompt: !config.onboarding_shown && !has_coltide_skills && importable_count > 0,
         importable_count,
-        has_solo_skills,
+        has_coltide_skills,
     })
 }
 
@@ -400,7 +400,7 @@ pub async fn skills_onboarding_apply(
         OnboardingImportMode::Copy | OnboardingImportMode::Symlink
     ) {
         let target =
-            solo_user_skills_dir().ok_or_else(|| "could not resolve home directory".to_string())?;
+            coltide_user_skills_dir().ok_or_else(|| "could not resolve home directory".to_string())?;
         fs::create_dir_all(&target)
             .await
             .map_err(|e| format!("create_dir_all {}: {}", target.display(), e))?;
@@ -571,7 +571,7 @@ mod tests {
         };
         let higher = SkillInfo {
             name: "x".into(),
-            description: "solo".into(),
+            description: "coltide".into(),
             content: String::new(),
             source: SkillSource::User,
             file_path: "/b".into(),
@@ -580,7 +580,7 @@ mod tests {
         };
         let result = dedupe_by_priority(vec![lower, higher]);
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].description, "solo");
+        assert_eq!(result[0].description, "coltide");
     }
 
     #[test]

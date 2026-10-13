@@ -155,7 +155,7 @@ Scheduler tick → Scheduler.decide()
 ### 5.1 `Task` (SQLite table: `tasks`)
 
 ```rust
-// crates/solo-protocol/src/lib.rs
+// crates/colt-core/src/lib.rs
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct Task {
@@ -382,8 +382,8 @@ The UI `Group by` dropdown offers these 7 groupings. **Default: Status.** Groupi
 ## 9. File layout
 
 **Rust:**
-- `crates/solo-protocol/src/lib.rs` — add `Task*`, `Executor`, `Schedule`, `AgentConfig`, `ContextAnchor`, `TaskRun`, BackendEvent variants (ts-rs derived).
-- `crates/solo-tasks/` — **new crate**:
+- `crates/colt-core/src/lib.rs` — add `Task*`, `Executor`, `Schedule`, `AgentConfig`, `ContextAnchor`, `TaskRun`, BackendEvent variants (ts-rs derived).
+- `crates/coltide-tasks/` — **new crate**:
   - `store.rs` (SQLite + FTS)
   - `context/` (trait + 6 providers)
   - `planner.rs` (LLM call orchestration)
@@ -409,7 +409,7 @@ The UI `Group by` dropdown offers these 7 groupings. **Default: Status.** Groupi
 
 ## 10. Testing strategy
 
-### 10.1 Rust unit tests (`crates/solo-tasks/`)
+### 10.1 Rust unit tests (`crates/coltide-tasks/`)
 - **Store**: CRUD, FTS search, cascade delete runs, JSON round-trip for enums.
 - **ContextAggregator**: each provider with a stub fixture; token-budget enforcement; ordering deterministic.
 - **Planner**: stub LLM returns canned JSON; hash-based idempotence; schema validation of drafts.
@@ -509,7 +509,7 @@ The spec is large but cohesive. The implementation plan will land it in 6 sequen
 
 | Phase | Scope | Exit criteria |
 |---|---|---|
-| **1 · Foundation** ✅ | Protocol types, `solo-tasks` crate skeleton, SQLite store + FTS, `task_commands.rs` for CRUD, `TasksAllocatorTab` with list view only, manual tasks end-to-end (executor=manual, no schedule, no agent) | Can create/edit/delete/search manual tasks in the UI — **shipped 2026-04-21 on `feat/dmg`, plan `docs/superpowers/plans/2026-04-21-task-allocator-phase-1-foundation.md`** |
+| **1 · Foundation** ✅ | Protocol types, `coltide-tasks` crate skeleton, SQLite store + FTS, `task_commands.rs` for CRUD, `TasksAllocatorTab` with list view only, manual tasks end-to-end (executor=manual, no schedule, no agent) | Can create/edit/delete/search manual tasks in the UI — **shipped 2026-04-21 on `feat/dmg`, plan `docs/superpowers/plans/2026-04-21-task-allocator-phase-1-foundation.md`** |
 | **2 · Agent executor (main workspace)** ✅ | Executor for `executor=Agent, execution=main, permission=ask`; spawn existing `agent_create_session`; stream run events; Runs tab in drawer | Click Run → agent session spawns → outcome captured — **shipped 2026-04-21, plan `docs/superpowers/plans/2026-04-21-task-allocator-phase-2-agent-executor.md`** |
 | **3 · Worktree + safety** ✅ | Worktree-mode execution; deny-list enforcement (global + per-task); network allow-list plumbing (advisory); Review modal with Merge / Discard / Open PR | Scheduled-style tasks can run in worktree with bypass mode + safety gates — **shipped 2026-04-21, plan `docs/superpowers/plans/2026-04-21-task-allocator-phase-3-worktree-safety.md`** |
 | **4 · Scheduler** ✅ | Cron (`croner` crate), schedule editor UI (presets + raw), event bus (session-ended only), rate limiter, catch-up, queueing when MAX_ACTIVE_SESSIONS reached | Daily/cron tasks fire correctly; event trigger fires proactive with rate limit — **shipped 2026-04-21, plan `docs/superpowers/plans/2026-04-21-task-allocator-phase-4-scheduler.md`**. Known v1 limits: capacity-exceeded fires are dropped (not queued); event-triggered schedules activate in Phase 5. |

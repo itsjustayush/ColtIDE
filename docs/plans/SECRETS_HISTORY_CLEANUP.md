@@ -18,7 +18,7 @@ and should have been gitignored from the start.
 ## Where the leak lives
 
 The commit `1105f9e1` is reachable from all three of these branches on
-`github.com:ColtIDE-UDE/solo` (both `origin` and `github-integ` aliases):
+`github.com:ColtIDE-UDE/coltide` (both `origin` and `github-integ` aliases):
 
 - `codex/ui-shell-composer`
 - `dev`
@@ -43,7 +43,7 @@ branches.
   history from 2026-04-16). This is the load-bearing step — history rewrite
   is cleanup, rotation is containment.
 - [ ] **Push Protection enabled** at
-  https://github.com/ColtIDE-UDE/solo/settings/security_analysis. Blocks
+  https://github.com/ColtIDE-UDE/coltide/settings/security_analysis. Blocks
   future accidents where a token pattern is detected in a pushed commit.
 
 ## What remains
@@ -52,12 +52,12 @@ branches.
 
 - GitHub OAuth App: regenerate + revoke the old client secret at
   https://github.com/settings/developers → ColtIDE (dev). Push the new
-  secret into AWS Secrets Manager (`solo/dev/github-oidc-client`). The
+  secret into AWS Secrets Manager (`coltide/dev/github-oidc-client`). The
   GitHub OIDC wrapper Lambda reads Secrets Manager on every request, so
   no redeploy needed.
 - Google OAuth Client: add a new secret + disable the old one at
   https://console.cloud.google.com → APIs & Services → Credentials. Push
-  into Secrets Manager (`solo/dev/google-oidc-client`) **and** re-apply to
+  into Secrets Manager (`coltide/dev/google-oidc-client`) **and** re-apply to
   the live Cognito IdP via
   `aws cognito-idp update-identity-provider --user-pool-id us-east-1_S9C2mSy8E
   --provider-name Google --provider-details ...` because Google IdP caches
@@ -86,14 +86,14 @@ Then, from a clean clone:
 
 ```bash
 # Clean clone so filter-repo has nothing to worry about.
-git clone git@github.com:ColtIDE-UDE/solo.git solo-clean
-cd solo-clean
+git clone git@github.com:ColtIDE-UDE/coltide.git coltide-clean
+cd coltide-clean
 
 # Purge the file from every commit that contains it.
 git filter-repo --path infra/Oauth_app_setup.md --invert-paths
 
 # filter-repo removes remotes as a safety — re-add.
-git remote add origin git@github.com:ColtIDE-UDE/solo.git
+git remote add origin git@github.com:ColtIDE-UDE/coltide.git
 
 # Force-push each affected branch. --force-with-lease is safer than --force
 # because it bails if the remote moved since fetch (prevents clobbering
@@ -108,7 +108,7 @@ git push --force origin --tags
 
 After the push, contact GitHub Support at https://support.github.com with:
 
-> Private repo `ColtIDE-UDE/solo` had a sensitive file purged via history
+> Private repo `ColtIDE-UDE/coltide` had a sensitive file purged via history
 > rewrite. Please run garbage collection on the repository and purge the
 > CDN / cached views so the old commit object is unreachable. The file
 > was `infra/Oauth_app_setup.md`; the commit SHA before the rewrite was
@@ -135,7 +135,7 @@ deleted-file commits on top of branches that no longer have them.
 ## Why the rewrite is deferred today
 
 - Repo is private; access is limited to the small group with write access
-  to `ColtIDE-UDE/solo`.
+  to `ColtIDE-UDE/coltide`.
 - No external collaborators or forks.
 - Secrets will be rotated in the same window, so even a historical reader
   of the old commit can't use the credentials.

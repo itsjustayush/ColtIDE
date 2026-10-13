@@ -48,7 +48,7 @@ export const uploadScreenshots = async (
 
   for (let i = 0; i < screenshots.length; i++) {
     const screenshot = screenshots[i];
-    const path = `.solo-bug-reports/${timestamp}-${i}-${screenshot.name}`;
+    const path = `.coltide-bug-reports/${timestamp}-${i}-${screenshot.name}`;
 
     const result = await uploadFileToRepo(
       token,
@@ -103,6 +103,6 @@ export const submitBugReport = async (
     BUG_REPORT_REPO,
     title,
     body,
-    ['bug', 'solo-reported'],
+    ['bug', 'coltide-reported'],
   );
 };

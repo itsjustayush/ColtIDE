@@ -1,7 +1,7 @@
 /**
  * Marketplace Store
  *
- * Caches the registry.json fetched from `solo/skills-registry`, tracks
+ * Caches the registry.json fetched from `coltide/skills-registry`, tracks
  * per-turn search suggestions for the input-banner, and exposes install/
  * uninstall actions. Session-scoped dismissals prevent re-suggesting a
  * skill the user has already skipped this session.

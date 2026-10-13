@@ -2,19 +2,19 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build the `solo-plugins` foundation crate — manifest parsing, local store, toggles, multi-root adapter discovery, and Tauri command surface — without introducing any UI, MCP runtime, or app connectors.
+**Goal:** Build the `coltide-plugins` foundation crate — manifest parsing, local store, toggles, multi-root adapter discovery, and Tauri command surface — without introducing any UI, MCP runtime, or app connectors.
 
-**Architecture:** Hard-fork the minimal surface of codex's `core-plugins` (manifest/store patterns + `PluginId` validation) into a new `crates/solo-plugins/` workspace member. Expose 5 Tauri commands and a two-tier protocol (`PluginSummary` / `PluginDetail`). Read-only adapters discover plugins from `~/.claude/plugins/**` and `~/.codex/plugins/`; ColtIDE-native installs write to `~/.coltide/plugins/cache/<marketplace>/<name>/<version>/`.
+**Architecture:** Hard-fork the minimal surface of codex's `core-plugins` (manifest/store patterns + `PluginId` validation) into a new `crates/coltide-plugins/` workspace member. Expose 5 Tauri commands and a two-tier protocol (`PluginSummary` / `PluginDetail`). Read-only adapters discover plugins from `~/.claude/plugins/**` and `~/.codex/plugins/`; ColtIDE-native installs write to `~/.coltide/plugins/cache/<marketplace>/<name>/<version>/`.
 
 **Tech Stack:** Rust (edition 2021, `serde`, `serde_json`, `tokio`, `tracing`, `thiserror`, `dirs`, `tempfile` for tests), `ts-rs` for TypeScript binding generation, Tauri 2 command surface.
 
-**Spec:** `docs/superpowers/specs/2026-04-17-solo-plugins-foundation-design.md`
+**Spec:** `docs/superpowers/specs/2026-04-17-coltide-plugins-foundation-design.md`
 
 ---
 
 ## Prerequisites & conventions
 
-Every shell command in this plan assumes CWD is `/Users/sachin/Developer/Orbit_Main/solo` unless stated otherwise. The branch is the user's current branch (`feat/ui-skill-application`); no worktree is required for this plan, but the engineer may create one if preferred.
+Every shell command in this plan assumes CWD is `/Users/sachin/Developer/Orbit_Main/coltide` unless stated otherwise. The branch is the user's current branch (`feat/ui-skill-application`); no worktree is required for this plan, but the engineer may create one if preferred.
 
 Commit-message convention: no Claude attribution, imperative first line, type-prefix (`feat(plugins):`, `test(plugins):`, `refactor(plugins):`). The user's memory mandates these. One commit per logical unit of work — per file where possible, otherwise per task.
 
@@ -23,12 +23,12 @@ Reference source for forked code: `/Users/sachin/Developer/Orbit_Main/Inspiratio
 Checks run at key milestones:
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo check -p solo-plugins                    # after crate skeleton lands
-cargo test -p solo-plugins                     # after each module's tests are written
-cargo clippy -p solo-plugins -- -D warnings    # catches lint issues in the new crate
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo check -p coltide-plugins                    # after crate skeleton lands
+cargo test -p coltide-plugins                     # after each module's tests are written
+cargo clippy -p coltide-plugins -- -D warnings    # catches lint issues in the new crate
 bun run check                                  # full cargo check + tsc
-bun run gen:bindings                           # after solo-protocol changes
+bun run gen:bindings                           # after colt-core changes
 ```
 
 ---
@@ -38,7 +38,7 @@ bun run gen:bindings                           # after solo-protocol changes
 ### New files
 
 ```
-crates/solo-plugins/
+crates/coltide-plugins/
 ├── Cargo.toml
 ├── README.md
 ├── src/
@@ -60,11 +60,11 @@ apps/desktop/src/lib/tauri/plugins.ts
 ### Modified files
 
 ```
-Cargo.toml                                     # add solo-plugins to workspace members (already wildcard, but confirm)
-apps/desktop/src-tauri/Cargo.toml              # add solo-plugins dependency
+Cargo.toml                                     # add coltide-plugins to workspace members (already wildcard, but confirm)
+apps/desktop/src-tauri/Cargo.toml              # add coltide-plugins dependency
 apps/desktop/src-tauri/src/lib.rs              # register PluginsState + plugins_commands::*
-crates/solo-protocol/src/lib.rs                # add PluginId, PluginSource, PluginSummary, PluginDetail, etc.
-crates/solo-core/src/settings.rs               # add load_plugins_config / update_plugins_adapters
+crates/colt-core/src/lib.rs                # add PluginId, PluginSource, PluginSummary, PluginDetail, etc.
+crates/colt-core/src/settings.rs               # add load_plugins_config / update_plugins_adapters
 ```
 
 ### One-per-module responsibility
@@ -94,8 +94,8 @@ Tasks are ordered so every task produces something compilable and tested. The or
 9–10. **store.rs** — depends on manifest.
 11–12. **adapters.rs** — depends on manifest.
 13–14. **loader.rs** — depends on everything above.
-15. **Protocol types** — in solo-protocol, wire-visible types.
-16. **Settings wiring** — `PluginsConfig` in `solo-core::settings`.
+15. **Protocol types** — in colt-core, wire-visible types.
+16. **Settings wiring** — `PluginsConfig` in `colt-core::settings`.
 17. **plugins_commands.rs** — Tauri commands.
 18. **Register in lib.rs** — wire commands into the handler.
 19. **TS wrapper** — frontend binding file.
@@ -104,18 +104,18 @@ Tasks are ordered so every task produces something compilable and tested. The or
 
 ---
 
-## Task 1: Create `solo-plugins` crate skeleton
+## Task 1: Create `coltide-plugins` crate skeleton
 
 **Files:**
-- Create: `crates/solo-plugins/Cargo.toml`
-- Create: `crates/solo-plugins/README.md`
-- Create: `crates/solo-plugins/src/lib.rs`
+- Create: `crates/coltide-plugins/Cargo.toml`
+- Create: `crates/coltide-plugins/README.md`
+- Create: `crates/coltide-plugins/src/lib.rs`
 
 - [ ] **Step 1: Create `Cargo.toml`**
 
 ```toml
 [package]
-name = "solo-plugins"
+name = "coltide-plugins"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -137,7 +137,7 @@ tempfile = "3.10"
 - [ ] **Step 2: Create `README.md`**
 
 ```markdown
-# solo-plugins
+# coltide-plugins
 
 Plugin manifest parsing, local store, toggles, and multi-root adapter discovery
 for ColtIDE.
@@ -157,7 +157,7 @@ the minimal subset ColtIDE actually needs.
 ```rust
 //! Plugin discovery, cache, and toggle management for ColtIDE.
 //!
-//! See `docs/superpowers/specs/2026-04-17-solo-plugins-foundation-design.md`
+//! See `docs/superpowers/specs/2026-04-17-coltide-plugins-foundation-design.md`
 //! for the full design. Module provenance is documented per-module.
 
 pub mod adapters;
@@ -181,37 +181,37 @@ pub use loader::{list_plugins, get_plugin_detail};
 Create each of these files with a single module-doc comment so the crate compiles:
 
 ```rust
-// crates/solo-plugins/src/id.rs
+// crates/coltide-plugins/src/id.rs
 //! Stable plugin identifier parsing and validation.
 ```
 
 ```rust
-// crates/solo-plugins/src/path.rs
+// crates/coltide-plugins/src/path.rs
 //! Absolute-path newtype and safe-relative-path resolver.
 ```
 
 ```rust
-// crates/solo-plugins/src/manifest.rs
+// crates/coltide-plugins/src/manifest.rs
 //! plugin.json parser.
 ```
 
 ```rust
-// crates/solo-plugins/src/store.rs
+// crates/coltide-plugins/src/store.rs
 //! Local plugin cache under ~/.coltide/plugins/cache/.
 ```
 
 ```rust
-// crates/solo-plugins/src/adapters.rs
+// crates/coltide-plugins/src/adapters.rs
 //! Read-only discovery of Claude and codex plugin directories.
 ```
 
 ```rust
-// crates/solo-plugins/src/toggles.rs
+// crates/coltide-plugins/src/toggles.rs
 //! Per-plugin enable/disable state persisted to ~/.coltide/plugins/toggles.json.
 ```
 
 ```rust
-// crates/solo-plugins/src/loader.rs
+// crates/coltide-plugins/src/loader.rs
 //! Plugin discovery orchestrator.
 ```
 
@@ -223,21 +223,21 @@ Replace the `pub use` block in `src/lib.rs` with:
 // Re-exports are added module-by-module in later tasks.
 ```
 
-- [ ] **Step 5: Verify `cargo check -p solo-plugins` passes**
+- [ ] **Step 5: Verify `cargo check -p coltide-plugins` passes**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo check -p solo-plugins
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo check -p coltide-plugins
 ```
 
-Expected: `Checking solo-plugins v0.1.0 ... Finished`. No warnings, no errors.
+Expected: `Checking coltide-plugins v0.1.0 ... Finished`. No warnings, no errors.
 
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-git add crates/solo-plugins/Cargo.toml crates/solo-plugins/README.md crates/solo-plugins/src
-git commit -m "feat(plugins): scaffold solo-plugins crate
+cd /Users/sachin/Developer/Orbit_Main/coltide
+git add crates/coltide-plugins/Cargo.toml crates/coltide-plugins/README.md crates/coltide-plugins/src
+git commit -m "feat(plugins): scaffold coltide-plugins crate
 
 Empty module stubs for id, path, manifest, store, adapters, toggles, loader.
 README documents the hard-fork provenance from codex-rs core-plugins."
@@ -248,13 +248,13 @@ README documents the hard-fork provenance from codex-rs core-plugins."
 ## Task 2: `id.rs` — `PluginId` + validation
 
 **Files:**
-- Modify: `crates/solo-plugins/src/id.rs`
+- Modify: `crates/coltide-plugins/src/id.rs`
 
 Source reference: `codex-rs/plugin/src/plugin_id.rs`. The fork changes exactly two things: (1) drop the `@`-based `parse`/`as_key` methods (ColtIDE uses marketplace/name as separate fields on the wire), (2) rename field `plugin_name` to `name` for brevity in the ColtIDE namespace. `validate_plugin_segment` is ported verbatim.
 
 - [ ] **Step 1: Write failing tests**
 
-Replace the contents of `crates/solo-plugins/src/id.rs` with:
+Replace the contents of `crates/coltide-plugins/src/id.rs` with:
 
 ```rust
 //! Stable plugin identifier parsing and validation.
@@ -343,14 +343,14 @@ mod tests {
 - [ ] **Step 2: Run tests, verify they pass**
 
 ```bash
-cargo test -p solo-plugins id::tests
+cargo test -p coltide-plugins id::tests
 ```
 
 Expected: all 5 tests pass. (Yes, this is TDD inverted — tests and impl were written together because the impl is directly forked from codex. The test suite is the acceptance gate.)
 
 - [ ] **Step 3: Restore the `pub use` for `id` in `lib.rs`**
 
-Open `crates/solo-plugins/src/lib.rs` and add back:
+Open `crates/coltide-plugins/src/lib.rs` and add back:
 
 ```rust
 pub use id::{PluginId, PluginIdError, validate_plugin_segment};
@@ -359,7 +359,7 @@ pub use id::{PluginId, PluginIdError, validate_plugin_segment};
 - [ ] **Step 4: Verify crate still compiles**
 
 ```bash
-cargo check -p solo-plugins
+cargo check -p coltide-plugins
 ```
 
 Expected: clean.
@@ -367,7 +367,7 @@ Expected: clean.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/solo-plugins/src/id.rs crates/solo-plugins/src/lib.rs
+git add crates/coltide-plugins/src/id.rs crates/coltide-plugins/src/lib.rs
 git commit -m "feat(plugins): PluginId with segment validation
 
 Forked from codex-rs plugin_id.rs. Segments must be ASCII
@@ -379,7 +379,7 @@ alphanumeric plus '_' and '-'; dots, slashes, and '@' are all rejected."
 ## Task 3: `path.rs` — minimal `AbsolutePathBuf` + safe relative resolver
 
 **Files:**
-- Modify: `crates/solo-plugins/src/path.rs`
+- Modify: `crates/coltide-plugins/src/path.rs`
 
 The codex version of `AbsolutePathBuf` is ~575 lines; we port only what `manifest.rs` and `store.rs` need: construct-from-absolute, `as_path`, `join`, `display`. No tilde-expansion, no deserialize-guard, no canonicalization.
 
@@ -387,7 +387,7 @@ We also need a helper `resolve_relative_inside(root, raw)` that enforces the `./
 
 - [ ] **Step 1: Write the test + implementation**
 
-Replace `crates/solo-plugins/src/path.rs` with:
+Replace `crates/coltide-plugins/src/path.rs` with:
 
 ```rust
 //! Absolute-path newtype and safe-relative-path resolver.
@@ -547,14 +547,14 @@ mod tests {
 - [ ] **Step 2: Run tests**
 
 ```bash
-cargo test -p solo-plugins path::tests
+cargo test -p coltide-plugins path::tests
 ```
 
 Expected: all 6 tests pass.
 
 - [ ] **Step 3: Add re-export to `lib.rs`**
 
-Append to the re-exports block in `crates/solo-plugins/src/lib.rs`:
+Append to the re-exports block in `crates/coltide-plugins/src/lib.rs`:
 
 ```rust
 pub use path::AbsolutePathBuf;
@@ -563,13 +563,13 @@ pub use path::AbsolutePathBuf;
 - [ ] **Step 4: Verify**
 
 ```bash
-cargo check -p solo-plugins
+cargo check -p coltide-plugins
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/solo-plugins/src/path.rs crates/solo-plugins/src/lib.rs
+git add crates/coltide-plugins/src/path.rs crates/coltide-plugins/src/lib.rs
 git commit -m "feat(plugins): minimal AbsolutePathBuf + safe-relative resolver
 
 Simplified port of codex's utils/absolute-path — drops tilde expansion,
@@ -582,7 +582,7 @@ lifted from codex core-plugins/manifest.rs."
 ## Task 4: `manifest.rs` — types and module skeleton
 
 **Files:**
-- Modify: `crates/solo-plugins/src/manifest.rs`
+- Modify: `crates/coltide-plugins/src/manifest.rs`
 
 Source: `codex-rs/core-plugins/src/manifest.rs`. This task lands the public types only — the parsing logic comes in Tasks 5–7. Splitting keeps each task under ~100 lines of code.
 
@@ -592,7 +592,7 @@ Source: `codex-rs/core-plugins/src/manifest.rs`. This task lands the public type
 //! plugin.json parser.
 //!
 //! Forked from codex-rs/core-plugins/src/manifest.rs. ColtIDE accepts three
-//! manifest filenames (solo-plugin, codex-plugin, claude-plugin) in that
+//! manifest filenames (coltide-plugin, codex-plugin, claude-plugin) in that
 //! priority order — see find_plugin_manifest_path.
 
 use crate::path::AbsolutePathBuf;
@@ -604,7 +604,7 @@ pub const MAX_DEFAULT_PROMPT_COUNT: usize = 3;
 pub const MAX_DEFAULT_PROMPT_LEN: usize = 128;
 
 pub const DISCOVERABLE_MANIFEST_PATHS: &[&str] = &[
-    ".solo-plugin/plugin.json",
+    ".coltide-plugin/plugin.json",
     ".codex-plugin/plugin.json",
     ".claude-plugin/plugin.json",
 ];
@@ -734,14 +734,14 @@ pub fn load_plugin_manifest(_plugin_root: &Path) -> Option<PluginManifest> {
 - [ ] **Step 2: Verify compilation**
 
 ```bash
-cargo check -p solo-plugins
+cargo check -p coltide-plugins
 ```
 
 Expected: clean. No tests yet in this task.
 
 - [ ] **Step 3: Add re-exports to `lib.rs`**
 
-Append to `crates/solo-plugins/src/lib.rs`:
+Append to `crates/coltide-plugins/src/lib.rs`:
 
 ```rust
 pub use manifest::{
@@ -753,7 +753,7 @@ pub use manifest::{
 - [ ] **Step 4: Commit**
 
 ```bash
-git add crates/solo-plugins/src/manifest.rs crates/solo-plugins/src/lib.rs
+git add crates/coltide-plugins/src/manifest.rs crates/coltide-plugins/src/lib.rs
 git commit -m "feat(plugins): manifest types and filename discovery
 
 Types-only commit for PluginManifest + interface. load_plugin_manifest
@@ -765,11 +765,11 @@ is stubbed; actual parsing lands in the next three tasks."
 ## Task 5: `manifest.rs` — top-level loader, name fallback, version trim
 
 **Files:**
-- Modify: `crates/solo-plugins/src/manifest.rs`
+- Modify: `crates/coltide-plugins/src/manifest.rs`
 
 - [ ] **Step 1: Write failing tests**
 
-Append to `crates/solo-plugins/src/manifest.rs`:
+Append to `crates/coltide-plugins/src/manifest.rs`:
 
 ```rust
 #[cfg(test)]
@@ -791,13 +791,13 @@ mod tests {
     }
 
     #[test]
-    fn solo_plugin_path_takes_priority() {
+    fn coltide_plugin_path_takes_priority() {
         let tmp = tempdir().unwrap();
         let root = tmp.path().join("sample");
-        write_manifest(&root, ".solo-plugin/plugin.json", r#"{"name":"from-solo"}"#);
+        write_manifest(&root, ".coltide-plugin/plugin.json", r#"{"name":"from-coltide"}"#);
         write_manifest(&root, ".claude-plugin/plugin.json", r#"{"name":"from-claude"}"#);
         let manifest = load_plugin_manifest(&root).unwrap();
-        assert_eq!(manifest.name, "from-solo");
+        assert_eq!(manifest.name, "from-coltide");
     }
 
     #[test]
@@ -813,7 +813,7 @@ mod tests {
     fn name_falls_back_to_dir_when_empty() {
         let tmp = tempdir().unwrap();
         let root = tmp.path().join("sample-dir");
-        write_manifest(&root, ".solo-plugin/plugin.json", r#"{"name":""}"#);
+        write_manifest(&root, ".coltide-plugin/plugin.json", r#"{"name":""}"#);
         let manifest = load_plugin_manifest(&root).unwrap();
         assert_eq!(manifest.name, "sample-dir");
     }
@@ -824,7 +824,7 @@ mod tests {
         let root = tmp.path().join("sample");
         write_manifest(
             &root,
-            ".solo-plugin/plugin.json",
+            ".coltide-plugin/plugin.json",
             r#"{"name":"x","version":"  1.2.3-beta+7  "}"#,
         );
         let manifest = load_plugin_manifest(&root).unwrap();
@@ -835,7 +835,7 @@ mod tests {
     fn empty_version_becomes_none() {
         let tmp = tempdir().unwrap();
         let root = tmp.path().join("sample");
-        write_manifest(&root, ".solo-plugin/plugin.json", r#"{"name":"x","version":"  "}"#);
+        write_manifest(&root, ".coltide-plugin/plugin.json", r#"{"name":"x","version":"  "}"#);
         let manifest = load_plugin_manifest(&root).unwrap();
         assert_eq!(manifest.version, None);
     }
@@ -844,7 +844,7 @@ mod tests {
     fn malformed_json_returns_none() {
         let tmp = tempdir().unwrap();
         let root = tmp.path().join("sample");
-        write_manifest(&root, ".solo-plugin/plugin.json", r#"{not json"#);
+        write_manifest(&root, ".coltide-plugin/plugin.json", r#"{not json"#);
         assert!(load_plugin_manifest(&root).is_none());
     }
 }
@@ -853,7 +853,7 @@ mod tests {
 - [ ] **Step 2: Run tests — expect failures**
 
 ```bash
-cargo test -p solo-plugins manifest::tests
+cargo test -p coltide-plugins manifest::tests
 ```
 
 Expected: 5 failures (stub returns None for all cases that should succeed). The two `returns_none` cases pass.
@@ -946,7 +946,7 @@ fn process_interface(
 - [ ] **Step 4: Run tests — expect pass**
 
 ```bash
-cargo test -p solo-plugins manifest::tests
+cargo test -p coltide-plugins manifest::tests
 ```
 
 Expected: all 7 tests pass.
@@ -954,7 +954,7 @@ Expected: all 7 tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/solo-plugins/src/manifest.rs
+git add crates/coltide-plugins/src/manifest.rs
 git commit -m "feat(plugins): load_plugin_manifest with name/version handling
 
 Parses plugin.json, falls back to directory name when manifest 'name' is
@@ -967,7 +967,7 @@ parsing remains stubbed; lands in next task."
 ## Task 6: `manifest.rs` — interface parsing
 
 **Files:**
-- Modify: `crates/solo-plugins/src/manifest.rs`
+- Modify: `crates/coltide-plugins/src/manifest.rs`
 
 - [ ] **Step 1: Write failing tests**
 
@@ -980,7 +980,7 @@ Append inside the existing `#[cfg(test)] mod tests` block in `manifest.rs`:
         let root = tmp.path().join("sample");
         write_manifest(
             &root,
-            ".solo-plugin/plugin.json",
+            ".coltide-plugin/plugin.json",
             r#"{"name":"x","interface":{"displayName":"My Plugin","shortDescription":"short","brandColor":"#336699"}}"#,
         );
         let manifest = load_plugin_manifest(&root).unwrap();
@@ -996,7 +996,7 @@ Append inside the existing `#[cfg(test)] mod tests` block in `manifest.rs`:
         let root = tmp.path().join("sample");
         write_manifest(
             &root,
-            ".solo-plugin/plugin.json",
+            ".coltide-plugin/plugin.json",
             r#"{"name":"x","interface":{"logo":"./assets/logo.png","screenshots":["./s1.png","./s2.png"]}}"#,
         );
         let manifest = load_plugin_manifest(&root).unwrap();
@@ -1011,7 +1011,7 @@ Append inside the existing `#[cfg(test)] mod tests` block in `manifest.rs`:
         let root = tmp.path().join("sample");
         write_manifest(
             &root,
-            ".solo-plugin/plugin.json",
+            ".coltide-plugin/plugin.json",
             r#"{"name":"x","interface":{"logo":"../evil.png"}}"#,
         );
         let manifest = load_plugin_manifest(&root).unwrap();
@@ -1023,7 +1023,7 @@ Append inside the existing `#[cfg(test)] mod tests` block in `manifest.rs`:
     fn empty_interface_object_returns_none() {
         let tmp = tempdir().unwrap();
         let root = tmp.path().join("sample");
-        write_manifest(&root, ".solo-plugin/plugin.json", r#"{"name":"x","interface":{}}"#);
+        write_manifest(&root, ".coltide-plugin/plugin.json", r#"{"name":"x","interface":{}}"#);
         let manifest = load_plugin_manifest(&root).unwrap();
         assert!(manifest.interface.is_none());
     }
@@ -1032,7 +1032,7 @@ Append inside the existing `#[cfg(test)] mod tests` block in `manifest.rs`:
     fn no_interface_block_returns_none() {
         let tmp = tempdir().unwrap();
         let root = tmp.path().join("sample");
-        write_manifest(&root, ".solo-plugin/plugin.json", r#"{"name":"x"}"#);
+        write_manifest(&root, ".coltide-plugin/plugin.json", r#"{"name":"x"}"#);
         let manifest = load_plugin_manifest(&root).unwrap();
         assert!(manifest.interface.is_none());
     }
@@ -1041,7 +1041,7 @@ Append inside the existing `#[cfg(test)] mod tests` block in `manifest.rs`:
 - [ ] **Step 2: Run tests — expect 4 failures**
 
 ```bash
-cargo test -p solo-plugins manifest::tests
+cargo test -p coltide-plugins manifest::tests
 ```
 
 The empty-interface and no-interface tests pass (stub returns None); the three asserting populated fields fail.
@@ -1122,7 +1122,7 @@ fn resolve_default_prompts(
 - [ ] **Step 4: Run tests — expect pass**
 
 ```bash
-cargo test -p solo-plugins manifest::tests
+cargo test -p coltide-plugins manifest::tests
 ```
 
 Expected: all tests in this task's set pass.
@@ -1130,7 +1130,7 @@ Expected: all tests in this task's set pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/solo-plugins/src/manifest.rs
+git add crates/coltide-plugins/src/manifest.rs
 git commit -m "feat(plugins): manifest interface parsing
 
 Maps the 14 RawPluginManifestInterface fields to PluginManifestInterface.
@@ -1144,7 +1144,7 @@ when every interface field is empty."
 ## Task 7: `manifest.rs` — default_prompt normalization
 
 **Files:**
-- Modify: `crates/solo-plugins/src/manifest.rs`
+- Modify: `crates/coltide-plugins/src/manifest.rs`
 
 This is the most adversarially-tested part of the manifest — codex handles legacy string form, array form, length caps, count caps, and invalid shapes. We port their tests and their behavior.
 
@@ -1159,7 +1159,7 @@ Append to the `mod tests` block:
         let root = tmp.path().join("sample");
         write_manifest(
             &root,
-            ".solo-plugin/plugin.json",
+            ".coltide-plugin/plugin.json",
             r#"{"name":"x","interface":{"defaultPrompt":"  Summarize   my inbox  "}}"#,
         );
         let manifest = load_plugin_manifest(&root).unwrap();
@@ -1173,7 +1173,7 @@ Append to the `mod tests` block:
         let root = tmp.path().join("sample");
         write_manifest(
             &root,
-            ".solo-plugin/plugin.json",
+            ".coltide-plugin/plugin.json",
             r#"{"name":"x","interface":{"defaultPrompt":["one","two","three","four","five"]}}"#,
         );
         let manifest = load_plugin_manifest(&root).unwrap();
@@ -1188,7 +1188,7 @@ Append to the `mod tests` block:
         let too_long = "x".repeat(129);
         write_manifest(
             &root,
-            ".solo-plugin/plugin.json",
+            ".coltide-plugin/plugin.json",
             &format!(r#"{{"name":"x","interface":{{"defaultPrompt":["short","{too_long}"]}}}}"#),
         );
         let manifest = load_plugin_manifest(&root).unwrap();
@@ -1202,7 +1202,7 @@ Append to the `mod tests` block:
         let root = tmp.path().join("sample");
         write_manifest(
             &root,
-            ".solo-plugin/plugin.json",
+            ".coltide-plugin/plugin.json",
             r#"{"name":"x","interface":{"defaultPrompt":["one","   ","two"]}}"#,
         );
         let manifest = load_plugin_manifest(&root).unwrap();
@@ -1216,7 +1216,7 @@ Append to the `mod tests` block:
         let root = tmp.path().join("sample");
         write_manifest(
             &root,
-            ".solo-plugin/plugin.json",
+            ".coltide-plugin/plugin.json",
             r#"{"name":"x","interface":{"defaultPrompt":{"text":"nope"}}}"#,
         );
         let manifest = load_plugin_manifest(&root).unwrap();
@@ -1229,7 +1229,7 @@ Append to the `mod tests` block:
 - [ ] **Step 2: Run tests — expect failures**
 
 ```bash
-cargo test -p solo-plugins manifest::tests
+cargo test -p coltide-plugins manifest::tests
 ```
 
 Expected: the five default_prompt tests fail (stub returns None, meaning `default_prompts` is always empty).
@@ -1316,7 +1316,7 @@ fn value_type(v: &JsonValue) -> &'static str {
 - [ ] **Step 4: Run tests — expect pass**
 
 ```bash
-cargo test -p solo-plugins manifest::tests
+cargo test -p coltide-plugins manifest::tests
 ```
 
 Expected: all manifest tests pass.
@@ -1324,7 +1324,7 @@ Expected: all manifest tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/solo-plugins/src/manifest.rs
+git add crates/coltide-plugins/src/manifest.rs
 git commit -m "feat(plugins): defaultPrompt normalization with caps
 
 Accepts legacy string or array form. Collapses whitespace, drops empty
@@ -1338,13 +1338,13 @@ rather than failing the whole manifest."
 ## Task 8: `toggles.rs` — per-plugin enable/disable state
 
 **Files:**
-- Modify: `crates/solo-plugins/src/toggles.rs`
+- Modify: `crates/coltide-plugins/src/toggles.rs`
 
 This is **new code** — codex's `toggles.rs` is a different concept (a helper for their JSON-config diff pipeline). ColtIDE persists toggle state in a dedicated `~/.coltide/plugins/toggles.json` file.
 
 - [ ] **Step 1: Write failing tests**
 
-Replace `crates/solo-plugins/src/toggles.rs` with:
+Replace `crates/coltide-plugins/src/toggles.rs` with:
 
 ```rust
 //! Per-plugin enable/disable state persisted to ~/.coltide/plugins/toggles.json.
@@ -1373,8 +1373,8 @@ pub struct PluginToggleEntry {
 impl PluginToggles {
     /// Load toggles.json from `~/.coltide/plugins/`. Missing file → empty state.
     /// Malformed file → empty state + warning log.
-    pub fn load(solo_plugins_dir: &Path) -> Self {
-        let path = solo_plugins_dir.join(TOGGLES_FILE);
+    pub fn load(coltide_plugins_dir: &Path) -> Self {
+        let path = coltide_plugins_dir.join(TOGGLES_FILE);
         let Ok(raw) = std::fs::read_to_string(&path) else {
             return Self::default();
         };
@@ -1394,9 +1394,9 @@ impl PluginToggles {
     }
 
     /// Persist to `~/.coltide/plugins/toggles.json`, creating the directory if needed.
-    pub fn save(&self, solo_plugins_dir: &Path) -> std::io::Result<()> {
-        std::fs::create_dir_all(solo_plugins_dir)?;
-        let path: PathBuf = solo_plugins_dir.join(TOGGLES_FILE);
+    pub fn save(&self, coltide_plugins_dir: &Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(coltide_plugins_dir)?;
+        let path: PathBuf = coltide_plugins_dir.join(TOGGLES_FILE);
         let serialized = serde_json::to_string_pretty(self)?;
         std::fs::write(path, serialized)
     }
@@ -1471,14 +1471,14 @@ mod tests {
 - [ ] **Step 2: Run tests**
 
 ```bash
-cargo test -p solo-plugins toggles::tests
+cargo test -p coltide-plugins toggles::tests
 ```
 
 Expected: all 5 tests pass. (Unlike Tasks 2–7 this is written in one shot because every path is trivially testable and there's no adversarial input space.)
 
 - [ ] **Step 3: Add re-export**
 
-Append to `crates/solo-plugins/src/lib.rs`:
+Append to `crates/coltide-plugins/src/lib.rs`:
 
 ```rust
 pub use toggles::{PluginToggleEntry, PluginToggles};
@@ -1487,13 +1487,13 @@ pub use toggles::{PluginToggleEntry, PluginToggles};
 - [ ] **Step 4: Verify**
 
 ```bash
-cargo check -p solo-plugins
+cargo check -p coltide-plugins
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/solo-plugins/src/toggles.rs crates/solo-plugins/src/lib.rs
+git add crates/coltide-plugins/src/toggles.rs crates/coltide-plugins/src/lib.rs
 git commit -m "feat(plugins): PluginToggles persistence in toggles.json
 
 Writes to ~/.coltide/plugins/toggles.json. Missing or malformed files reset to
@@ -1506,13 +1506,13 @@ empty state with a warn log. Keys are PluginId::as_key()
 ## Task 9: `store.rs` — PluginStore with active_plugin_version
 
 **Files:**
-- Modify: `crates/solo-plugins/src/store.rs`
+- Modify: `crates/coltide-plugins/src/store.rs`
 
 Source: `codex-rs/core-plugins/src/store.rs`. We port the cache-layout helpers and the `local`-version-wins rule. Install/uninstall land in Task 10.
 
 - [ ] **Step 1: Write failing tests + minimal skeleton**
 
-Replace `crates/solo-plugins/src/store.rs` with:
+Replace `crates/coltide-plugins/src/store.rs` with:
 
 ```rust
 //! Local plugin cache under ~/.coltide/plugins/cache/<marketplace>/<name>/<version>/.
@@ -1550,11 +1550,11 @@ pub struct PluginStore {
 }
 
 impl PluginStore {
-    /// `solo_plugins_dir` should be `~/.coltide/plugins/`. The cache lives at
-    /// `<solo_plugins_dir>/cache/`.
-    pub fn new(solo_plugins_dir: PathBuf) -> Self {
+    /// `coltide_plugins_dir` should be `~/.coltide/plugins/`. The cache lives at
+    /// `<coltide_plugins_dir>/cache/`.
+    pub fn new(coltide_plugins_dir: PathBuf) -> Self {
         Self {
-            root: solo_plugins_dir.join(PLUGINS_CACHE_DIR),
+            root: coltide_plugins_dir.join(PLUGINS_CACHE_DIR),
         }
     }
 
@@ -1677,14 +1677,14 @@ Note: plugin-version strings use `-` rather than `.` because `validate_plugin_se
 - [ ] **Step 2: Run tests**
 
 ```bash
-cargo test -p solo-plugins store::tests
+cargo test -p coltide-plugins store::tests
 ```
 
 Expected: all 4 tests pass.
 
 - [ ] **Step 3: Add re-export**
 
-Append to `crates/solo-plugins/src/lib.rs`:
+Append to `crates/coltide-plugins/src/lib.rs`:
 
 ```rust
 pub use store::{PluginInstallResult, PluginStore, PluginStoreError};
@@ -1693,13 +1693,13 @@ pub use store::{PluginInstallResult, PluginStore, PluginStoreError};
 - [ ] **Step 4: Verify**
 
 ```bash
-cargo check -p solo-plugins
+cargo check -p coltide-plugins
 ```
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/solo-plugins/src/store.rs crates/solo-plugins/src/lib.rs
+git add crates/coltide-plugins/src/store.rs crates/coltide-plugins/src/lib.rs
 git commit -m "feat(plugins): PluginStore with active_plugin_version
 
 Ports codex's local-wins rule for version directory selection. Version
@@ -1713,7 +1713,7 @@ discovery."
 ## Task 10: `store.rs` — install and uninstall
 
 **Files:**
-- Modify: `crates/solo-plugins/src/store.rs`
+- Modify: `crates/coltide-plugins/src/store.rs`
 
 - [ ] **Step 1: Write failing tests**
 
@@ -1721,9 +1721,9 @@ Append to the `mod tests` block in `store.rs`:
 
 ```rust
     fn write_plugin(root: &Path, manifest_name: &str) {
-        fs::create_dir_all(root.join(".solo-plugin")).unwrap();
+        fs::create_dir_all(root.join(".coltide-plugin")).unwrap();
         fs::write(
-            root.join(".solo-plugin/plugin.json"),
+            root.join(".coltide-plugin/plugin.json"),
             format!(r#"{{"name":"{manifest_name}"}}"#),
         )
         .unwrap();
@@ -1742,7 +1742,7 @@ Append to the `mod tests` block in `store.rs`:
             .unwrap();
 
         assert_eq!(result.version, "local");
-        assert!(result.installed_path.as_path().join(".solo-plugin/plugin.json").is_file());
+        assert!(result.installed_path.as_path().join(".coltide-plugin/plugin.json").is_file());
     }
 
     #[test]
@@ -1883,7 +1883,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 - [ ] **Step 3: Run tests**
 
 ```bash
-cargo test -p solo-plugins store::tests
+cargo test -p coltide-plugins store::tests
 ```
 
 Expected: all tests pass (both from Task 9 and this task).
@@ -1891,7 +1891,7 @@ Expected: all tests pass (both from Task 9 and this task).
 - [ ] **Step 4: Commit**
 
 ```bash
-git add crates/solo-plugins/src/store.rs
+git add crates/coltide-plugins/src/store.rs
 git commit -m "feat(plugins): PluginStore install_local and uninstall
 
 install_local copies source_path into cache/<marketplace>/<name>/<version>/,
@@ -1905,7 +1905,7 @@ Symlinks in the source tree are silently skipped to avoid escape risks."
 ## Task 11: `adapters.rs` — Claude plugins discovery
 
 **Files:**
-- Modify: `crates/solo-plugins/src/adapters.rs`
+- Modify: `crates/coltide-plugins/src/adapters.rs`
 
 Input format: `~/.claude/plugins/installed_plugins.json`:
 
@@ -1924,7 +1924,7 @@ Output: a vector of `(PluginId, root_path, source)` triples that `loader.rs` lat
 
 - [ ] **Step 1: Write failing tests + implementation**
 
-Replace `crates/solo-plugins/src/adapters.rs` with:
+Replace `crates/coltide-plugins/src/adapters.rs` with:
 
 ```rust
 //! Read-only discovery of Claude and codex plugin directories.
@@ -2129,14 +2129,14 @@ mod tests {
 - [ ] **Step 2: Run tests**
 
 ```bash
-cargo test -p solo-plugins adapters::tests
+cargo test -p coltide-plugins adapters::tests
 ```
 
 Expected: all 7 tests pass.
 
 - [ ] **Step 3: Add re-export**
 
-Append to `crates/solo-plugins/src/lib.rs`:
+Append to `crates/coltide-plugins/src/lib.rs`:
 
 ```rust
 pub use adapters::{AdapterPlugin, AdapterSource, discover_claude_adapter, discover_codex_adapter};
@@ -2145,7 +2145,7 @@ pub use adapters::{AdapterPlugin, AdapterSource, discover_claude_adapter, discov
 - [ ] **Step 4: Commit**
 
 ```bash
-git add crates/solo-plugins/src/adapters.rs crates/solo-plugins/src/lib.rs
+git add crates/coltide-plugins/src/adapters.rs crates/coltide-plugins/src/lib.rs
 git commit -m "feat(plugins): Claude plugins adapter
 
 Parses ~/.claude/plugins/installed_plugins.json and produces AdapterPlugin
@@ -2160,7 +2160,7 @@ validate_plugin_segment rules."
 ## Task 12: `adapters.rs` — Codex plugins discovery
 
 **Files:**
-- Modify: `crates/solo-plugins/src/adapters.rs`
+- Modify: `crates/coltide-plugins/src/adapters.rs`
 
 Codex's layout: `~/.codex/plugins/cache/<marketplace>/<name>/<version>/`. We walk that tree one level at a time.
 
@@ -2295,7 +2295,7 @@ fn pick_active_version(plugin_dir: &Path) -> Option<String> {
 - [ ] **Step 3: Run tests**
 
 ```bash
-cargo test -p solo-plugins adapters::tests
+cargo test -p coltide-plugins adapters::tests
 ```
 
 Expected: all tests pass (claude + codex).
@@ -2303,7 +2303,7 @@ Expected: all tests pass (claude + codex).
 - [ ] **Step 4: Commit**
 
 ```bash
-git add crates/solo-plugins/src/adapters.rs
+git add crates/coltide-plugins/src/adapters.rs
 git commit -m "feat(plugins): codex plugins adapter
 
 Walks codex's cache/<marketplace>/<name>/<version>/ layout, applying the
@@ -2317,13 +2317,13 @@ rather than collapsing to a single synthetic name."
 ## Task 13: `loader.rs` — `list_plugins` orchestrator
 
 **Files:**
-- Modify: `crates/solo-plugins/src/loader.rs`
+- Modify: `crates/coltide-plugins/src/loader.rs`
 
 This is the orchestrator that the Tauri command layer calls. Inputs: toggles + adapter-config. Outputs: a sorted list with errors.
 
 - [ ] **Step 1: Write failing tests + implementation**
 
-Replace `crates/solo-plugins/src/loader.rs` with:
+Replace `crates/coltide-plugins/src/loader.rs` with:
 
 ```rust
 //! Plugin discovery orchestrator.
@@ -2340,7 +2340,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 pub struct LoaderConfig<'a> {
-    pub solo_home: &'a Path,
+    pub coltide_home: &'a Path,
     pub claude_plugins_dir: Option<PathBuf>,
     pub codex_cache_dir: Option<PathBuf>,
     pub adapter_claude_plugins: bool,
@@ -2378,9 +2378,9 @@ pub struct PluginListOutcome {
 }
 
 pub fn list_plugins(config: LoaderConfig<'_>) -> PluginListOutcome {
-    let solo_plugins_dir = config.solo_home.join("plugins");
-    let store = PluginStore::new(solo_plugins_dir.clone());
-    let toggles = PluginToggles::load(&solo_plugins_dir);
+    let coltide_plugins_dir = config.coltide_home.join("plugins");
+    let store = PluginStore::new(coltide_plugins_dir.clone());
+    let toggles = PluginToggles::load(&coltide_plugins_dir);
     let mut seen: HashSet<String> = HashSet::new();
     let mut outcome = PluginListOutcome::default();
 
@@ -2541,17 +2541,17 @@ mod tests {
     use tempfile::tempdir;
 
     fn write_plugin(root: &Path, manifest_name: &str) {
-        fs::create_dir_all(root.join(".solo-plugin")).unwrap();
+        fs::create_dir_all(root.join(".coltide-plugin")).unwrap();
         fs::write(
-            root.join(".solo-plugin/plugin.json"),
+            root.join(".coltide-plugin/plugin.json"),
             format!(r#"{{"name":"{manifest_name}"}}"#),
         )
         .unwrap();
     }
 
-    fn make_config<'a>(solo_home: &'a Path) -> LoaderConfig<'a> {
+    fn make_config<'a>(coltide_home: &'a Path) -> LoaderConfig<'a> {
         LoaderConfig {
-            solo_home,
+            coltide_home,
             claude_plugins_dir: None,
             codex_cache_dir: None,
             adapter_claude_plugins: false,
@@ -2568,7 +2568,7 @@ mod tests {
     }
 
     #[test]
-    fn solo_cache_plugins_discovered() {
+    fn coltide_cache_plugins_discovered() {
         let tmp = tempdir().unwrap();
         let plugin_root = tmp
             .path()
@@ -2615,13 +2615,13 @@ mod tests {
     }
 
     #[test]
-    fn solo_wins_on_id_collision() {
+    fn coltide_wins_on_id_collision() {
         let tmp = tempdir().unwrap();
         // ColtIDE-native plugin with marketplace "claude-user" name "dup".
-        let solo_plugin = tmp
+        let coltide_plugin = tmp
             .path()
             .join("plugins/cache/claude-user/dup/local");
-        write_plugin(&solo_plugin, "dup");
+        write_plugin(&coltide_plugin, "dup");
         // Claude adapter fixture with same id.
         let claude_dir = tmp.path().join("claude");
         let ext_dup = tmp.path().join("dup");
@@ -2701,14 +2701,14 @@ mod tests {
 - [ ] **Step 2: Run tests**
 
 ```bash
-cargo test -p solo-plugins loader::tests
+cargo test -p coltide-plugins loader::tests
 ```
 
 Expected: all 6 tests pass.
 
 - [ ] **Step 3: Add re-exports**
 
-Append to `crates/solo-plugins/src/lib.rs`:
+Append to `crates/coltide-plugins/src/lib.rs`:
 
 ```rust
 pub use loader::{
@@ -2720,9 +2720,9 @@ pub use loader::{
 - [ ] **Step 4: Verify full crate compiles + all tests pass**
 
 ```bash
-cargo check -p solo-plugins
-cargo test -p solo-plugins
-cargo clippy -p solo-plugins -- -D warnings
+cargo check -p coltide-plugins
+cargo test -p coltide-plugins
+cargo clippy -p coltide-plugins -- -D warnings
 ```
 
 Expected: all green.
@@ -2730,7 +2730,7 @@ Expected: all green.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crates/solo-plugins/src/loader.rs crates/solo-plugins/src/lib.rs
+git add crates/coltide-plugins/src/loader.rs crates/coltide-plugins/src/lib.rs
 git commit -m "feat(plugins): list_plugins orchestrator + get_plugin_detail
 
 Merges ColtIDE's PluginStore with Claude/codex adapters, applies the
@@ -2741,17 +2741,17 @@ as PluginLoadError entries instead of failing the list."
 
 ---
 
-## Task 14: Protocol types in `solo-protocol`
+## Task 14: Protocol types in `colt-core`
 
 **Files:**
-- Modify: `crates/solo-protocol/src/lib.rs`
+- Modify: `crates/colt-core/src/lib.rs`
 - Generated (review only): `apps/desktop/src/bindings/*`
 
 All wire-visible types live here, alongside existing Terminal/Skills/etc types.
 
-- [ ] **Step 1: Append new types to `solo-protocol/src/lib.rs`**
+- [ ] **Step 1: Append new types to `colt-core/src/lib.rs`**
 
-Add these blocks at the **end** of `crates/solo-protocol/src/lib.rs`, before any final test module:
+Add these blocks at the **end** of `crates/colt-core/src/lib.rs`, before any final test module:
 
 ```rust
 // =============================================================================
@@ -2884,7 +2884,7 @@ Add `plugins` next to `skills`:
 - [ ] **Step 2: Run `bun run gen:bindings` and verify new TS files appear**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 bun run gen:bindings
 ls apps/desktop/src/bindings/ | grep -E "Plugin"
 ```
@@ -2902,7 +2902,7 @@ Expected: clean (cargo check + tsc both pass).
 - [ ] **Step 4: Commit**
 
 ```bash
-git add crates/solo-protocol/src/lib.rs apps/desktop/src/bindings/Plugin*.ts apps/desktop/src/bindings/PluginsConfig.ts
+git add crates/colt-core/src/lib.rs apps/desktop/src/bindings/Plugin*.ts apps/desktop/src/bindings/PluginsConfig.ts
 git commit -m "feat(plugins): protocol types + generated TS bindings
 
 Adds PluginId, PluginSource, PluginSummary, PluginDetail, PluginInterface,
@@ -2913,19 +2913,19 @@ via bun run gen:bindings."
 
 ---
 
-## Task 15: Settings wiring in `solo-core`
+## Task 15: Settings wiring in `colt-core`
 
 **Files:**
-- Modify: `crates/solo-core/src/settings.rs`
+- Modify: `crates/colt-core/src/settings.rs`
 
 Follow the exact pattern used for `SkillsConfig` (already in the file).
 
 - [ ] **Step 1: Add the PluginsConfig helpers**
 
-Open `crates/solo-core/src/settings.rs` and add the following (locate the existing `load_skills_config` / `update_skill_imports` helpers — add the plugin equivalents immediately below them). Also update the imports at the top:
+Open `crates/colt-core/src/settings.rs` and add the following (locate the existing `load_skills_config` / `update_skill_imports` helpers — add the plugin equivalents immediately below them). Also update the imports at the top:
 
 ```rust
-use solo_protocol::{PermissionsConfig, PluginsConfig, SettingsScope, SkillsConfig, ColtIDESettings};
+use coltide_protocol::{PermissionsConfig, PluginsConfig, SettingsScope, SkillsConfig, ColtIDESettings};
 ```
 
 Inside the `merge_into` function, locate the line `dst.skills = src.skills;` and add right after it:
@@ -2970,8 +2970,8 @@ pub fn update_plugins_adapters(
 - [ ] **Step 2: Verify build**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo check -p solo-core
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo check -p colt-core
 ```
 
 Expected: clean.
@@ -2979,8 +2979,8 @@ Expected: clean.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add crates/solo-core/src/settings.rs
-git commit -m "feat(plugins): solo-core settings helpers for PluginsConfig
+git add crates/colt-core/src/settings.rs
+git commit -m "feat(plugins): colt-core settings helpers for PluginsConfig
 
 Adds load_plugins_config and update_plugins_adapters, mirroring the
 existing SkillsConfig helpers. Adapter flags default to true (both
@@ -2993,21 +2993,21 @@ claude-plugins and codex-user adapters on)."
 
 **Files:**
 - Create: `apps/desktop/src-tauri/src/plugins_commands.rs`
-- Modify: `apps/desktop/src-tauri/Cargo.toml` (add solo-plugins dep)
+- Modify: `apps/desktop/src-tauri/Cargo.toml` (add coltide-plugins dep)
 
-- [ ] **Step 1: Add `solo-plugins` dep to the desktop Cargo.toml**
+- [ ] **Step 1: Add `coltide-plugins` dep to the desktop Cargo.toml**
 
-Open `apps/desktop/src-tauri/Cargo.toml` and find the dependencies block. Add (keeping alphabetical order with the other `solo-*` deps):
+Open `apps/desktop/src-tauri/Cargo.toml` and find the dependencies block. Add (keeping alphabetical order with the other `coltide-*` deps):
 
 ```toml
-solo-plugins = { path = "../../../crates/solo-plugins" }
+coltide-plugins = { path = "../../../crates/coltide-plugins" }
 ```
 
 Verify the crate picks it up:
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo check -p solo-desktop-lib
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo check -p coltide-desktop-lib
 ```
 
 Expected: clean (no errors; this step just adds the path dep).
@@ -3022,12 +3022,12 @@ Create `apps/desktop/src-tauri/src/plugins_commands.rs`:
 //! 5 commands: plugins_list, plugins_get_detail, plugins_set_enabled,
 //! plugins_install_local, plugins_uninstall.
 
-use solo_core::settings as settings_io;
-use solo_plugins::{
+use coltide_core::settings as settings_io;
+use coltide_plugins::{
     LoaderConfig, PluginId as CoreId, PluginSource as CoreSource, PluginStore,
     PluginStoreError, PluginToggles, get_plugin_detail, list_plugins, load_plugin_manifest,
 };
-use solo_protocol::{
+use coltide_protocol::{
     PluginDetail, PluginId, PluginInstallResult, PluginInterface, PluginListOutcome,
     PluginLoadError, PluginSource, PluginSummary,
 };
@@ -3044,8 +3044,8 @@ impl PluginsState {
         Self { home_dir }
     }
 
-    fn solo_home(&self) -> PathBuf {
-        self.home_dir.join(".solo")
+    fn coltide_home(&self) -> PathBuf {
+        self.home_dir.join(".coltide")
     }
 
     fn claude_plugins_dir(&self) -> PathBuf {
@@ -3057,7 +3057,7 @@ impl PluginsState {
     }
 }
 
-// Conversion helpers between solo-plugins core types and solo-protocol wire types.
+// Conversion helpers between coltide-plugins core types and colt-core wire types.
 
 fn wire_id(core: CoreId) -> PluginId {
     PluginId {
@@ -3079,7 +3079,7 @@ fn wire_source(core: CoreSource) -> PluginSource {
     }
 }
 
-fn record_to_summary(record: solo_plugins::PluginRecord) -> PluginSummary {
+fn record_to_summary(record: coltide_plugins::PluginRecord) -> PluginSummary {
     let interface = record.manifest.as_ref().and_then(|m| m.interface.as_ref());
     let display_name = interface
         .and_then(|i| i.display_name.clone())
@@ -3104,7 +3104,7 @@ fn record_to_summary(record: solo_plugins::PluginRecord) -> PluginSummary {
     }
 }
 
-fn record_to_detail(record: solo_plugins::PluginRecord) -> PluginDetail {
+fn record_to_detail(record: coltide_plugins::PluginRecord) -> PluginDetail {
     let manifest = record.manifest.clone();
     let interface = manifest
         .as_ref()
@@ -3148,7 +3148,7 @@ fn record_to_detail(record: solo_plugins::PluginRecord) -> PluginDetail {
 }
 ```
 
-The five commands build `LoaderConfig` inline. We don't extract a `loader_config_for` helper because `LoaderConfig.solo_home: &'a Path` has a borrowed lifetime that doesn't compose well with a function that owns the PathBuf — the borrow outlives the helper's stack frame. Inline construction at each call site is the simpler pattern.
+The five commands build `LoaderConfig` inline. We don't extract a `loader_config_for` helper because `LoaderConfig.coltide_home: &'a Path` has a borrowed lifetime that doesn't compose well with a function that owns the PathBuf — the borrow outlives the helper's stack frame. Inline construction at each call site is the simpler pattern.
 
 Continuing `plugins_commands.rs` — append the five commands:
 
@@ -3160,7 +3160,7 @@ pub async fn plugins_list(
 ) -> Result<PluginListOutcome, String> {
     let workspace = PathBuf::from(&cwd);
     let config = settings_io::load_plugins_config(&workspace).unwrap_or_default();
-    let solo_home = state.solo_home();
+    let coltide_home = state.coltide_home();
     let claude_plugins_dir = {
         let d = state.claude_plugins_dir();
         d.exists().then_some(d)
@@ -3171,7 +3171,7 @@ pub async fn plugins_list(
     };
 
     let outcome = list_plugins(LoaderConfig {
-        solo_home: &solo_home,
+        coltide_home: &coltide_home,
         claude_plugins_dir,
         codex_cache_dir,
         adapter_claude_plugins: config.adapter_claude_plugins,
@@ -3199,7 +3199,7 @@ pub async fn plugins_get_detail(
 ) -> Result<PluginDetail, String> {
     let workspace = PathBuf::from(&cwd);
     let config = settings_io::load_plugins_config(&workspace).unwrap_or_default();
-    let solo_home = state.solo_home();
+    let coltide_home = state.coltide_home();
     let claude_plugins_dir = {
         let d = state.claude_plugins_dir();
         d.exists().then_some(d)
@@ -3212,7 +3212,7 @@ pub async fn plugins_get_detail(
 
     let record = get_plugin_detail(
         LoaderConfig {
-            solo_home: &solo_home,
+            coltide_home: &coltide_home,
             claude_plugins_dir,
             codex_cache_dir,
             adapter_claude_plugins: config.adapter_claude_plugins,
@@ -3233,23 +3233,23 @@ pub async fn plugins_set_enabled(
     state: State<'_, PluginsState>,
 ) -> Result<PluginSummary, String> {
     let core_id = core_id(id.clone())?;
-    let solo_plugins_dir = state.solo_home().join("plugins");
+    let coltide_plugins_dir = state.coltide_home().join("plugins");
 
-    let mut toggles = PluginToggles::load(&solo_plugins_dir);
+    let mut toggles = PluginToggles::load(&coltide_plugins_dir);
     toggles.set_enabled(&core_id, enabled);
     toggles
-        .save(&solo_plugins_dir)
+        .save(&coltide_plugins_dir)
         .map_err(|e| format!("failed to save toggles: {e}"))?;
 
     // Re-list to return the updated summary.
     let workspace = PathBuf::from(&cwd);
     let config = settings_io::load_plugins_config(&workspace).unwrap_or_default();
-    let solo_home = state.solo_home();
+    let coltide_home = state.coltide_home();
     let claude_plugins_dir = state.claude_plugins_dir();
     let codex_cache_dir = state.codex_cache_dir();
     let record = get_plugin_detail(
         LoaderConfig {
-            solo_home: &solo_home,
+            coltide_home: &coltide_home,
             claude_plugins_dir: claude_plugins_dir.exists().then_some(claude_plugins_dir),
             codex_cache_dir: codex_cache_dir.exists().then_some(codex_cache_dir),
             adapter_claude_plugins: config.adapter_claude_plugins,
@@ -3281,9 +3281,9 @@ pub async fn plugins_install_local(
         manifest.name
     };
 
-    let core_id = solo_plugins::PluginId::new("local".to_string(), name).map_err(|e| e.to_string())?;
-    let solo_plugins_dir = state.solo_home().join("plugins");
-    let store = PluginStore::new(solo_plugins_dir);
+    let core_id = coltide_plugins::PluginId::new("local".to_string(), name).map_err(|e| e.to_string())?;
+    let coltide_plugins_dir = state.coltide_home().join("plugins");
+    let store = PluginStore::new(coltide_plugins_dir);
     let result = store
         .install_local(&source, core_id, "local")
         .map_err(|e: PluginStoreError| e.to_string())?;
@@ -3310,30 +3310,30 @@ pub async fn plugins_uninstall(
             core_id.marketplace, core_id.name
         ));
     }
-    let solo_plugins_dir = state.solo_home().join("plugins");
-    let store = PluginStore::new(solo_plugins_dir);
+    let coltide_plugins_dir = state.coltide_home().join("plugins");
+    let store = PluginStore::new(coltide_plugins_dir);
     store.uninstall(&core_id).map_err(|e| e.to_string())
 }
 ```
 
 The imports block at the top of `plugins_commands.rs` is already correct from Step 2. No cleanup needed.
 
-- [ ] **Step 3: Run `cargo check -p solo-desktop-lib`**
+- [ ] **Step 3: Run `cargo check -p coltide-desktop-lib`**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo check -p solo-desktop-lib
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo check -p coltide-desktop-lib
 ```
 
 The command module doesn't get registered until Task 17, but the file itself needs to compile standalone once `mod plugins_commands;` is added. To check compilation in isolation here, also run:
 
 ```bash
-cargo check -p solo-plugins
+cargo check -p coltide-plugins
 ```
 
 Expected: clean. (If you see "unused module" on `plugins_commands.rs`, ignore — Task 17 registers it.)
 
-Note: the file won't be picked up by `solo-desktop-lib` until the `mod plugins_commands;` line is added in Task 17. If `cargo check` ignores it for now, that's fine.
+Note: the file won't be picked up by `coltide-desktop-lib` until the `mod plugins_commands;` line is added in Task 17. If `cargo check` ignores it for now, that's fine.
 
 - [ ] **Step 4: Commit**
 
@@ -3344,8 +3344,8 @@ git commit -m "feat(plugins): Tauri command layer
 Five commands: plugins_list, plugins_get_detail, plugins_set_enabled,
 plugins_install_local, plugins_uninstall. Builds LoaderConfig per-call
 from PluginsConfig (claude/codex adapters from user settings) plus
-state-held home-directory paths. Converts between solo-plugins core
-types and solo-protocol wire types inline."
+state-held home-directory paths. Converts between coltide-plugins core
+types and colt-core wire types inline."
 ```
 
 ---
@@ -3394,7 +3394,7 @@ Locate the existing `skills_commands::*` entries in the `tauri::generate_handler
 - [ ] **Step 5: Verify build**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 bun run check
 ```
 
@@ -3453,7 +3453,7 @@ export const pluginsApi = {
 - [ ] **Step 2: Verify TypeScript build**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 bun run check
 ```
 
@@ -3475,20 +3475,20 @@ wrapper shape is exercised by the type system on build."
 ## Task 19: Integration test `tests/round_trip.rs`
 
 **Files:**
-- Create: `crates/solo-plugins/tests/round_trip.rs`
+- Create: `crates/coltide-plugins/tests/round_trip.rs`
 
-This exercises end-to-end: a fixture plugin is installed, listed, toggled, detailed, and uninstalled — all against a tempdir-backed `solo_home`.
+This exercises end-to-end: a fixture plugin is installed, listed, toggled, detailed, and uninstalled — all against a tempdir-backed `coltide_home`.
 
 - [ ] **Step 1: Write the integration test**
 
-Create `crates/solo-plugins/tests/round_trip.rs`:
+Create `crates/coltide-plugins/tests/round_trip.rs`:
 
 ```rust
 //! End-to-end round-trip: install → list → toggle → detail → uninstall.
 //!
-//! Uses a tempdir as `solo_home` so it never touches the real ~/.coltide/.
+//! Uses a tempdir as `coltide_home` so it never touches the real ~/.coltide/.
 
-use solo_plugins::{
+use coltide_plugins::{
     LoaderConfig, PluginId, PluginStore, PluginToggles, get_plugin_detail, list_plugins,
 };
 use std::fs;
@@ -3496,9 +3496,9 @@ use std::path::Path;
 use tempfile::tempdir;
 
 fn write_fixture_plugin(root: &Path, name: &str, display_name: &str) {
-    fs::create_dir_all(root.join(".solo-plugin")).unwrap();
+    fs::create_dir_all(root.join(".coltide-plugin")).unwrap();
     fs::write(
-        root.join(".solo-plugin/plugin.json"),
+        root.join(".coltide-plugin/plugin.json"),
         format!(
             r#"{{"name":"{name}","interface":{{"displayName":"{display_name}","shortDescription":"fixture"}}}}"#
         ),
@@ -3508,20 +3508,20 @@ fn write_fixture_plugin(root: &Path, name: &str, display_name: &str) {
 
 #[test]
 fn install_list_toggle_detail_uninstall() {
-    let solo_home = tempdir().unwrap();
+    let coltide_home = tempdir().unwrap();
     let fixture_src = tempdir().unwrap();
     let source = fixture_src.path().join("fixture");
     write_fixture_plugin(&source, "fixture", "Fixture Plugin");
 
     // 1. Install.
-    let store = PluginStore::new(solo_home.path().join("plugins"));
+    let store = PluginStore::new(coltide_home.path().join("plugins"));
     let id = PluginId::new("local".into(), "fixture".into()).unwrap();
     let install = store.install_local(&source, id.clone(), "local").unwrap();
     assert_eq!(install.version, "local");
 
     // 2. List — adapter flags off so we only see the ColtIDE-native install.
     let make_cfg = || LoaderConfig {
-        solo_home: solo_home.path(),
+        coltide_home: coltide_home.path(),
         claude_plugins_dir: None,
         codex_cache_dir: None,
         adapter_claude_plugins: false,
@@ -3533,9 +3533,9 @@ fn install_list_toggle_detail_uninstall() {
     assert!(listed.plugins[0].enabled, "default enabled");
 
     // 3. Toggle disabled.
-    let mut toggles = PluginToggles::load(&solo_home.path().join("plugins"));
+    let mut toggles = PluginToggles::load(&coltide_home.path().join("plugins"));
     toggles.set_enabled(&id, false);
-    toggles.save(&solo_home.path().join("plugins")).unwrap();
+    toggles.save(&coltide_home.path().join("plugins")).unwrap();
     let listed_after = list_plugins(make_cfg());
     assert!(!listed_after.plugins[0].enabled);
 
@@ -3558,8 +3558,8 @@ fn install_list_toggle_detail_uninstall() {
 - [ ] **Step 2: Run the integration test**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
-cargo test -p solo-plugins --test round_trip
+cd /Users/sachin/Developer/Orbit_Main/coltide
+cargo test -p coltide-plugins --test round_trip
 ```
 
 Expected: test passes.
@@ -3567,11 +3567,11 @@ Expected: test passes.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add crates/solo-plugins/tests/round_trip.rs
+git add crates/coltide-plugins/tests/round_trip.rs
 git commit -m "test(plugins): end-to-end round-trip integration test
 
 Covers install → list → toggle → detail → uninstall against a tempdir
-solo_home. Does not touch the user's real ~/.coltide/ directory."
+coltide_home. Does not touch the user's real ~/.coltide/ directory."
 ```
 
 ---
@@ -3583,7 +3583,7 @@ solo_home. Does not touch the user's real ~/.coltide/ directory."
 - [ ] **Step 1: Full workspace check**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo
+cd /Users/sachin/Developer/Orbit_Main/coltide
 bun run check
 ```
 
@@ -3595,12 +3595,12 @@ Expected: cargo check and tsc both clean.
 cargo clippy --workspace -- -D warnings
 ```
 
-Expected: no new warnings anywhere (not just in `solo-plugins`).
+Expected: no new warnings anywhere (not just in `coltide-plugins`).
 
 - [ ] **Step 3: Full test suite**
 
 ```bash
-cargo test -p solo-plugins
+cargo test -p coltide-plugins
 bun run test   # if the frontend test harness has anything to say about the bindings
 ```
 
@@ -3613,7 +3613,7 @@ bun run gen:bindings
 git status apps/desktop/src/bindings/
 ```
 
-Expected: no files modified after regeneration. If there are diffs, the `ts-rs` state is out of sync with the `solo-protocol` types — investigate and regenerate.
+Expected: no files modified after regeneration. If there are diffs, the `ts-rs` state is out of sync with the `colt-core` types — investigate and regenerate.
 
 - [ ] **Step 5: Manual devtools smoke test**
 
@@ -3628,18 +3628,18 @@ Open DevTools (Cmd+Opt+I), switch to Console, run:
 ```javascript
 // 1. List (should return empty plugins + empty errors, or Claude-adapter discoveries
 //    if the user has ~/.claude/plugins/).
-await window.__TAURI__.core.invoke('plugins_list', { cwd: '/Users/sachin/Developer/Orbit_Main/solo' });
+await window.__TAURI__.core.invoke('plugins_list', { cwd: '/Users/sachin/Developer/Orbit_Main/coltide' });
 
 // 2. Toggle a known plugin (if any) to disabled.
 // await window.__TAURI__.core.invoke('plugins_set_enabled', {
-//   cwd: '/Users/sachin/Developer/Orbit_Main/solo',
+//   cwd: '/Users/sachin/Developer/Orbit_Main/coltide',
 //   id: { marketplace: 'claude-user', name: '<some-plugin>' },
 //   enabled: false,
 // });
 
 // 3. Get detail.
 // await window.__TAURI__.core.invoke('plugins_get_detail', {
-//   cwd: '/Users/sachin/Developer/Orbit_Main/solo',
+//   cwd: '/Users/sachin/Developer/Orbit_Main/coltide',
 //   id: { marketplace: 'claude-user', name: '<some-plugin>' },
 // });
 ```
@@ -3660,18 +3660,18 @@ If everything passes, there's nothing to commit. If verification uncovered a rea
 
 - [ ] `bun run check` green
 - [ ] `cargo clippy --workspace -- -D warnings` green
-- [ ] `cargo test -p solo-plugins` green (unit + integration)
+- [ ] `cargo test -p coltide-plugins` green (unit + integration)
 - [ ] `bun run gen:bindings` produces no diff
 - [ ] `apps/desktop/src/bindings/Plugin*.ts` files exist and match the protocol types
 - [ ] Devtools smoke test exercises all 5 commands without error
 - [ ] Skills tab behavior is unchanged (no regressions)
-- [ ] No references to "Claude Code" or the legacy Electron product name in commit messages, comments, or strings (per `solo/CLAUDE.md` branding policy)
+- [ ] No references to "Claude Code" or the legacy Electron product name in commit messages, comments, or strings (per `coltide/CLAUDE.md` branding policy)
 - [ ] No `Co-Authored-By: Claude` in any commit message
 
 ---
 
 ## What to do after this plan lands
 
-After sub-project 1 lands, the next step is **sub-project 2 (skills leg wiring)**: update `skills_commands.rs::discover_claude_plugins` (and related) to source plugin skills through `solo_plugins::list_plugins` rather than its own hand-rolled `installed_plugins.json` parse. This is the cleanup that removes the temporary duplication explicitly accepted in the spec's out-of-scope section.
+After sub-project 1 lands, the next step is **sub-project 2 (skills leg wiring)**: update `skills_commands.rs::discover_claude_plugins` (and related) to source plugin skills through `coltide_plugins::list_plugins` rather than its own hand-rolled `installed_plugins.json` parse. This is the cleanup that removes the temporary duplication explicitly accepted in the spec's out-of-scope section.
 
 **Do not start sub-project 2 in this plan.** Open a new brainstorming pass for it — the unification has its own scope and risk (touching the skills pipeline directly affects the running agent, unlike this foundation which only runs when a devtools `invoke` asks for it).

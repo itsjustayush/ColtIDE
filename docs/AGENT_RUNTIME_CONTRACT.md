@@ -42,7 +42,7 @@ Important fields:
 - `providerCapabilities`: capability object used by UI and bridge guards.
 - `sessionMode`: `agent` or `chat`.
 - `allowedTools`: true SDK tool allow-list. This is not used for skills.
-- `selectedSkills`: session-level skill names visible through the `solo_skills` MCP server.
+- `selectedSkills`: session-level skill names visible through the `coltide_skills` MCP server.
 - `mcpServers`: JSON-compatible MCP server map passed to the SDK at session start.
 - `outputFormat`: JSON-compatible SDK output format.
 - `agents`: JSON-compatible SDK custom agent config.
@@ -79,7 +79,7 @@ Permission precedence is:
 6. Active mode rule.
 7. User prompt fallback.
 
-Read-only tools are auto-approved: `Read`, `Glob`, `Grep`, `WebSearch`, `WebFetch`, MCP resource reads, vault search, and `solo_skills` reads. `Task` is not read-only and requires the normal permission path.
+Read-only tools are auto-approved: `Read`, `Glob`, `Grep`, `WebSearch`, `WebFetch`, MCP resource reads, vault search, and `coltide_skills` reads. `Task` is not read-only and requires the normal permission path.
 
 Accept mode auto-approves file edits only: `Write`, `Edit`, and `NotebookEdit`. Bash still requires an allow rule or explicit approval. Bypass mode is only valid for task-owned worktree sessions and still honors deny-lists.
 
@@ -87,7 +87,7 @@ Accept mode auto-approves file edits only: `Write`, `Edit`, and `NotebookEdit`. 
 
 Per-message skill chips still inject prompt content for that one message. Session-level skills use `selectedSkills`.
 
-The bridge always provides an in-process `solo_skills` MCP server with:
+The bridge always provides an in-process `coltide_skills` MCP server with:
 
 - `skill_list`: list skills visible to the session.
 - `skill_read`: read one enabled skill by name.

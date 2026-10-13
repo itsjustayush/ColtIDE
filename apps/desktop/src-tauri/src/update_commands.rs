@@ -5,7 +5,7 @@
 
 #![allow(clippy::used_underscore_binding)]
 
-use solo_protocol::BackendEvent;
+use coltide_protocol::BackendEvent;
 use tauri::{AppHandle, Emitter};
 use tauri_plugin_updater::UpdaterExt;
 use tracing::{error, info};

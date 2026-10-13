@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const bun = process.env.BUN ?? "bun";
 
-const defaultRustLog = "coltide_desktop_lib=info,solo_voice=warn,tauri=info";
+const defaultRustLog = "coltide_desktop_lib=info,coltide_voice=warn,tauri=info";
 const children = [
   {
     name: "agent-bridge",

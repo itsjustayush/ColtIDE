@@ -2,7 +2,7 @@
 //!
 //! This module contains IPC commands for semantic search and embeddings.
 
-use solo_embeddings::{
+use coltide_embeddings::{
     CodeChunk, CodeIndex, EmbeddingProvider, OpenAIEmbeddingModel, OpenAIEmbeddingProvider,
     SearchResult,
 };
@@ -32,7 +32,7 @@ impl EmbeddingState {
     }
 
     /// Borrow the current embedding provider, if any. Used by other
-    /// subsystems (e.g. solo-vault) that want to share the same provider
+    /// subsystems (e.g. coltide-vault) that want to share the same provider
     /// instance instead of constructing a second one.
     pub async fn current_provider(&self) -> Option<Arc<dyn EmbeddingProvider>> {
         self.provider.read().await.clone()

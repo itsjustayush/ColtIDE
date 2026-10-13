@@ -11,7 +11,7 @@ interface TooltipState {
   align: 'start' | 'center' | 'end';
 }
 
-const DATA_TITLE_ATTR = 'data-solo-title-tooltip';
+const DATA_TITLE_ATTR = 'data-coltide-title-tooltip';
 
 const findTitleElement = (target: EventTarget | null): HTMLElement | null => {
   if (!(target instanceof Element)) return null;

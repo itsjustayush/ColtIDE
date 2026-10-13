@@ -13,9 +13,9 @@ January 25, 2026
 ### Rust Backend (Tauri)
 
 ```
-solo/
+coltide/
 ├── crates/
-│   └── solo-agent/              # NEW: Multi-provider agent crate
+│   └── colt-core/              # NEW: Multi-provider agent crate
 │       ├── Cargo.toml
 │       └── src/
 │           ├── lib.rs           # AgentManager, AgentSession
@@ -34,7 +34,7 @@ solo/
 ### TypeScript Frontend
 
 ```
-solo/apps/desktop/src/
+coltide/apps/desktop/src/
 ├── bindings/
 │   └── index.ts                 # NEW: TypeScript type definitions
 ├── lib/
@@ -45,17 +45,17 @@ solo/apps/desktop/src/
 
 ## Files Created
 
-### Rust Crate: `solo-agent`
+### Rust Crate: `colt-core`
 
 | File | Purpose |
 |------|---------|
-| `crates/solo-agent/Cargo.toml` | Package manifest with dependencies |
-| `crates/solo-agent/src/lib.rs` | Main entry: `AgentManager`, `AgentSession` |
-| `crates/solo-agent/src/provider.rs` | `AIProvider` trait, `ProviderType`, errors |
-| `crates/solo-agent/src/models.rs` | Model registry with capabilities |
-| `crates/solo-agent/src/credentials.rs` | Keychain + env var credential storage |
-| `crates/solo-agent/src/anthropic.rs` | Anthropic streaming implementation |
-| `crates/solo-agent/src/openai.rs` | OpenAI streaming implementation |
+| `crates/colt-core/Cargo.toml` | Package manifest with dependencies |
+| `crates/colt-core/src/lib.rs` | Main entry: `AgentManager`, `AgentSession` |
+| `crates/colt-core/src/provider.rs` | `AIProvider` trait, `ProviderType`, errors |
+| `crates/colt-core/src/models.rs` | Model registry with capabilities |
+| `crates/colt-core/src/credentials.rs` | Keychain + env var credential storage |
+| `crates/colt-core/src/anthropic.rs` | Anthropic streaming implementation |
+| `crates/colt-core/src/openai.rs` | OpenAI streaming implementation |
 
 ### TypeScript
 
@@ -68,8 +68,8 @@ solo/apps/desktop/src/
 
 | File | Changes |
 |------|---------|
-| `crates/solo-protocol/src/lib.rs` | Added `ProviderType`, `ProviderStatus`, `ModelInfo`, updated `AgentSendMessageRequest` |
-| `apps/desktop/src-tauri/Cargo.toml` | Added `solo-agent` and `uuid` dependencies |
+| `crates/colt-core/src/lib.rs` | Added `ProviderType`, `ProviderStatus`, `ModelInfo`, updated `AgentSendMessageRequest` |
+| `apps/desktop/src-tauri/Cargo.toml` | Added `colt-core` and `uuid` dependencies |
 | `apps/desktop/src-tauri/src/commands.rs` | Added provider and agent commands |
 | `apps/desktop/src-tauri/src/lib.rs` | Registered new commands with state management |
 | `apps/desktop/src/lib/backend.ts` | Added provider and agent API functions |
@@ -101,7 +101,7 @@ pub trait AIProvider: Send + Sync {
 
 ### Credential Storage Priority
 
-1. **macOS Keychain** - Service name: `solo.provider.{anthropic|openai}.apiKey`
+1. **macOS Keychain** - Service name: `coltide.provider.{anthropic|openai}.apiKey`
 2. **Claude Code OAuth** - For Anthropic only, reads from Claude Code's Keychain entry
 3. **Environment Variables** - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`
 
@@ -204,8 +204,8 @@ await setActiveProvider("openai");
 ## Building
 
 ```bash
-# From solo/ directory
-cd solo
+# From coltide/ directory
+cd coltide
 
 # Build all Rust crates
 cargo build

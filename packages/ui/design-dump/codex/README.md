@@ -45,5 +45,5 @@
 ## Regenerate
 
 ```bash
-cd solo && bun scripts/codex-extract/launch.ts
+cd coltide && bun scripts/codex-extract/launch.ts
 ```

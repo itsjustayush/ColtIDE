@@ -89,7 +89,7 @@ export function useVaultDragDrop({ targetRef, enabled = true }: Options): Result
             if (paths.length === 0) return;
 
             window.dispatchEvent(
-              new CustomEvent('solo:vault-files-selected', {
+              new CustomEvent('coltide:vault-files-selected', {
                 detail: { paths },
               }),
             );

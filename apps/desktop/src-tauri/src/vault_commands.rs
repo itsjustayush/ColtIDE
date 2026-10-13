@@ -12,12 +12,12 @@
 
 use std::sync::Arc;
 
-use solo_protocol::{
+use coltide_protocol::{
     BackendEvent, CloudSyncState, EntryKind, IndexStatus, MemoryType, PlacementMode,
     PlacementResult, PlacementSuggestion, RetrievalStats, VaultChunk, VaultEntry, VaultListFilters,
     VaultRetrievalSource, VaultScope, VaultSearchMode, VaultSearchResult,
 };
-use solo_vault::{BackfillProgress, BackfillStats, ReextractProgress, ReextractStats, Vault};
+use coltide_vault::{BackfillProgress, BackfillStats, ReextractProgress, ReextractStats, Vault};
 use tauri::{AppHandle, Emitter, State};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};

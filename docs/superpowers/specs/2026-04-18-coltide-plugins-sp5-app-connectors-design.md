@@ -6,19 +6,19 @@
 **Estimated effort:** 2–3 weeks
 **Depends on:** SP1 (foundation crate) ✓, SP4 (MCP runtime) — tools registration path
 **Prior docs:**
-- SP1 design: `specs/2026-04-17-solo-plugins-foundation-design.md`
-- SP4 design: `specs/2026-04-18-solo-plugins-sp4-mcp-design.md`
+- SP1 design: `specs/2026-04-17-coltide-plugins-foundation-design.md`
+- SP4 design: `specs/2026-04-18-coltide-plugins-sp4-mcp-design.md`
 
 ---
 
 ## Context
 
-SP5 lets plugins declare third-party integrations (Slack, Gmail, Google Drive, Linear, GitHub — any OAuth-backed SaaS) and expose them as tools the agent can call. Plugin manifests already parse an `apps` path field (`crates/solo-plugins/src/manifest.rs:35`), reserved in SP1 and still ignored through SP4.
+SP5 lets plugins declare third-party integrations (Slack, Gmail, Google Drive, Linear, GitHub — any OAuth-backed SaaS) and expose them as tools the agent can call. Plugin manifests already parse an `apps` path field (`crates/coltide-plugins/src/manifest.rs:35`), reserved in SP1 and still ignored through SP4.
 
 ### Prior art — what we have and don't have
 
 - **Codex's `core-plugins` has no OAuth or connector code.** The `.app.json` file format only carries connector IDs (e.g. `{ "apps": { "slack": { "id": "slack" } } }`); codex does not implement authentication or token management. (Verified via grep: zero matches for `oauth`, `slack`, `gmail`, `drive`, `connector` in codex's core-plugins crate.)
-- **ColtIDE's existing auth flow** (`apps/desktop/src-tauri/src/auth_commands.rs`) is AWS Cognito-specific: PKCE flow through Cognito Hosted UI, callback via Tauri deep-link handler, tokens stored in macOS Keychain via `/usr/bin/security` shell-out (`crates/solo-auth/src/credentials.rs`). **Not generalizable as-is** — it federates Google/GitHub as IdPs *into* Cognito; it does not produce provider-specific tokens usable against Slack/Gmail/Drive APIs.
+- **ColtIDE's existing auth flow** (`apps/desktop/src-tauri/src/auth_commands.rs`) is AWS Cognito-specific: PKCE flow through Cognito Hosted UI, callback via Tauri deep-link handler, tokens stored in macOS Keychain via `/usr/bin/security` shell-out (`crates/coltide-auth/src/credentials.rs`). **Not generalizable as-is** — it federates Google/GitHub as IdPs *into* Cognito; it does not produce provider-specific tokens usable against Slack/Gmail/Drive APIs.
 - **GitHub token pattern exists in auto-memory, not in code.** Durable preference: DynamoDB + KMS CMK server-side, macOS Keychain as local cache, never per-user Secrets Manager. No existing code implements this yet; SP5 is the first place this pattern lands.
 
 ### The critical framing question
@@ -27,7 +27,7 @@ The MCP ecosystem in April 2026 already has production Slack, Gmail, and Drive c
 
 **Chosen framing:** SP5 is "OAuth token management for plugins," not "parallel connector runtime." Plugins declare providers they need; ColtIDE owns the OAuth flow and refresh; tokens are injected into MCP servers' env at startup. Tools remain visible to the agent through SP4's MCP path.
 
-This is a strictly smaller SP5 than the original design note suggested, and it collapses the old "new `solo-connectors` crate" into a thin OAuth-orchestration module inside `solo-plugins` plus a token-store module in `solo-auth`.
+This is a strictly smaller SP5 than the original design note suggested, and it collapses the old "new `coltide-connectors` crate" into a thin OAuth-orchestration module inside `coltide-plugins` plus a token-store module in `coltide-auth`.
 
 ### Where SP5 lands in the roadmap
 
@@ -61,11 +61,11 @@ SP6 (marketplace) and SP7 (create flow) are independent.
 
 ## What ships in SP5
 
-1. **Token storage** — `solo-auth::token_store::ProviderTokenStore` with three backends:
+1. **Token storage** — `coltide-auth::token_store::ProviderTokenStore` with three backends:
    - macOS Keychain (local cache, primary on desktop)
    - DynamoDB + KMS CMK (server-side cloud sync — matches the established pattern for GitHub)
    - Environment variable fallback (dev convenience)
-2. **OAuth orchestration** — `solo-auth::oauth::flow` with one concrete provider (`GoogleProvider`), pluggable trait interface for adding Slack/GitHub later.
+2. **OAuth orchestration** — `coltide-auth::oauth::flow` with one concrete provider (`GoogleProvider`), pluggable trait interface for adding Slack/GitHub later.
 3. **Callback surface** — Tauri deep-link handler path extended for provider callbacks, mirroring the Cognito pattern.
 4. **Plugin manifest `apps` wiring** — SP1 already parses the `apps` path; SP5 loads `.app.json` and translates it into "provider tokens needed."
 5. **Env injection into MCP runtime** — SP4's config builder is extended to resolve `${provider:google:accessToken}` variable in `.mcp.json` before spawn.
@@ -107,7 +107,7 @@ The `apps` field in `plugin.json` points to this file. Format:
 
 ### Token store (local)
 
-macOS Keychain service `"com.solo-ide.providers"` (parallel to existing `"com.solo-ide.credentials"`). One entry per `(provider_id, account_id)` tuple:
+macOS Keychain service `"com.coltide-ide.providers"` (parallel to existing `"com.coltide-ide.credentials"`). One entry per `(provider_id, account_id)` tuple:
 
 ```
 key:   google:sa9082@nyu.edu
@@ -118,10 +118,10 @@ Rationale for Keychain-per-provider (not merging into the single Cognito blob): 
 
 ### Cloud token store (DynamoDB)
 
-Table: `solo-provider-tokens-{stage}`
-- **Partition key:** `solo_user_id` (Cognito sub)
+Table: `coltide-provider-tokens-{stage}`
+- **Partition key:** `coltide_user_id` (Cognito sub)
 - **Sort key:** `provider_id:account_id`
-- **Encrypted fields:** `access_token`, `refresh_token` — encrypted client-side with a KMS CMK (`alias/solo-provider-tokens`) before write. Server sees ciphertext only.
+- **Encrypted fields:** `access_token`, `refresh_token` — encrypted client-side with a KMS CMK (`alias/coltide-provider-tokens`) before write. Server sees ciphertext only.
 - **Plaintext fields:** `scopes`, `expires_at`, `connected_at`, `last_used_at`, `revoked_at?`.
 
 **Consistency model:** local Keychain is the hot path; cloud is a warm cache for multi-device sync. On app start, cloud wins if it has a newer `connected_at` than local.
@@ -134,7 +134,7 @@ SP5 reuses SP1's layout entirely. App configs live *inside* plugins at the path 
 
 ## Protocol types
 
-All new types in `crates/solo-protocol/src/lib.rs`, regenerate bindings after.
+All new types in `crates/colt-core/src/lib.rs`, regenerate bindings after.
 
 ### Provider identity
 
@@ -255,7 +255,7 @@ OAuth client IDs / secrets are **baked into the app at build time** from environ
    ```
    https://accounts.google.com/o/oauth2/v2/auth
      ?client_id=…
-     &redirect_uri=solo://providers/google/callback
+     &redirect_uri=coltide://providers/google/callback
      &response_type=code
      &scope=<space-separated union of all needed scopes>
      &code_challenge=…
@@ -264,8 +264,8 @@ OAuth client IDs / secrets are **baked into the app at build time** from environ
      &access_type=offline
      &prompt=consent          # always ask, so refresh_token is issued
    ```
-4. **Browser:** user consents; Google redirects to `solo://providers/google/callback?code=…&state=…`.
-5. **Tauri deep-link handler:** routes `solo://providers/*` to `handle_provider_callback`, which:
+4. **Browser:** user consents; Google redirects to `coltide://providers/google/callback?code=…&state=…`.
+5. **Tauri deep-link handler:** routes `coltide://providers/*` to `handle_provider_callback`, which:
    - Looks up `state` → `code_verifier`; 404s the request if missing or expired.
    - Calls `provider.exchange_code(code, verifier)`.
    - Calls `provider.userinfo(access_token)` to get the account identifier.
@@ -392,7 +392,7 @@ Four tiers, mirroring SP4:
 
 ## Security considerations
 
-**Authorization code interception.** Deep-link callbacks on macOS could theoretically be intercepted by another app also registering `solo://`. Mitigations:
+**Authorization code interception.** Deep-link callbacks on macOS could theoretically be intercepted by another app also registering `coltide://`. Mitigations:
 - PKCE is mandatory — interception of the code alone does not grant a token without the verifier.
 - State parameter is always checked; mismatches abort the flow.
 - `access_type=offline` + `prompt=consent` ensures a refresh token is issued fresh each connect, so a stolen old code gives no long-term access.
@@ -418,7 +418,7 @@ Four tiers, mirroring SP4:
 - **`apps.rs`** — `.app.json` parsing (valid / malformed / unknown provider ID / empty apps object).
 - **`env_injection`** (SP4 extension) — `${provider:google:accessToken}` substitutes when connected, errors when missing or expired.
 
-### Integration test (`crates/solo-plugins/tests/apps_round_trip.rs`)
+### Integration test (`crates/coltide-plugins/tests/apps_round_trip.rs`)
 
 Use a fake `OAuthProvider` (synchronous, returns canned tokens). Install a fixture plugin with `.app.json` + `.mcp.json` that references `${provider:fake:accessToken}`. Connect → assert `PluginSummary.needs_auth == false`. Call `merged_mcp_config` → assert the token was substituted. Disconnect → assert `needs_auth` flips back to `true`.
 
@@ -447,14 +447,14 @@ Use a fake `OAuthProvider` (synchronous, returns canned tokens). Install a fixtu
 3. **Scope fine-tuning UI** — scopes are union-of-plugins; no per-plugin toggle UI.
 4. **Mid-session refresh propagation to running MCP servers** — expired tokens only re-inject on next session.
 5. **Custom provider registration by plugin authors** — providers are baked into the ColtIDE app; plugins can declare usage but not new provider types.
-6. **Web-based OAuth flow from solo.web** — desktop app only. Web follow-on is a separate design.
+6. **Web-based OAuth flow from coltide.web** — desktop app only. Web follow-on is a separate design.
 7. **OAuth device-code flow** — standard browser redirect only. Device-code is useful for headless ColtIDE but not in SP5.
 
 ---
 
 ## Acceptance criteria
 
-- `bun run check` + `cargo test -p solo-plugins` + `cargo test -p solo-auth` pass.
+- `bun run check` + `cargo test -p coltide-plugins` + `cargo test -p coltide-auth` pass.
 - `cargo clippy --workspace` clean.
 - `bun run gen:bindings` has been run.
 - With `GOOGLE_OAUTH_CLIENT_ID` set and a fixture Gmail plugin installed:
@@ -480,7 +480,7 @@ Use a fake `OAuthProvider` (synchronous, returns canned tokens). Install a fixtu
 ## Open questions the user should answer before implementation
 
 - **OAuth client ID policy.** Do we register one Google OAuth app per ColtIDE install environment (dev, staging, prod), or share prod across dev? First option is cleaner; needs Google Cloud console setup.
-- **DynamoDB/KMS provisioning.** Who owns provisioning `solo-provider-tokens-{stage}` and `alias/solo-provider-tokens`? Same owner as the existing `solo-user-stats-{stage}` table? Needs an explicit handoff.
+- **DynamoDB/KMS provisioning.** Who owns provisioning `coltide-provider-tokens-{stage}` and `alias/coltide-provider-tokens`? Same owner as the existing `coltide-user-stats-{stage}` table? Needs an explicit handoff.
 - **Gating in free tier.** Are app connectors a Pro-only feature, or free? Affects whether the "Connect" flow also checks entitlement.
 
 ---
@@ -488,7 +488,7 @@ Use a fake `OAuthProvider` (synchronous, returns canned tokens). Install a fixtu
 ## Follow-on roadmap after SP5
 
 - **SP5.5** — Slack + GitHub + Linear providers; multi-account; scope breakdown UI
-- **SP5.6** — Web-based OAuth flow from `solo-web` for the future browser product
+- **SP5.6** — Web-based OAuth flow from `coltide-web` for the future browser product
 - **SP5.7** — Custom-provider plugin extension (plugin authors register new OAuth providers)
 
 These are intentionally factored out so SP5 ships in one PR.

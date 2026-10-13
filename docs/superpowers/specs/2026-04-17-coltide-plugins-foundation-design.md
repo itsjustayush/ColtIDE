@@ -11,15 +11,15 @@
 
 ColtIDE is adding a plugin system modeled closely on codex's `core-plugins` crate. The end-state vision is full parity with the ChatGPT-style Plugins surface (the Plugins tab screenshot that kicked off this design): a top-level sidebar item with a grid of installable plugins, each of which can bundle skills, MCP servers, and OAuth-backed app connectors (Slack, Gmail, Google Drive, etc).
 
-That full vision has been decomposed into seven sub-projects. This document specifies **only sub-project 1**: the foundation `solo-plugins` crate. Later sub-projects build on this foundation without changing it.
+That full vision has been decomposed into seven sub-projects. This document specifies **only sub-project 1**: the foundation `coltide-plugins` crate. Later sub-projects build on this foundation without changing it.
 
 ### Seven-sub-project decomposition (for reference)
 
-1. **Foundation `solo-plugins` crate** — *this document*. Manifest parsing, local store, toggles, adapter discovery, Tauri command surface. No UI.
+1. **Foundation `coltide-plugins` crate** — *this document*. Manifest parsing, local store, toggles, adapter discovery, Tauri command surface. No UI.
 2. **Skills leg wiring.** Unify `skills_commands.rs`'s plugin-skill discovery through the new crate.
 3. **Plugins UI v1.** Promote Skills-in-Settings to a top-level sidebar item with Plugins/Skills sub-tabs.
-4. **MCP runtime.** New `solo-mcp` crate; plugins with `mcpServers` spawn real MCP clients and register tools into the agent loop.
-5. **App-connectors runtime.** New `solo-connectors` crate; OAuth-backed Slack/Gmail/Drive connectors.
+4. **MCP runtime.** New `coltide-mcp` crate; plugins with `mcpServers` spawn real MCP clients and register tools into the agent loop.
+5. **App-connectors runtime.** New `coltide-connectors` crate; OAuth-backed Slack/Gmail/Drive connectors.
 6. **Remote install + marketplace.** `remote.rs`, `marketplace.rs`, `marketplace_upgrade.rs`, install-from-git flow, marketplace browse UI.
 7. **Create / author flow.** Scaffolder for "Create" button in the UI.
 
@@ -43,9 +43,9 @@ Three distinct directory categories, all live on the user's machine:
 │   └── <marketplace>/              # "local" for user-authored; later, real marketplace names
 │       └── <plugin-name>/
 │           ├── local/              # sentinel: dev-time local installs win over versioned ones
-│           │   └── .solo-plugin/plugin.json
+│           │   └── .coltide-plugin/plugin.json
 │           └── 1.2.3/              # semver-keyed directory for marketplace installs (sub-project 6)
-│               └── .solo-plugin/plugin.json
+│               └── .coltide-plugin/plugin.json
 └── toggles.json                    # { "<marketplace>/<name>": { "enabled": bool } }
 ```
 
@@ -65,7 +65,7 @@ These are walked for discovery but never written to.
 
 Three filenames, checked in priority order inside each plugin root:
 
-1. `.solo-plugin/plugin.json` — ColtIDE-native
+1. `.coltide-plugin/plugin.json` — ColtIDE-native
 2. `.codex-plugin/plugin.json` — codex-native (cross-read)
 3. `.claude-plugin/plugin.json` — Claude-native (cross-read)
 
@@ -86,10 +86,10 @@ Note: these four marketplace *identifiers* are gated by only **two** user-level 
 
 ## Crate layout
 
-A new workspace member `crates/solo-plugins/`:
+A new workspace member `crates/coltide-plugins/`:
 
 ```
-crates/solo-plugins/
+crates/coltide-plugins/
 ├── Cargo.toml           # No codex-* deps. Uses serde, serde_json, tokio, tracing, thiserror, dirs, chrono (if needed).
 ├── README.md            # License attribution to codex (Apache-2.0).
 ├── tests/
@@ -111,7 +111,7 @@ Codex's `remote.rs`, `marketplace.rs`, `marketplace_upgrade.rs` are **not** port
 
 ## Protocol types
 
-All new types live in `crates/solo-protocol/src/lib.rs`, derive `ts_rs::TS + serde::Serialize + serde::Deserialize`, and regenerate into `apps/desktop/src/bindings/` via `bun run gen:bindings`.
+All new types live in `crates/colt-core/src/lib.rs`, derive `ts_rs::TS + serde::Serialize + serde::Deserialize`, and regenerate into `apps/desktop/src/bindings/` via `bun run gen:bindings`.
 
 ### `PluginId`
 
@@ -124,7 +124,7 @@ pub struct PluginId {
 }
 ```
 
-Validation rules (enforced in `solo-plugins::id`): both segments match `[a-z0-9_-]+`, length ≤ 64, not `.` or `..`. Stringified form `marketplace/name` used for display and for `toggles.json` keys; never used as canonical for parsing because marketplace names may themselves contain `-` or `_`.
+Validation rules (enforced in `coltide-plugins::id`): both segments match `[a-z0-9_-]+`, length ≤ 64, not `.` or `..`. Stringified form `marketplace/name` used for display and for `toggles.json` keys; never used as canonical for parsing because marketplace names may themselves contain `-` or `_`.
 
 ### `PluginSource`
 
@@ -232,7 +232,7 @@ This shape is load-bearing: one malformed plugin must never cause the full list 
 
 ### `PluginsConfig`
 
-Stored in `solo_core::settings` (same mechanism as `SkillsConfig`), not in `toggles.json`.
+Stored in `coltide_core::settings` (same mechanism as `SkillsConfig`), not in `toggles.json`.
 
 ```rust
 #[derive(TS, Serialize, Deserialize, Clone, Debug, Default)]
@@ -309,7 +309,7 @@ async fn plugins_uninstall(id: PluginId, state: State<'_, PluginsState>)
 
 ```rust
 pub struct PluginsState {
-    solo_home: PathBuf,
+    coltide_home: PathBuf,
     cache: RwLock<Option<Vec<PluginSummary>>>,
 }
 ```
@@ -346,7 +346,7 @@ No Zustand store in sub-project 1 — that's sub-project 3's work.
 
 ## Discovery pipeline
 
-`solo_plugins::loader::list_plugins(config: &PluginsConfig, solo_home: &Path) -> PluginListOutcome`:
+`coltide_plugins::loader::list_plugins(config: &PluginsConfig, coltide_home: &Path) -> PluginListOutcome`:
 
 1. **Scan ColtIDE's own cache** at `~/.coltide/plugins/cache/<marketplace>/<name>/<version>/`. For each discovered plugin dir, construct `PluginId { marketplace, name }`, determine active version via the `local`-wins rule from `store.rs`, and tag `source` as `Local` (if `marketplace == "local"`) or `Marketplace` otherwise. In sub-project 1 the `Marketplace` branch is effectively unreachable since no marketplace install path exists yet — the enum variant is reserved for sub-project 6.
 
@@ -376,7 +376,7 @@ No Zustand store in sub-project 1 — that's sub-project 3's work.
 }
 ```
 
-`solo-plugins` parses this independently of `skills_commands.rs` (no shared code path). `marketplaceName` from the index is preserved in `PluginId.marketplace`; if absent, falls back to `claude-plugins`.
+`coltide-plugins` parses this independently of `skills_commands.rs` (no shared code path). `marketplaceName` from the index is preserved in `PluginId.marketplace`; if absent, falls back to `claude-plugins`.
 
 ---
 
@@ -404,16 +404,16 @@ Three tiers, each with a distinct audience:
 
 ### Unit tests (co-located, `#[cfg(test)]`)
 
-- **`manifest.rs`** — port the input strings from codex's `manifest.rs::tests`: `write_manifest` helper, default-prompt edge cases (legacy string, array, normalization, length caps, invalid shapes), trimmed-version behavior, alternate-path discovery. Add ColtIDE-specific cases: the `.solo-plugin/` path accepted, plugin name validation.
+- **`manifest.rs`** — port the input strings from codex's `manifest.rs::tests`: `write_manifest` helper, default-prompt edge cases (legacy string, array, normalization, length caps, invalid shapes), trimmed-version behavior, alternate-path discovery. Add ColtIDE-specific cases: the `.coltide-plugin/` path accepted, plugin name validation.
 - **`id.rs`** — exhaustive validation: valid segments, rejected characters, max length, reserved names, traversal attempts (`../evil`).
 - **`store.rs`** — port codex's `store_tests.rs` patterns: tempdir-based install → list → uninstall cycle; `local` version-sentinel precedence; multi-version coexistence.
 - **`toggles.rs`** — persist-and-reload; missing-file tolerance; unknown-plugin entries silently ignored on load.
 - **`adapters.rs`** — fake `installed_plugins.json` in tempdir; malformed JSON produces zero plugins plus one `PluginLoadError`; missing directory produces empty list silently.
 - **`loader.rs`** — the merge rule. Construct tempdirs standing in for ColtIDE cache + Claude adapter, put the same plugin name in both, assert ColtIDE wins. Different plugins in each → both appear.
 
-### Integration test (`crates/solo-plugins/tests/round_trip.rs`)
+### Integration test (`crates/coltide-plugins/tests/round_trip.rs`)
 
-Build a temp `SOLO_HOME`, install a fixture plugin directory, list, toggle, get detail, uninstall, list-is-empty.
+Build a temp `COLTIDE_HOME`, install a fixture plugin directory, list, toggle, get detail, uninstall, list-is-empty.
 
 ### Not tested in sub-project 1
 
@@ -426,8 +426,8 @@ Build a temp `SOLO_HOME`, install a fixture plugin directory, list, toggle, get 
 ## Out of scope (deferred to later sub-projects)
 
 1. **No UI.** Skills tab unchanged. No Plugins sidebar item, no `PluginsView`. Sub-project 1 is exercisable only via devtools `invoke(...)` and unit/integration tests.
-2. **No skill unification.** `skills_commands.rs::discover_claude_plugins` keeps running. Sub-project 2 replaces it with a call into `solo-plugins::loader`.
-3. **No MCP runtime.** The `mcpServers` field in `plugin.json` is parsed into the manifest (for forward-compat) but ignored by the loader. No `McpServerConfig` in `solo-protocol`.
+2. **No skill unification.** `skills_commands.rs::discover_claude_plugins` keeps running. Sub-project 2 replaces it with a call into `coltide-plugins::loader`.
+3. **No MCP runtime.** The `mcpServers` field in `plugin.json` is parsed into the manifest (for forward-compat) but ignored by the loader. No `McpServerConfig` in `colt-core`.
 4. **No app connectors.** Same treatment as MCP: `apps` field parsed, ignored.
 5. **No remote install.** `plugins_install_local` is the only install path.
 6. **No marketplace discovery.** `marketplace.json` files ignored; `PluginId.marketplace` is just a string for now.
@@ -441,7 +441,7 @@ Build a temp `SOLO_HOME`, install a fixture plugin directory, list, toggle, get 
 Sub-project 1 is "done" when all of the following are true:
 
 - `bun run check` (cargo check + tsc) passes.
-- `cargo test -p solo-plugins` passes, including the integration test.
+- `cargo test -p coltide-plugins` passes, including the integration test.
 - `cargo clippy --workspace` is clean (no new warnings).
 - `bun run gen:bindings` has been run; `apps/desktop/src/bindings/` contains the new types with no hand-edits.
 - From the app's devtools console, with a fixture plugin directory on disk:

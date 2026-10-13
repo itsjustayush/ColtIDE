@@ -2,7 +2,7 @@
 
 This document captures how `@colt/ui` handles the rules defined in the Inspirations UI skill at `/Users/sachin/Developer/Orbit_Main/Inspirations/Skills/ui/design-guidelines/`. The authoritative, always-current version lives with the design skill:
 
-**→ `solo/.coltide/skills/design/reconciliation.md`**
+**→ `coltide/.coltide/skills/design/reconciliation.md`**
 
 That's the file to read and update. This file exists only as a local pointer so developers browsing `packages/ui/src/` find it without leaving the package.
 

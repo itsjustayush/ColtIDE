@@ -11,7 +11,7 @@ import { ExclamationTriangleIcon, ChevronRightIcon } from '@radix-ui/react-icons
 import { FileIcon } from '@react-symbols/icons/utils';
 import { CodeSkeleton } from '@/components/ui/skeletons';
 import * as fs from '@/lib/tauri/fs';
-import { registerSoloTheme, SOLO_THEME_NAME, SOLO_LIGHT_THEME_NAME, registerSoloLightTheme } from '@/components/editor/theme';
+import { registerColtIDETheme, COLTIDE_THEME_NAME, COLTIDE_LIGHT_THEME_NAME, registerColtIDELightTheme } from '@/components/editor/theme';
 import { registerColtLanguage, validateColtModel } from '@/components/editor/colt';
 import { MarkdownPreview } from '@/components/editor/MarkdownPreview';
 import { MarkdownToggle } from '@/components/editor/MarkdownToggle';
@@ -175,7 +175,7 @@ export function FileViewerPanel({
   // Theme (A8)
   const resolvedTheme = useColorScheme();
   const isDarkTheme = resolvedTheme === 'dark';
-  const editorTheme = isDarkTheme ? SOLO_THEME_NAME : SOLO_LIGHT_THEME_NAME;
+  const editorTheme = isDarkTheme ? COLTIDE_THEME_NAME : COLTIDE_LIGHT_THEME_NAME;
 
   // Check if current file is markdown
   const isMarkdown = useMemo(() => isMarkdownFile(filePath), [filePath]);
@@ -287,8 +287,8 @@ export function FileViewerPanel({
 
   // Handle before mount (register themes + Colt language)
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
-    registerSoloTheme(monaco);
-    registerSoloLightTheme(monaco);
+    registerColtIDETheme(monaco);
+    registerColtIDELightTheme(monaco);
     registerColtLanguage(monaco);
   }, []);
 

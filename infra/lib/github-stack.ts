@@ -12,7 +12,7 @@ import { Construct } from "constructs";
 import { existsSync } from "node:fs";
 import * as path from "node:path";
 import * as url from "node:url";
-import type { SoloStageConfig } from "./config.js";
+import type { ColtIDEStageConfig } from "./config.js";
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,11 +27,11 @@ function resolveEntryPath(entryPath: string): string {
   return abs;
 }
 
-export interface SoloGitHubStackProps extends cdk.StackProps {
-  readonly config: SoloStageConfig;
+export interface ColtIDEGitHubStackProps extends cdk.StackProps {
+  readonly config: ColtIDEStageConfig;
 }
 
-export class SoloGitHubStack extends cdk.Stack {
+export class ColtIDEGitHubStack extends cdk.Stack {
   public readonly tokensTable: dynamodb.Table;
   public readonly pendingTable: dynamodb.Table;
   public readonly tokenEncryptionKey: kms.Key;
@@ -41,19 +41,19 @@ export class SoloGitHubStack extends cdk.Stack {
   public readonly getTokenLambda: lambdaNodejs.NodejsFunction;
   public readonly unlinkLambda: lambdaNodejs.NodejsFunction;
 
-  constructor(scope: Construct, id: string, props: SoloGitHubStackProps) {
+  constructor(scope: Construct, id: string, props: ColtIDEGitHubStackProps) {
     super(scope, id, props);
     const { config } = props;
 
     this.tokenEncryptionKey = new kms.Key(this, "TokenEncryptionKey", {
-      alias: `alias/solo-github-tokens-${config.stage}`,
+      alias: `alias/coltide-github-tokens-${config.stage}`,
       description: "Encrypts GitHub access tokens at rest in DynamoDB",
       enableKeyRotation: true,
       removalPolicy: config.removalPolicy,
     });
 
     this.jwtSigningKey = new kms.Key(this, "JwtSigningKey", {
-      alias: `alias/solo-github-oidc-jwt-${config.stage}`,
+      alias: `alias/coltide-github-oidc-jwt-${config.stage}`,
       description: "RSA key for signing JWTs in the GitHub OIDC wrapper",
       keySpec: kms.KeySpec.RSA_2048,
       keyUsage: kms.KeyUsage.SIGN_VERIFY,
@@ -61,7 +61,7 @@ export class SoloGitHubStack extends cdk.Stack {
     });
 
     this.tokensTable = new dynamodb.Table(this, "TokensTable", {
-      tableName: `solo-github-tokens-${config.stage}`,
+      tableName: `coltide-github-tokens-${config.stage}`,
       partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
@@ -78,7 +78,7 @@ export class SoloGitHubStack extends cdk.Stack {
     });
 
     this.pendingTable = new dynamodb.Table(this, "PendingTable", {
-      tableName: `solo-github-pending-${config.stage}`,
+      tableName: `coltide-github-pending-${config.stage}`,
       partitionKey: { name: "github_user_id", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       encryption: dynamodb.TableEncryption.CUSTOMER_MANAGED,
@@ -90,11 +90,11 @@ export class SoloGitHubStack extends cdk.Stack {
     const githubSecret = secretsmanager.Secret.fromSecretNameV2(
       this,
       "GitHubSecret",
-      `solo/${config.stage}/github-oidc-client`,
+      `coltide/${config.stage}/github-oidc-client`,
     );
 
     const stateSigningSecret = new secretsmanager.Secret(this, "StateSigningSecret", {
-      secretName: `solo/${config.stage}/github-state-signing`,
+      secretName: `coltide/${config.stage}/github-state-signing`,
       description: "HMAC secret for signing OAuth state tokens (CSRF protection)",
       generateSecretString: { passwordLength: 64, excludePunctuation: true },
       removalPolicy: config.removalPolicy,
@@ -107,7 +107,7 @@ export class SoloGitHubStack extends cdk.Stack {
       entryPath: string,
       opts: Partial<lambdaNodejs.NodejsFunctionProps> = {},
     ): lambdaNodejs.NodejsFunction => {
-      const functionName = `solo-gh-${name}-${config.stage}`;
+      const functionName = `coltide-gh-${name}-${config.stage}`;
       const logGroup = new logs.LogGroup(this, `${name}LogGroup`, {
         logGroupName: `/aws/lambda/${functionName}`,
         retention: logs.RetentionDays.TWO_WEEKS,
@@ -178,7 +178,7 @@ export class SoloGitHubStack extends cdk.Stack {
     );
 
     this.oidcApi = new apigw.HttpApi(this, "OidcApi", {
-      apiName: `solo-github-oidc-${config.stage}`,
+      apiName: `coltide-github-oidc-${config.stage}`,
       description: `GitHub OIDC wrapper for Cognito — ${config.stage}`,
       corsPreflight: {
         allowOrigins: ["*"],
@@ -215,20 +215,20 @@ export class SoloGitHubStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, "OidcApiUrl", {
       value: this.oidcApi.apiEndpoint,
-      exportName: `solo-${config.stage}-github-oidc-api`,
+      exportName: `coltide-${config.stage}-github-oidc-api`,
     });
     new cdk.CfnOutput(this, "OidcIssuer", {
       value: this.oidcApi.apiEndpoint,
-      exportName: `solo-${config.stage}-github-oidc-issuer`,
+      exportName: `coltide-${config.stage}-github-oidc-issuer`,
     });
     new cdk.CfnOutput(this, "TokensTableName", {
       value: this.tokensTable.tableName,
-      exportName: `solo-${config.stage}-github-tokens-table`,
+      exportName: `coltide-${config.stage}-github-tokens-table`,
     });
     new cdk.CfnOutput(this, "GitHubCallbackUrl", {
       value: `${this.oidcApi.apiEndpoint}/callback`,
       description: "Register this as the single Authorization callback URL in GitHub OAuth app",
-      exportName: `solo-${config.stage}-github-callback-url`,
+      exportName: `coltide-${config.stage}-github-callback-url`,
     });
   }
 

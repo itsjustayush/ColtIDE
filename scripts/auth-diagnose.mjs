@@ -82,7 +82,7 @@ function describeProviderDetails(details = {}) {
 section("LOCAL ENV (resolved by desktop-auth-env.mjs)");
 const { effective, sources, missing, loadedFiles } = resolveDesktopAuthEnv({
   ...process.env,
-  SOLO_AUTH_STAGE: requestedStage,
+  COLTIDE_AUTH_STAGE: requestedStage,
 });
 fmt("requested stage", requestedStage);
 if (loadedFiles.length === 0) {
@@ -105,7 +105,7 @@ for (const [key, src] of Object.entries(sources)) {
 section("AWS COGNITO LIVE STATE");
 const stack = runAws([
   "cloudformation", "describe-stacks",
-  "--stack-name", `SoloAuth-${requestedStage}`,
+  "--stack-name", `ColtIDEAuth-${requestedStage}`,
   "--query", "Stacks[0].Outputs",
   "--output", "json",
 ]);
@@ -126,8 +126,8 @@ if (stack.ok) {
 // 3. Drift check
 section("DRIFT CHECK (local vs deployed)");
 const drift = [];
-if (livePoolId && effective.SOLO_COGNITO_USER_POOL_ID && livePoolId !== effective.SOLO_COGNITO_USER_POOL_ID) {
-  drift.push(`UserPoolId: local=${effective.SOLO_COGNITO_USER_POOL_ID} live=${livePoolId}`);
+if (livePoolId && effective.COLTIDE_COGNITO_USER_POOL_ID && livePoolId !== effective.COLTIDE_COGNITO_USER_POOL_ID) {
+  drift.push(`UserPoolId: local=${effective.COLTIDE_COGNITO_USER_POOL_ID} live=${livePoolId}`);
 }
 if (liveClientId && effective.COLTIDE_COGNITO_CLIENT_ID && liveClientId !== effective.COLTIDE_COGNITO_CLIENT_ID) {
   drift.push(`ClientId: local=${effective.COLTIDE_COGNITO_CLIENT_ID} live=${liveClientId}`);

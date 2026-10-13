@@ -6,9 +6,9 @@ match what the desktop writes locally.
 
 Authoritative code sources:
 
-- `crates/solo-vault/src/store.rs` - SQLite DDL, indexes, embedding storage.
-- `crates/solo-vault/src/pipeline.rs` - ingest, chunking, and embedding flow.
-- `crates/solo-protocol/src/lib.rs` - protocol structs and enum values.
+- `crates/coltide-vault/src/store.rs` - SQLite DDL, indexes, embedding storage.
+- `crates/coltide-vault/src/pipeline.rs` - ingest, chunking, and embedding flow.
+- `crates/colt-core/src/lib.rs` - protocol structs and enum values.
 - `agent-bridge/src/vault.ts` - read-side SQL used by agent retrieval.
 
 ## Current Local Store
@@ -27,7 +27,7 @@ Authoritative code sources:
 
 ## Exact Local SQLite DDL
 
-This is copied from the `SCHEMA` constant in `crates/solo-vault/src/store.rs`.
+This is copied from the `SCHEMA` constant in `crates/coltide-vault/src/store.rs`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS entries (

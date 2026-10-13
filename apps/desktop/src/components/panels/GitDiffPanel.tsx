@@ -7,7 +7,7 @@ import { DiffEditor, type BeforeMount } from '@monaco-editor/react';
 import { ExclamationTriangleIcon } from '@radix-ui/react-icons';
 import { CodeSkeleton } from '@/components/ui/skeletons';
 import { gitGetFileDiff } from '@/lib/tauri/git';
-import { registerSoloTheme, SOLO_THEME_NAME } from '@/components/editor/theme';
+import { registerColtIDETheme, COLTIDE_THEME_NAME } from '@/components/editor/theme';
 import type { PanelProps } from '@/lib/panels/types';
 
 interface GitDiffData {
@@ -91,7 +91,7 @@ export const GitDiffPanel = ({
   const language = getMonacoLanguage(filePath ?? '');
 
   const handleEditorWillMount: BeforeMount = useCallback((monaco) => {
-    registerSoloTheme(monaco);
+    registerColtIDETheme(monaco);
   }, []);
 
   if (isLoading) {
@@ -117,7 +117,7 @@ export const GitDiffPanel = ({
         original={oldContent}
         modified={newContent}
         language={language}
-        theme={SOLO_THEME_NAME}
+        theme={COLTIDE_THEME_NAME}
         beforeMount={handleEditorWillMount}
         options={{
           readOnly: true,

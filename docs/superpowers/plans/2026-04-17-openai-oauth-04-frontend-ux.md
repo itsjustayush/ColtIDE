@@ -51,7 +51,7 @@ The picker needs a flag to render the "Text only" badge. Put this flag in the ex
 - [ ] **Step 1: Locate the existing MODEL_OPTIONS**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 grep -n "MODEL_OPTIONS\|ProviderIconType" apps/desktop/src/lib/constants.ts
 ```
 
@@ -100,7 +100,7 @@ Expected: clean.
 
 ```bash
 git add apps/desktop/src/lib/constants.ts
-git commit -m "feat(solo-desktop): add textOnly flag to MODEL_OPTIONS
+git commit -m "feat(coltide-desktop): add textOnly flag to MODEL_OPTIONS
 
 Declarative metadata consumed by the model picker (for the 'Text only'
 badge) and the chat input (for the capability banner). Set on all
@@ -223,7 +223,7 @@ Expected: clean.
 
 ```bash
 git add apps/desktop/src/components/agent/input/model-picker.tsx
-git commit -m "feat(solo-desktop): group model picker by provider with Text-only badge
+git commit -m "feat(coltide-desktop): group model picker by provider with Text-only badge
 
 Models are rendered in three labeled sections (Claude, ChatGPT,
 Gemini). Each OpenAI entry shows a 'Text only' badge inline so users
@@ -326,7 +326,7 @@ Expected: clean.
 
 ```bash
 git add apps/desktop/src/components/settings/ProfileRow.tsx
-git commit -m "feat(solo-desktop): ProfileRow component for multi-account settings UI
+git commit -m "feat(coltide-desktop): ProfileRow component for multi-account settings UI
 
 Presentational — radio for active, email label, trash icon to remove.
 Used by ProviderCard in the next commit."
@@ -482,7 +482,7 @@ Expected: zero errors.
 
 ```bash
 git add apps/desktop/src/components/settings/tabs/AITab.tsx
-git commit -m "feat(solo-desktop): multi-account sub-list in AITab ProviderCard
+git commit -m "feat(coltide-desktop): multi-account sub-list in AITab ProviderCard
 
 Each provider card that has OAuth profiles now shows them as a list of
 ProfileRow components with radio-select for active and a remove button.
@@ -628,7 +628,7 @@ Expected: clean.
 ```bash
 git add apps/desktop/src/components/agent/input/OpenAICapabilityBanner.tsx \
         apps/desktop/src/components/agent/input/chat-input-container.tsx
-git commit -m "feat(solo-desktop): OpenAI capability banner on chat input
+git commit -m "feat(coltide-desktop): OpenAI capability banner on chat input
 
 Shown above the chat input when the selected model is flagged
 textOnly (currently all OpenAI entries). Warns users that file reads,
@@ -645,7 +645,7 @@ Human-gated. Prove the three UI changes render and behave correctly.
 - [ ] **Step 1: Launch ColtIDE from the worktree**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 bun run dev
 ```
 

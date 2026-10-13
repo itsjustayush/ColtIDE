@@ -15,9 +15,9 @@ Fill in:
 | Field | Value |
 |-------|-------|
 | Application name | `ColtIDE (dev)` |
-| Homepage URL | `https://solo.dev` (or any valid URL — e.g. your GitHub) |
+| Homepage URL | `https://coltide.dev` (or any valid URL — e.g. your GitHub) |
 | Application description | `ColtIDE desktop app — dev environment` (optional) |
-| Authorization callback URL | `https://solo-ide-dev.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
+| Authorization callback URL | `https://coltide-ide-dev.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
 
 Click **Register application**.
 
@@ -29,8 +29,8 @@ Paste both into AWS Secrets Manager once CDK creates the secret. Commands to run
 
 ```bash
 aws secretsmanager put-secret-value \
-  --profile solo \
-  --secret-id solo/dev/github-oidc-client \
+  --profile coltide \
+  --secret-id coltide/dev/github-oidc-client \
   --secret-string '{"clientId":"PASTE_CLIENT_ID","clientSecret":"PASTE_CLIENT_SECRET"}'
 ```
 
@@ -38,8 +38,8 @@ aws secretsmanager put-secret-value \
 
 Same as above but with:
 - Application name: `ColtIDE`
-- Callback URL: `https://solo-ide-prod.auth.us-east-1.amazoncognito.com/oauth2/idpresponse`
-- Secret goes into `solo/prod/github-oidc-client`
+- Callback URL: `https://coltide-ide-prod.auth.us-east-1.amazoncognito.com/oauth2/idpresponse`
+- Secret goes into `coltide/prod/github-oidc-client`
 
 ---
 
@@ -69,7 +69,7 @@ Open: **https://console.cloud.google.com**
 3. Application type: **Web application**
 4. Name: `ColtIDE (dev)`
 5. Authorized redirect URIs → **Add URI**:
-   `https://solo-ide-dev.auth.us-east-1.amazoncognito.com/oauth2/idpresponse`
+   `https://coltide-ide-dev.auth.us-east-1.amazoncognito.com/oauth2/idpresponse`
 6. Click **Create**
 
 Copy the **Client ID** and **Client Secret** from the popup (also downloadable as JSON).
@@ -78,8 +78,8 @@ Once CDK creates the secret, paste them in:
 
 ```bash
 aws secretsmanager put-secret-value \
-  --profile solo \
-  --secret-id solo/dev/google-oidc-client \
+  --profile coltide \
+  --secret-id coltide/dev/google-oidc-client \
   --secret-string '{"clientId":"PASTE_CLIENT_ID","clientSecret":"PASTE_CLIENT_SECRET"}'
 ```
 
@@ -87,15 +87,15 @@ aws secretsmanager put-secret-value \
 
 Same app, just add another OAuth Client:
 - Name: `ColtIDE (prod)`
-- Redirect URI: `https://solo-ide-prod.auth.us-east-1.amazoncognito.com/oauth2/idpresponse`
-- Put in secret `solo/prod/google-oidc-client`
+- Redirect URI: `https://coltide-ide-prod.auth.us-east-1.amazoncognito.com/oauth2/idpresponse`
+- Put in secret `coltide/prod/google-oidc-client`
 
 ---
 
 ## 3. AWS CDK Bootstrap (one-time per account)
 
 ```bash
-cd solo/infra
+cd coltide/infra
 bun install
 bun run bootstrap:dev
 ```
@@ -108,17 +108,17 @@ This creates the CDK toolkit stack (`CDKToolkit`) in `us-east-1` — an S3 bucke
 bun run deploy:dev
 ```
 
-CDK synthesizes all four stacks (`SoloAuth-dev`, `SoloData-dev`, `SoloApi-dev`, `SoloStorage-dev`) and deploys them. Takes ~5 minutes the first time.
+CDK synthesizes all four stacks (`ColtIDEAuth-dev`, `ColtIDEData-dev`, `ColtIDEApi-dev`, `ColtIDEStorage-dev`) and deploys them. Takes ~5 minutes the first time.
 
 After deploy, look for outputs like:
 ```
-SoloAuth-dev.CognitoDomain = solo-ide-dev.auth.us-east-1.amazoncognito.com
-SoloAuth-dev.UserPoolId    = us-east-1_XXXXXXXXX
-SoloAuth-dev.UserPoolClientId = xxxxxxxxxxxxxxxxxxxxxxxxxx
-SoloApi-dev.ApiEndpoint    = https://XXXXXXXXXX.execute-api.us-east-1.amazonaws.com
+ColtIDEAuth-dev.CognitoDomain = coltide-ide-dev.auth.us-east-1.amazoncognito.com
+ColtIDEAuth-dev.UserPoolId    = us-east-1_XXXXXXXXX
+ColtIDEAuth-dev.UserPoolClientId = xxxxxxxxxxxxxxxxxxxxxxxxxx
+ColtIDEApi-dev.ApiEndpoint    = https://XXXXXXXXXX.execute-api.us-east-1.amazonaws.com
 ```
 
-Put these into `solo/infra/.env.dev` (gitignored) and the ColtIDE desktop app will read them as build-time env vars.
+Put these into `coltide/infra/.env.dev` (gitignored) and the ColtIDE desktop app will read them as build-time env vars.
 
 ## 5. Verify end-to-end
 

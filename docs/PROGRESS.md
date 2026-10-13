@@ -15,8 +15,8 @@ See `docs/MIGRATION.md` for the full migration plan.
 ## Phase 1: Foundation — COMPLETE ✅
 
 - [x] Cargo workspace + Bun workspace
-- [x] `solo-core` crate (traits, types, config)
-- [x] `solo-protocol` crate with ts-rs TypeScript generation
+- [x] `colt-core` crate (traits, types, config)
+- [x] `colt-core` crate with ts-rs TypeScript generation
 - [x] Tauri 2 app structure
 - [x] React 19 frontend with Vite
 - [x] Tailwind CSS v4 with design tokens
@@ -42,7 +42,7 @@ See `docs/MIGRATION.md` for the full migration plan.
 
 ## Phase 3: File System — COMPLETE ✅
 
-- [x] `solo-fs` crate — read, write, watch, tree operations
+- [x] `colt-fs` crate — read, write, watch, tree operations
 - [x] `fs_commands.rs` — Tauri commands (open_folder_dialog, read_directory, read_file, write_file, create_file, rename_file, delete_file, start_watching, stop_watching, reveal_in_finder)
 - [x] File watcher with `notify` crate (100ms debounce)
 - [x] Path validation (workspace containment)
@@ -55,7 +55,7 @@ See `docs/MIGRATION.md` for the full migration plan.
 
 ## Phase 4: AI Agent — COMPLETE ✅
 
-- [x] `solo-agent` crate — multi-provider agent engine
+- [x] `colt-core` crate — multi-provider agent engine
 - [x] **Anthropic** provider — Claude Opus 4.5, Sonnet 4.5, Haiku 4.5 (OAuth + API key)
 - [x] **OpenAI** provider — GPT-5.2 high/medium/low (OAuth + API key)
 - [x] **Gemini** provider — Gemini 3 pro/flash (API key)
@@ -77,7 +77,7 @@ See `docs/MIGRATION.md` for the full migration plan.
 - [x] Multi-tab editing with unsaved indicator
 - [x] Autosave on blur and tab switch (`useAutosave`)
 - [x] ColtIDE theme (dark + light)
-- [x] Symbol outline via `solo-parse` (tree-sitter)
+- [x] Symbol outline via `colt-core` (tree-sitter)
 - [x] Breadcrumb navigation
 - [x] Markdown preview with split pane + synced scroll
 - [x] Editor settings (font, tab size, word wrap, minimap, line numbers)
@@ -190,7 +190,7 @@ See `docs/MIGRATION.md` for the full migration plan.
 - Phase 8: Git Integration implemented
   - `git2` Rust crate for native git operations (no shell dependency)
   - 10 Tauri commands: status, setup, push, pull, changes, diff, discard, cleanup
-  - 11 Git protocol types in solo-protocol + 2 BackendEvent variants
+  - 11 Git protocol types in colt-core + 2 BackendEvent variants
   - TypeScript IPC wrappers, Zustand gitStore with 5s polling
   - Source Control sidebar tab with branch selector, commit UI, file change list
   - Git diff panel with Monaco DiffEditor (side-by-side)

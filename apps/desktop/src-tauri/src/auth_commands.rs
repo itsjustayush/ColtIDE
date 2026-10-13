@@ -2,7 +2,7 @@
 //!
 //! Implements PKCE OAuth flow with deep linking for desktop authentication
 //! against an AWS Cognito User Pool. Federates Google and GitHub (via the
-//! solo-ide GitHub OIDC wrapper); email/password also supported via the
+//! coltide-ide GitHub OIDC wrapper); email/password also supported via the
 //! Cognito Hosted UI.
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
@@ -188,17 +188,17 @@ async fn start_desktop_callback_listener(
     app: AppHandle,
     expected_state: String,
 ) -> Result<(), String> {
-    let listener = solo_auth::bind_callback_listener_on(solo_auth::CALLBACK_PORT)
+    let listener = coltide_auth::bind_callback_listener_on(coltide_auth::CALLBACK_PORT)
         .await
         .map_err(|e| format!("Failed to start local auth callback server: {}", e))?;
 
     info!(
-        port = solo_auth::CALLBACK_PORT,
+        port = coltide_auth::CALLBACK_PORT,
         "auth callback listener bound"
     );
 
     tauri::async_runtime::spawn(async move {
-        let result = solo_auth::start_callback_server_with_listener(
+        let result = coltide_auth::start_callback_server_with_listener(
             &expected_state,
             Some(Duration::from_secs(300)),
             listener,
@@ -531,9 +531,9 @@ pub async fn auth_diagnose(
             report.cognito_domain = Some(cfg.domain.clone());
             report.cognito_client_id = Some(cfg.client_id.clone());
             report.cognito_region = Some(cfg.region.clone());
-            report.stage = if cfg.domain.contains("solo-ide-dev") {
+            report.stage = if cfg.domain.contains("coltide-ide-dev") {
                 "dev".to_string()
-            } else if cfg.domain.contains("solo-ide-prod") {
+            } else if cfg.domain.contains("coltide-ide-prod") {
                 "prod".to_string()
             } else {
                 "custom".to_string()

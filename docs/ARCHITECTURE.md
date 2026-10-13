@@ -42,18 +42,18 @@ A Rust-based IDE with AI-first capabilities, inspired by Orbit IDE's patterns bu
 ## Monorepo Structure
 
 ```
-solo/
+coltide/
 ├── Cargo.toml                    # Workspace root
 ├── rust-toolchain.toml           # Pin Rust version (1.75+)
 ├── package.json                  # Bun workspace root
 ├── bun.lockb
 │
 ├── crates/                       # Rust crates
-│   ├── solo-core/                # Core traits, types, errors
-│   ├── solo-protocol/            # IPC protocol (generates TS types)
-│   ├── solo-terminal/            # PTY management (portable-pty)
-│   ├── solo-fs/                  # Filesystem ops, watchers
-│   └── solo-editor/              # Editor engine (future)
+│   ├── colt-core/                # Core traits, types, errors
+│   ├── colt-core/            # IPC protocol (generates TS types)
+│   ├── coltide-terminal/            # PTY management (portable-pty)
+│   ├── colt-fs/                  # Filesystem ops, watchers
+│   └── coltide-editor/              # Editor engine (future)
 │
 ├── apps/
 │   └── desktop/                  # Tauri desktop app
@@ -90,25 +90,25 @@ solo/
 
 ## Crate Responsibilities
 
-### `solo-core`
+### `colt-core`
 - Core traits (`Service`, `Disposable`)
 - Event system (broadcast channels)
 - Error types (`thiserror`)
 - Shared utilities
 
-### `solo-protocol`
+### `colt-core`
 - All IPC message types
 - Serde serialization
 - TypeScript generation via `ts-rs`
 - Single source of truth for frontend/backend contract
 
-### `solo-terminal`
+### `coltide-terminal`
 - PTY spawning via `portable-pty`
 - Shell integration
 - Flow control (backpressure handling)
 - Signal handling (Ctrl+C, etc.)
 
-### `solo-fs`
+### `colt-fs`
 - File read/write operations
 - Directory listing/tree building
 - File watching via `notify`
@@ -142,7 +142,7 @@ app.emit("backend-event", BackendEvent::TerminalData { ... })
 ```
 
 ### Protocol Types
-All types defined in `solo-protocol` crate with:
+All types defined in `colt-core` crate with:
 - `serde::Serialize` + `serde::Deserialize` for JSON
 - `ts_rs::TS` for TypeScript generation
 

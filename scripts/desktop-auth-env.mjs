@@ -14,17 +14,17 @@ export const DESKTOP_AUTH_ENV_KEYS = [
 ];
 
 export const DESKTOP_AUTH_OPTIONAL_ENV_KEYS = [
-  "SOLO_COGNITO_USER_POOL_ID",
-  "SOLO_COGNITO_IDENTITY_POOL_ID",
-  "SOLO_GITHUB_OIDC_ISSUER",
-  "SOLO_GITHUB_CALLBACK",
+  "COLTIDE_COGNITO_USER_POOL_ID",
+  "COLTIDE_COGNITO_IDENTITY_POOL_ID",
+  "COLTIDE_GITHUB_OIDC_ISSUER",
+  "COLTIDE_GITHUB_CALLBACK",
 ];
 
 export const CALLBACK_URI = "http://127.0.0.1:19877/callback";
 export const SIGNOUT_URI = "coltide://auth/signout";
 
 export function resolveAuthStage(baseEnv = process.env) {
-  const stage = baseEnv.SOLO_AUTH_STAGE ?? baseEnv.SOLO_STAGE ?? "dev";
+  const stage = baseEnv.COLTIDE_AUTH_STAGE ?? baseEnv.COLTIDE_STAGE ?? "dev";
   return stage === "prod" ? "prod" : "dev";
 }
 
@@ -91,14 +91,14 @@ export function resolveDesktopAuthEnv(baseEnv = process.env) {
   // else still honours the shell env.
   const AUTH_FILE_WINS = new Set([
     "COLTIDE_COGNITO_DOMAIN",
-    "SOLO_COGNITO_USER_POOL_ID",
+    "COLTIDE_COGNITO_USER_POOL_ID",
     "COLTIDE_COGNITO_CLIENT_ID",
-    "SOLO_COGNITO_IDENTITY_POOL_ID",
+    "COLTIDE_COGNITO_IDENTITY_POOL_ID",
     "COLTIDE_AWS_REGION",
     "COLTIDE_API_ENDPOINT",
     "COLTIDE_VAULT_API_ENDPOINT",
-    "SOLO_GITHUB_OIDC_ISSUER",
-    "SOLO_GITHUB_CALLBACK",
+    "COLTIDE_GITHUB_OIDC_ISSUER",
+    "COLTIDE_GITHUB_CALLBACK",
   ]);
 
   const env = {};
@@ -145,7 +145,7 @@ export function resolveDesktopAuthEnv(baseEnv = process.env) {
 
 export function inferDesktopAuthStage(effective) {
   const domain = effective.COLTIDE_COGNITO_DOMAIN ?? "";
-  if (domain.includes("solo-ide-dev.")) return "dev";
-  if (domain.includes("solo-ide-prod.")) return "prod";
+  if (domain.includes("coltide-ide-dev.")) return "dev";
+  if (domain.includes("coltide-ide-prod.")) return "prod";
   return "custom";
 }

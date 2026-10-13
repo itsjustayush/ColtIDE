@@ -6,7 +6,7 @@
 
 **Architecture:** Most of the OAuth flow already works — `provider_commands.rs` already routes Anthropic AND OpenAI through `start_oauth_flow`/`complete_oauth_flow`, and Plan 1 made the underlying storage profile-capable. Plan 2 adds the missing pieces: (a) email extraction from the OpenAI id_token JWT so the active profile is labeled, (b) per-profile management commands that Plan 4's UI will consume, (c) a lightweight auth-check ping that rejects invalid API keys at paste time.
 
-**Tech Stack:** Rust (solo-auth, solo-desktop), Tauri 2, ts-rs for TypeScript type generation, React/Zustand frontend store.
+**Tech Stack:** Rust (coltide-auth, coltide-desktop), Tauri 2, ts-rs for TypeScript type generation, React/Zustand frontend store.
 
 ---
 
@@ -15,10 +15,10 @@
 **New files:** none.
 
 **Modified files:**
-- `crates/solo-auth/src/oauth/providers/openai.rs` — add `extract_email_from_jwt`; thread email into `exchange_code` / `refresh_token` return value.
-- `crates/solo-auth/src/oauth/types.rs` — add optional `email` field to `OpenAIOAuthToken` (serializable, backward-compatible via `#[serde(default)]`).
-- `crates/solo-auth/src/credentials.rs` — `set_openai_oauth_token` honors the new `email` field on the token; add profile management methods (`list_profiles`, `set_active_profile`, `remove_profile`).
-- `crates/solo-auth/src/lib.rs` — re-export new types if added.
+- `crates/coltide-auth/src/oauth/providers/openai.rs` — add `extract_email_from_jwt`; thread email into `exchange_code` / `refresh_token` return value.
+- `crates/coltide-auth/src/oauth/types.rs` — add optional `email` field to `OpenAIOAuthToken` (serializable, backward-compatible via `#[serde(default)]`).
+- `crates/coltide-auth/src/credentials.rs` — `set_openai_oauth_token` honors the new `email` field on the token; add profile management methods (`list_profiles`, `set_active_profile`, `remove_profile`).
+- `crates/coltide-auth/src/lib.rs` — re-export new types if added.
 - `apps/desktop/src-tauri/src/provider_commands.rs` — add Tauri commands `list_profiles`, `set_active_profile`, `remove_profile`, `sign_out_profile`, `validate_api_key`; wire a validation call into existing `set_credentials`.
 - `apps/desktop/src-tauri/src/lib.rs` — register the new commands in `generate_handler!`.
 - `apps/desktop/src/lib/backend.ts` OR the sibling `lib/tauri/*.ts` file — TS wrappers for the new commands. (Existing backend glue lives in `lib/backend.ts`; add wrappers there following the surrounding pattern.)
@@ -37,13 +37,13 @@
 The `id_token` returned by OpenAI contains an `email` claim (standard OIDC). Today only `account_id` is extracted. This task adds email extraction and plumbs it through to the stored profile so the UI can show a meaningful account label.
 
 **Files:**
-- Modify: `crates/solo-auth/src/oauth/types.rs`
-- Modify: `crates/solo-auth/src/oauth/providers/openai.rs`
-- Modify: `crates/solo-auth/src/credentials.rs`
+- Modify: `crates/coltide-auth/src/oauth/types.rs`
+- Modify: `crates/coltide-auth/src/oauth/providers/openai.rs`
+- Modify: `crates/coltide-auth/src/credentials.rs`
 
 - [ ] **Step 1: Add `email` field to `OpenAIOAuthToken`**
 
-Open `crates/solo-auth/src/oauth/types.rs`. Find the `OpenAIOAuthToken` struct (around line 256). Add the `email` field and update `from_response`:
+Open `crates/coltide-auth/src/oauth/types.rs`. Find the `OpenAIOAuthToken` struct (around line 256). Add the `email` field and update `from_response`:
 
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -89,7 +89,7 @@ impl OpenAIOAuthToken {
 
 - [ ] **Step 2: Add tests for `extract_email_from_jwt`**
 
-Open `crates/solo-auth/src/oauth/providers/openai.rs`. Append these tests to the existing `#[cfg(test)] mod tests` block (just before the closing `}` of the module):
+Open `crates/coltide-auth/src/oauth/providers/openai.rs`. Append these tests to the existing `#[cfg(test)] mod tests` block (just before the closing `}` of the module):
 
 ```rust
     #[test]
@@ -135,15 +135,15 @@ Open `crates/solo-auth/src/oauth/providers/openai.rs`. Append these tests to the
 - [ ] **Step 3: Run the new tests — they fail because `extract_email_from_jwt` doesn't exist**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
-cargo test -p solo-auth --lib oauth::providers::openai::tests
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
+cargo test -p coltide-auth --lib oauth::providers::openai::tests
 ```
 
 Expected: compile error `cannot find function extract_email_from_jwt in this scope`.
 
 - [ ] **Step 4: Implement `extract_email_from_jwt`**
 
-In `crates/solo-auth/src/oauth/providers/openai.rs`, add this function right after `extract_account_id_from_jwt`:
+In `crates/coltide-auth/src/oauth/providers/openai.rs`, add this function right after `extract_account_id_from_jwt`:
 
 ```rust
 /// Extract the account email from an OpenAI id_token JWT.
@@ -181,15 +181,15 @@ fn extract_email_from_jwt(id_token: &str) -> Option<String> {
 - [ ] **Step 5: Run the tests — they should now pass**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
-cargo test -p solo-auth --lib oauth::providers::openai::tests
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
+cargo test -p coltide-auth --lib oauth::providers::openai::tests
 ```
 
 Expected: all tests (existing + 4 new) pass.
 
 - [ ] **Step 6: Thread email through `exchange_code` and `refresh_token`**
 
-Still in `crates/solo-auth/src/oauth/providers/openai.rs`, find `exchange_code` (around line 67). Replace the final 5 lines (after the JSON parse) with:
+Still in `crates/coltide-auth/src/oauth/providers/openai.rs`, find `exchange_code` (around line 67). Replace the final 5 lines (after the JSON parse) with:
 
 ```rust
         let account_id = token_response.id_token.as_ref()
@@ -215,7 +215,7 @@ Apply the same change to `refresh_token` (around line 110):
 
 - [ ] **Step 7: Update `set_openai_oauth_token` in credentials.rs to persist the email on the profile**
 
-Open `crates/solo-auth/src/credentials.rs`. Locate `pub async fn set_openai_oauth_token` and find the profile construction block. The existing `email` line reads from `existing`:
+Open `crates/coltide-auth/src/credentials.rs`. Locate `pub async fn set_openai_oauth_token` and find the profile construction block. The existing `email` line reads from `existing`:
 
 ```rust
 email: existing
@@ -240,7 +240,7 @@ email: token.email.clone().unwrap_or_else(|| {
 
 - [ ] **Step 8: Add a test asserting email lands on the profile when the token carries one**
 
-In `crates/solo-auth/src/credentials.rs`, append this test to the `#[cfg(test)] mod profile_tests` block:
+In `crates/coltide-auth/src/credentials.rs`, append this test to the `#[cfg(test)] mod profile_tests` block:
 
 ```rust
     #[tokio::test]
@@ -314,40 +314,40 @@ In `crates/solo-auth/src/credentials.rs`, append this test to the `#[cfg(test)] 
 Also update any pre-existing test that constructs `OpenAIOAuthToken { ... }` literally — grep for the struct literal inside `credentials.rs`:
 
 ```bash
-grep -n "OpenAIOAuthToken {" crates/solo-auth/src/credentials.rs
+grep -n "OpenAIOAuthToken {" crates/coltide-auth/src/credentials.rs
 ```
 
 For each construction site that is inside a test, add `email: None,` to the struct literal.
 
-- [ ] **Step 9: Run all solo-auth tests**
+- [ ] **Step 9: Run all coltide-auth tests**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
-cargo test -p solo-auth --lib
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
+cargo test -p coltide-auth --lib
 ```
 
 Expected: 78 + 4 new JWT tests + 2 new profile tests = **84 pass, 0 fail**.
 
-- [ ] **Step 10: Verify downstream (solo-desktop) still compiles**
+- [ ] **Step 10: Verify downstream (coltide-desktop) still compiles**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html
-cargo check -p solo-desktop
+cargo check -p coltide-desktop
 rm -rf apps/desktop/dist
 git checkout -- apps/desktop/src-tauri/gen/ 2>/dev/null || true
 ```
 
-Expected: clean compile (pre-existing dead_code warning in `solo-embeddings` is fine).
+Expected: clean compile (pre-existing dead_code warning in `coltide-embeddings` is fine).
 
 - [ ] **Step 11: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
-git add crates/solo-auth/src/oauth/types.rs \
-        crates/solo-auth/src/oauth/providers/openai.rs \
-        crates/solo-auth/src/credentials.rs
-git commit -m "feat(solo-auth): extract email from OpenAI id_token, persist on profile
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
+git add crates/coltide-auth/src/oauth/types.rs \
+        crates/coltide-auth/src/oauth/providers/openai.rs \
+        crates/coltide-auth/src/credentials.rs
+git commit -m "feat(coltide-auth): extract email from OpenAI id_token, persist on profile
 
 OpenAIOAuthToken gains an optional email field, populated from the JWT's
 standard email claim when exchange_code or refresh_token returns an
@@ -365,13 +365,13 @@ No Claude attribution. No `--no-verify`.
 Adds commands the Plan 4 UI will consume. Keep them narrow — each does one thing, with a single happy path and a clear error.
 
 **Files:**
-- Modify: `crates/solo-auth/src/credentials.rs` — three new methods on `CredentialManager`: `list_profiles`, `set_active_profile`, `remove_profile`.
+- Modify: `crates/coltide-auth/src/credentials.rs` — three new methods on `CredentialManager`: `list_profiles`, `set_active_profile`, `remove_profile`.
 - Modify: `apps/desktop/src-tauri/src/provider_commands.rs` — four Tauri commands: `list_profiles`, `set_active_profile`, `remove_profile`, `sign_out_profile`.
 - Modify: `apps/desktop/src-tauri/src/lib.rs` — register the new commands.
 
 - [ ] **Step 1: Add a `ProfileSummary` type**
 
-Open `crates/solo-auth/src/credentials.rs`. Near the top, after the `OAuthCredentialInfo` / `OpenAIOAuthCredentialInfo` structs, add:
+Open `crates/coltide-auth/src/credentials.rs`. Near the top, after the `OAuthCredentialInfo` / `OpenAIOAuthCredentialInfo` structs, add:
 
 ```rust
 /// Lightweight view of one profile for UI display.
@@ -392,11 +392,11 @@ pub struct ProfileSummary {
 }
 ```
 
-(This uses `ts_rs::TS` so the TypeScript binding is generated automatically. The file is already a consumer of `ts_rs` — confirm by grepping `grep 'ts_rs::TS' crates/solo-auth/src/credentials.rs`.)
+(This uses `ts_rs::TS` so the TypeScript binding is generated automatically. The file is already a consumer of `ts_rs` — confirm by grepping `grep 'ts_rs::TS' crates/coltide-auth/src/credentials.rs`.)
 
 - [ ] **Step 2: Add tests for the three CredentialManager methods**
 
-In the `#[cfg(test)] mod profile_tests` block at the bottom of `crates/solo-auth/src/credentials.rs`, append:
+In the `#[cfg(test)] mod profile_tests` block at the bottom of `crates/coltide-auth/src/credentials.rs`, append:
 
 ```rust
     fn seed_two_profiles() -> HashMap<String, String> {
@@ -531,7 +531,7 @@ In the `#[cfg(test)] mod profile_tests` block at the bottom of `crates/solo-auth
 
 - [ ] **Step 3: Implement the three methods on `CredentialManager`**
 
-In `crates/solo-auth/src/credentials.rs`, add these methods inside the `impl CredentialManager` block — placement: right after `disconnect_oauth` (around line 1186), before the `// GitHub OAuth Token Management` section:
+In `crates/coltide-auth/src/credentials.rs`, add these methods inside the `impl CredentialManager` block — placement: right after `disconnect_oauth` (around line 1186), before the `// GitHub OAuth Token Management` section:
 
 ```rust
     // =========================================================================
@@ -671,8 +671,8 @@ In `crates/solo-auth/src/credentials.rs`, add these methods inside the `impl Cre
 - [ ] **Step 4: Run the credentials tests**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
-cargo test -p solo-auth --lib credentials::profile_tests
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
+cargo test -p coltide-auth --lib credentials::profile_tests
 ```
 
 Expected: all tests pass (6 new + existing).
@@ -686,7 +686,7 @@ Open `apps/desktop/src-tauri/src/provider_commands.rs`. Find the `// OAuth Comma
 // Profile Management Commands
 // =============================================================================
 
-use solo_auth::credentials::ProfileSummary;
+use coltide_auth::credentials::ProfileSummary;
 
 /// List OAuth profiles for a provider.
 #[tauri::command]
@@ -778,18 +778,18 @@ Open `apps/desktop/src-tauri/src/lib.rs`. Find the `tauri::generate_handler![ ..
 - [ ] **Step 7: Regenerate TypeScript bindings**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 bun run gen:bindings
 ```
 
 Expected: creates/updates `apps/desktop/src/bindings/ProfileSummary.ts` and any other types that changed. Do NOT hand-edit these files.
 
-- [ ] **Step 8: Compile the solo-desktop crate to confirm commands are wired correctly**
+- [ ] **Step 8: Compile the coltide-desktop crate to confirm commands are wired correctly**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html
-cargo check -p solo-desktop
+cargo check -p coltide-desktop
 rm -rf apps/desktop/dist
 git checkout -- apps/desktop/src-tauri/gen/ 2>/dev/null || true
 ```
@@ -799,12 +799,12 @@ Expected: clean build.
 - [ ] **Step 9: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
-git add crates/solo-auth/src/credentials.rs \
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
+git add crates/coltide-auth/src/credentials.rs \
         apps/desktop/src-tauri/src/provider_commands.rs \
         apps/desktop/src-tauri/src/lib.rs \
         apps/desktop/src/bindings/
-git commit -m "feat(solo-desktop): profile management commands
+git commit -m "feat(coltide-desktop): profile management commands
 
 Add list_profiles, set_active_profile, remove_profile, sign_out_profile
 Tauri commands plus the underlying CredentialManager methods. Removing
@@ -819,12 +819,12 @@ on active-profile changes and removals."
 Today `set_credentials(provider, apiKey)` stores whatever the user pastes, with no validation. Add a lightweight ping that rejects obviously-invalid keys before they land in the vault. This prevents the silent "nothing happens when I chat" class of bug.
 
 **Files:**
-- Modify: `crates/solo-auth/src/credentials.rs` — add `validate_api_key_http` helper.
+- Modify: `crates/coltide-auth/src/credentials.rs` — add `validate_api_key_http` helper.
 - Modify: `apps/desktop/src-tauri/src/provider_commands.rs` — new `validate_api_key` command + wire into the existing `set_credentials` command.
 
 - [ ] **Step 1: Add the helper method**
 
-In `crates/solo-auth/src/credentials.rs`, add this method inside `impl CredentialManager`, right before the profile management methods you added in Task 2:
+In `crates/coltide-auth/src/credentials.rs`, add this method inside `impl CredentialManager`, right before the profile management methods you added in Task 2:
 
 ```rust
     /// Lightweight auth-check against the provider's API.
@@ -914,7 +914,7 @@ pub async fn validate_api_key(
     debug!(provider = %provider, "Validating API key");
     let provider_type = ProviderType::from_str(&provider)
         .ok_or_else(|| format!("Unknown provider: {}", provider))?;
-    solo_auth::CredentialManager::validate_api_key_http(provider_type, &api_key)
+    coltide_auth::CredentialManager::validate_api_key_http(provider_type, &api_key)
         .await
         .map_err(|e| e.to_string())
 }
@@ -938,7 +938,7 @@ pub async fn set_credentials(
 
     // Validate the key against the provider's API before storing it.
     // Transient errors (5xx, network) do NOT block — see validate_api_key_http.
-    solo_auth::CredentialManager::validate_api_key_http(provider_type, &api_key)
+    coltide_auth::CredentialManager::validate_api_key_http(provider_type, &api_key)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -963,10 +963,10 @@ Open `apps/desktop/src-tauri/src/lib.rs`. In the same `generate_handler!` list w
 - [ ] **Step 5: Confirm the crate compiles**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
-cargo check -p solo-auth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
+cargo check -p coltide-auth
 mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html
-cargo check -p solo-desktop
+cargo check -p coltide-desktop
 rm -rf apps/desktop/dist
 git checkout -- apps/desktop/src-tauri/gen/ 2>/dev/null || true
 ```
@@ -976,11 +976,11 @@ Expected: clean build.
 - [ ] **Step 6: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
-git add crates/solo-auth/src/credentials.rs \
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
+git add crates/coltide-auth/src/credentials.rs \
         apps/desktop/src-tauri/src/provider_commands.rs \
         apps/desktop/src-tauri/src/lib.rs
-git commit -m "feat(solo-desktop): validate API keys before storing
+git commit -m "feat(coltide-desktop): validate API keys before storing
 
 set_credentials now auth-checks the pasted key against the provider
 (OpenAI /v1/models, Anthropic /v1/messages with a 1-token ping). 401/403
@@ -1001,7 +1001,7 @@ Wire the new Rust commands into the Zustand store. Plan 4's UI will consume thes
 - [ ] **Step 1: Locate where the existing backend wrappers live**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 grep -rn "export async function startOAuthFlow\b\|export const startOAuthFlow\b" apps/desktop/src/lib/
 ```
 
@@ -1192,7 +1192,7 @@ Then in the final `set({...})` call of `initialize`, add:
 - [ ] **Step 6: Typecheck**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html
 bun run check
 rm -rf apps/desktop/dist
@@ -1204,11 +1204,11 @@ Expected: zero TypeScript errors; the Rust side also compiles clean.
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 git add apps/desktop/src/stores/provider-store.ts \
         apps/desktop/src/lib/backend.ts \
         apps/desktop/src/bindings/
-git commit -m "feat(solo-desktop): profile-aware provider store
+git commit -m "feat(coltide-desktop): profile-aware provider store
 
 Adds profiles/activeProfile state and refreshProfiles, setActiveProfile,
 removeProfile, signOutProfile actions. initialize() now preloads the
@@ -1229,14 +1229,14 @@ Human-gated. Proves the sign-in flow actually completes against real `auth.opena
 - [ ] **Step 1: Back up the keychain vault (optional)**
 
 ```bash
-/usr/bin/security find-generic-password -s com.solo-ide.credentials -a vault -w \
-    > /tmp/solo-vault-backup-$(date +%s).json 2>/dev/null || true
+/usr/bin/security find-generic-password -s com.coltide-ide.credentials -a vault -w \
+    > /tmp/coltide-vault-backup-$(date +%s).json 2>/dev/null || true
 ```
 
 - [ ] **Step 2: Launch ColtIDE in dev mode from the worktree**
 
 ```bash
-cd /Users/sachin/Developer/Orbit_Main/solo/.claude/worktrees/mercury-openai-oauth
+cd /Users/sachin/Developer/Orbit_Main/coltide/.claude/worktrees/mercury-openai-oauth
 bun run dev
 ```
 
@@ -1256,7 +1256,7 @@ In the app window:
 From a separate terminal:
 
 ```bash
-/usr/bin/security find-generic-password -s com.solo-ide.credentials -a vault -w \
+/usr/bin/security find-generic-password -s com.coltide-ide.credentials -a vault -w \
     | python3 -c "
 import json, sys
 d = json.load(sys.stdin)

@@ -17,7 +17,7 @@ import { EditorTabs } from './EditorTabs';
 import { Breadcrumbs } from './Breadcrumbs';
 import { MarkdownEditor } from './MarkdownEditor';
 import { MarkdownToggle } from './MarkdownToggle';
-import { registerSoloTheme, SOLO_THEME_NAME } from './theme';
+import { registerColtIDETheme, COLTIDE_THEME_NAME } from './theme';
 import { registerColtLanguage, validateColtModel } from './colt';
 import { useUIStore } from '@/stores/uiStore';
 import { useTerminalStore } from '@/stores/terminalStore';
@@ -232,7 +232,7 @@ export function CodeEditor({ filePath, className = '' }: CodeEditorProps) {
 
   // Handle before mount (register theme + Colt language)
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
-    registerSoloTheme(monaco);
+    registerColtIDETheme(monaco);
     registerColtLanguage(monaco);
   }, []);
 
@@ -402,7 +402,7 @@ export function CodeEditor({ filePath, className = '' }: CodeEditorProps) {
       height="100%"
       language={activeTab ? getMonacoLanguage(activeTab) : 'plaintext'}
       value={currentTabContent}
-      theme={SOLO_THEME_NAME}
+      theme={COLTIDE_THEME_NAME}
       beforeMount={handleBeforeMount}
       onMount={handleEditorMount}
       onChange={handleEditorChange}

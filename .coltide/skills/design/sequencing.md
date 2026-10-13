@@ -37,7 +37,7 @@ Build `scripts/codex-extract/`:
 
 With Codex.app installed:
 ```bash
-cd solo && bun scripts/codex-extract/launch.ts
+cd coltide && bun scripts/codex-extract/launch.ts
 ```
 
 Output lands in `packages/ui/design-dump/codex/`. Commit the structured files (`*.json`, `stylesheets/*.css`, `README.md`); gitignore `assets/`.

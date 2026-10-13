@@ -1,6 +1,6 @@
 # Snowflake-V0 Parity Plan
 
-Bring solo-oauth agent UI to feature parity with Snowflake-V0 reference app.
+Bring coltide-oauth agent UI to feature parity with Snowflake-V0 reference app.
 
 ---
 

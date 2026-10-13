@@ -1,5 +1,5 @@
 /**
- * Voice input button wired to the solo-voice pipeline via `useVoiceInput`.
+ * Voice input button wired to the coltide-voice pipeline via `useVoiceInput`.
  *
  * Idle: 30x30 icon button with AudioLines icon.
  * Recording: Expands into a pill with a "Recording…" label + stop button.

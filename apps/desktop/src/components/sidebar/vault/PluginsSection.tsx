@@ -240,7 +240,7 @@ const SOURCE_META: Record<
 
 const FILTER_LABELS: Record<SourceFilter, string> = {
   all: 'All sources',
-  solo: 'ColtIDE',
+  coltide: 'ColtIDE',
   codex: 'Codex',
   claude: 'Claude',
   chatgpt: 'ChatGPT apps',

@@ -6,8 +6,8 @@
 
 use crate::provider_commands::ProviderAuthState;
 use crate::voice::hotkey::{HotkeyEvent, HotkeyManager};
-use solo_protocol::{ShortcutsConfig, VoicePermissions};
-use solo_voice::{
+use coltide_protocol::{ShortcutsConfig, VoicePermissions};
+use coltide_voice::{
     audio::{start_capture, AudioRing, AudioStream},
     formatter::{
         ChatClient, CloudFormatter, DictationOptions, FormatterProvider,
@@ -24,7 +24,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::sync::Mutex as TokioMutex;
 
-// -- Chat client wired to solo-auth's Claude provider ------------------------
+// -- Chat client wired to coltide-auth's Claude provider ------------------------
 
 struct ClaudeChatClient {
     handle: AppHandle,
@@ -37,11 +37,11 @@ impl ChatClient for ClaudeChatClient {
         model: &str,
         system: &str,
         user: &str,
-    ) -> solo_voice::error::Result<String> {
+    ) -> coltide_voice::error::Result<String> {
         let creds = self.handle.state::<ProviderAuthState>().credentials.clone();
-        solo_auth::claude_simple_completion(&creds, model, system, user)
+        coltide_auth::claude_simple_completion(&creds, model, system, user)
             .await
-            .map_err(|e| solo_voice::VoiceError::Formatter(format!("claude: {e}")))
+            .map_err(|e| coltide_voice::VoiceError::Formatter(format!("claude: {e}")))
     }
 }
 

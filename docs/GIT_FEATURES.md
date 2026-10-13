@@ -5,7 +5,7 @@ Comprehensive documentation of the git integration in ColtIDE, powered by the `g
 ## Architecture
 
 - **Backend**: `apps/desktop/src-tauri/src/git_commands.rs` — all git operations via `git2`
-- **Protocol**: `crates/solo-protocol/src/lib.rs` — IPC type definitions (auto-generates TS bindings)
+- **Protocol**: `crates/colt-core/src/lib.rs` — IPC type definitions (auto-generates TS bindings)
 - **IPC wrappers**: `apps/desktop/src/lib/tauri/git.ts` — typed `invoke()` calls
 - **Store**: `apps/desktop/src/stores/gitStore.ts` — Zustand + Immer state management
 - **UI**: `apps/desktop/src/components/source-control/` — sidebar panel components

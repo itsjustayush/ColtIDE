@@ -1,6 +1,6 @@
 # ColtIDE Vault — Content Taxonomy (for Cloud Indexer)
 
-**Audience:** Backend/infra engineers building the AWS indexing pipeline (Step Functions + Lambdas) described in `solo/docs/superpowers/specs/2026-04-05-vault-cloud-design.md`.
+**Audience:** Backend/infra engineers building the AWS indexing pipeline (Step Functions + Lambdas) described in `coltide/docs/superpowers/specs/2026-04-05-vault-cloud-design.md`.
 
 **Purpose:** This document defines every type of content that may enter the vault, how it is classified on the IDE side, and what the indexing pipeline must produce for each type so that local (IDE, SQLite + FTS5 + local MiniLM embeddings) and cloud (RDS + pgvector) indexes stay aligned.
 

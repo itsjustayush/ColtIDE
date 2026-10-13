@@ -4,29 +4,29 @@
 **Status:** Draft (for user review)
 **Scope:** Sub-project 4 of 7 in the broader ColtIDE Plugins initiative
 **Estimated effort:** 1 week
-**Depends on:** SP1 (`solo-plugins` foundation crate) — shipped in PR #123
+**Depends on:** SP1 (`coltide-plugins` foundation crate) — shipped in PR #123
 **Prior docs:**
-- SP1 design: `solo/docs/superpowers/specs/2026-04-17-solo-plugins-foundation-design.md`
-- SP1 plan: `solo/docs/superpowers/plans/2026-04-17-solo-plugins-foundation.md`
+- SP1 design: `coltide/docs/superpowers/specs/2026-04-17-coltide-plugins-foundation-design.md`
+- SP1 plan: `coltide/docs/superpowers/plans/2026-04-17-coltide-plugins-foundation.md`
 
 ---
 
 ## Context
 
-SP1 landed the `solo-plugins` foundation crate: manifest parsing, local store, adapter discovery, toggles, and a Tauri command surface. SP2 wired the Skills tab through the new crate. SP3 added a Plugins settings tab.
+SP1 landed the `coltide-plugins` foundation crate: manifest parsing, local store, adapter discovery, toggles, and a Tauri command surface. SP2 wired the Skills tab through the new crate. SP3 added a Plugins settings tab.
 
-Plugin manifests already parse an `mcpServers` field (`crates/solo-plugins/src/manifest.rs:34`) — currently a path pointing to a `.mcp.json` config file inside each plugin root. SP1 deliberately stopped short of *using* that path. SP4 picks up from there: enabled plugins' MCP server configs are loaded, merged, and passed into the agent, so their tools become callable in chat.
+Plugin manifests already parse an `mcpServers` field (`crates/coltide-plugins/src/manifest.rs:34`) — currently a path pointing to a `.mcp.json` config file inside each plugin root. SP1 deliberately stopped short of *using* that path. SP4 picks up from there: enabled plugins' MCP server configs are loaded, merged, and passed into the agent, so their tools become callable in chat.
 
 ### Why this sub-project is smaller than the original plan suggested
 
-The SP1 design doc (line 22) described SP4 as "New `solo-mcp` crate; plugins with `mcpServers` spawn real MCP clients and register tools into the agent loop." That was written before we confirmed that `@anthropic-ai/claude-agent-sdk` (v0.1.77) handles the entire MCP lifecycle natively:
+The SP1 design doc (line 22) described SP4 as "New `coltide-mcp` crate; plugins with `mcpServers` spawn real MCP clients and register tools into the agent loop." That was written before we confirmed that `@anthropic-ai/claude-agent-sdk` (v0.1.77) handles the entire MCP lifecycle natively:
 
 - **Spawn:** stdio/http/sse servers are spawned by the SDK; SDK-in-process servers run via `createSdkMcpServer()`.
 - **Tool registration:** declared servers expose tools automatically through `query()`'s option bag — no manual `addTool` step.
 - **Error surfacing:** the SDK returns a structured `McpSetServersResult { added, removed, errors }` map. One failed server never blocks the rest.
 - **Status monitoring:** `Query.mcpServerStatus()` returns a per-server status array (`connected | failed | pending | needs-auth`).
 
-Consequence: **we do not need a `solo-mcp` crate.** SP4 is a config-plumbing problem, not a process-supervision problem. If user needs emerge later (per-server restart policy, independent logs, offline queuing), promoting to a Rust supervisor is a clean follow-on — the protocol types defined here survive unchanged.
+Consequence: **we do not need a `coltide-mcp` crate.** SP4 is a config-plumbing problem, not a process-supervision problem. If user needs emerge later (per-server restart policy, independent logs, offline queuing), promoting to a Rust supervisor is a clean follow-on — the protocol types defined here survive unchanged.
 
 ### Where SP4 lands in the 7-sub-project roadmap
 
@@ -63,8 +63,8 @@ Three candidate scopes were considered. Recording the rejected options so the ra
 
 ## What ships in SP4
 
-1. **Rust helper** — `solo_plugins::mcp::merged_mcp_config(config, solo_home)` reads enabled plugins' `.mcp.json` files and returns a single `HashMap<String, McpServerConfig>`, plus a `Vec<McpLoadError>` for problems.
-2. **Protocol types** — `McpServerConfig` tagged union (stdio / http / sse) in `solo-protocol`, regenerated into TS bindings.
+1. **Rust helper** — `coltide_plugins::mcp::merged_mcp_config(config, coltide_home)` reads enabled plugins' `.mcp.json` files and returns a single `HashMap<String, McpServerConfig>`, plus a `Vec<McpLoadError>` for problems.
+2. **Protocol types** — `McpServerConfig` tagged union (stdio / http / sse) in `colt-core`, regenerated into TS bindings.
 3. **Tauri command** — `plugins_mcp_config(cwd)` returns the merged record so the frontend can pass it when creating a session.
 4. **SessionConfig extension** — new optional `mcpServers` field threaded through the agent-bridge protocol and into `agent.ts`'s constructor.
 5. **Frontend wiring** — on session create, read the merged MCP config and pass it in `SessionConfig`.
@@ -79,7 +79,7 @@ No new disk layout. Reuses SP1's plugin layout:
 
 ```
 ~/.coltide/plugins/cache/<marketplace>/<name>/<version>/
-└── .solo-plugin/
+└── .coltide-plugin/
     ├── plugin.json           # { "mcpServers": ".mcp.json", ... }
     └── .mcp.json             # ← SP4 reads this
 ```
@@ -116,7 +116,7 @@ Follows the Claude Code / MCP community convention:
 
 ## Protocol types
 
-All new types live in `crates/solo-protocol/src/lib.rs`, derive `ts_rs::TS + serde::Serialize + serde::Deserialize`, and regenerate into `apps/desktop/src/bindings/` via `bun run gen:bindings`.
+All new types live in `crates/colt-core/src/lib.rs`, derive `ts_rs::TS + serde::Serialize + serde::Deserialize`, and regenerate into `apps/desktop/src/bindings/` via `bun run gen:bindings`.
 
 ### `McpServerConfig` — tagged union
 
@@ -222,7 +222,7 @@ E.g. `local_fs-plugin__filesystem`, `claude-user_docs__company-docs`. This is wh
 
 ## Discovery pipeline
 
-`solo_plugins::mcp::merged_mcp_config(config: &PluginsConfig, solo_home: &Path, workspace: &Path) -> McpConfigOutcome`:
+`coltide_plugins::mcp::merged_mcp_config(config: &PluginsConfig, coltide_home: &Path, workspace: &Path) -> McpConfigOutcome`:
 
 1. **Call `loader::list_plugins`** (existing SP1 function) to get the merged plugin list with toggle state applied.
 2. **Filter to enabled plugins** where `summary.enabled == true` **and** `manifest.paths.mcp_servers.is_some()`. Disabled plugins and plugins without an `mcpServers` declaration are skipped silently.
@@ -342,7 +342,7 @@ Four tiers, aligned with SP1's conventions:
 
 ## Testing strategy
 
-### Unit tests (co-located in `crates/solo-plugins/src/mcp.rs`)
+### Unit tests (co-located in `crates/coltide-plugins/src/mcp.rs`)
 
 - **Parse well-formed `.mcp.json`** — stdio/http/sse variants, default `type=stdio`, missing optional fields.
 - **Malformed JSON** → one `McpLoadError`, no panic, no partial state.
@@ -352,9 +352,9 @@ Four tiers, aligned with SP1's conventions:
 - **Disabled plugin** — its `.mcp.json` is not read even if present.
 - **Empty mcpServers object** → silent skip, not an error.
 
-### Integration test (`crates/solo-plugins/tests/mcp_round_trip.rs`)
+### Integration test (`crates/coltide-plugins/tests/mcp_round_trip.rs`)
 
-Extend the SP1 `round_trip` pattern: temp `SOLO_HOME`, install a fixture plugin whose `plugin.json` declares `mcpServers: .mcp.json` and whose `.mcp.json` contains one stdio server that's a minimal script. Assert `merged_mcp_config` returns one server under the correct qualified key. Toggle the plugin disabled → assert zero servers.
+Extend the SP1 `round_trip` pattern: temp `COLTIDE_HOME`, install a fixture plugin whose `plugin.json` declares `mcpServers: .mcp.json` and whose `.mcp.json` contains one stdio server that's a minimal script. Assert `merged_mcp_config` returns one server under the correct qualified key. Toggle the plugin disabled → assert zero servers.
 
 ### Smoke test (manual, pre-merge)
 
@@ -391,7 +391,7 @@ Extend the SP1 `round_trip` pattern: temp `SOLO_HOME`, install a fixture plugin 
 SP4 is "done" when all are true:
 
 - `bun run check` (cargo check + tsc) passes.
-- `cargo test -p solo-plugins` passes, including the new unit tests and the new `mcp_round_trip` integration test.
+- `cargo test -p coltide-plugins` passes, including the new unit tests and the new `mcp_round_trip` integration test.
 - `cargo clippy --workspace` is clean.
 - `bun run gen:bindings` has been run; new types appear in `apps/desktop/src/bindings/` with no hand-edits.
 - **Devtools smoke:** with one enabled fixture plugin declaring an `.mcp.json` stdio server:

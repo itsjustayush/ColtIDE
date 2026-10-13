@@ -194,7 +194,7 @@ function renderReadme(m: RunManifest): string {
     '## Regenerate',
     '',
     '```bash',
-    'cd solo && bun scripts/codex-extract/launch.ts',
+    'cd coltide && bun scripts/codex-extract/launch.ts',
     '```',
     '',
   ].join('\n');

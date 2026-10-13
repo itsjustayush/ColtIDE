@@ -151,7 +151,7 @@ async function linkCallback(state: string, code: string): Promise<APIGatewayProx
     headers: {
       authorization: `Bearer ${tokenJson.access_token}`,
       accept: "application/json",
-      "user-agent": "solo-ide-link",
+      "user-agent": "coltide-ide-link",
     },
   });
   if (!userResp.ok) return text(502, "github user fetch failed");
@@ -222,7 +222,7 @@ async function token(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStru
   }
 
   const userResp = await fetch(GITHUB_USER_URL, {
-    headers: { authorization: `Bearer ${tokenJson.access_token}`, accept: "application/json", "user-agent": "solo-ide-oidc-wrapper" },
+    headers: { authorization: `Bearer ${tokenJson.access_token}`, accept: "application/json", "user-agent": "coltide-ide-oidc-wrapper" },
   });
   if (!userResp.ok) {
     return json(502, { error: "github_user_fetch_failed", status: userResp.status });
@@ -233,7 +233,7 @@ async function token(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStru
   let emailVerified = false;
   if (!verifiedEmail) {
     const emailResp = await fetch(GITHUB_EMAILS_URL, {
-      headers: { authorization: `Bearer ${tokenJson.access_token}`, accept: "application/json", "user-agent": "solo-ide-oidc-wrapper" },
+      headers: { authorization: `Bearer ${tokenJson.access_token}`, accept: "application/json", "user-agent": "coltide-ide-oidc-wrapper" },
     });
     if (emailResp.ok) {
       const emails = await emailResp.json() as Array<{ email: string; primary: boolean; verified: boolean }>;
@@ -298,7 +298,7 @@ async function userinfo(event: APIGatewayProxyEventV2): Promise<APIGatewayProxyS
   }
   const ghToken = auth.slice(7);
   const resp = await fetch(GITHUB_USER_URL, {
-    headers: { authorization: `Bearer ${ghToken}`, accept: "application/json", "user-agent": "solo-ide-oidc-wrapper" },
+    headers: { authorization: `Bearer ${ghToken}`, accept: "application/json", "user-agent": "coltide-ide-oidc-wrapper" },
   });
   if (!resp.ok) return json(401, { error: "invalid_token" });
   const u = await resp.json() as { id: number; login: string; name?: string; email?: string; avatar_url?: string };

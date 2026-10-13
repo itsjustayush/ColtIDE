@@ -1,22 +1,22 @@
 //! Workspace-root `AGENTS.md` aggregator.
 //!
-//! ColtIDE writes a solo-fenced block at the root of every workspace listing its
+//! ColtIDE writes a coltide-fenced block at the root of every workspace listing its
 //! installed skills, so other AGENTS.md-aware tools (Cursor, Codex, Windsurf,
 //! Aider, …) see what the user has without any ColtIDE-specific integration.
 //!
 //! The aggregator is non-destructive: if the user has hand-authored content in
-//! their `AGENTS.md`, we only replace the block between `<!-- solo:begin -->`
-//! and `<!-- solo:end -->`. If no fence is present, we append one.
+//! their `AGENTS.md`, we only replace the block between `<!-- coltide:begin -->`
+//! and `<!-- coltide:end -->`. If no fence is present, we append one.
 
 use crate::skills_commands;
-use solo_protocol::SkillInfo;
+use coltide_protocol::SkillInfo;
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
-const BEGIN_FENCE: &str = "<!-- solo:begin -->";
-const END_FENCE: &str = "<!-- solo:end -->";
+const BEGIN_FENCE: &str = "<!-- coltide:begin -->";
+const END_FENCE: &str = "<!-- coltide:end -->";
 
-/// Build the solo-fenced block describing installed skills.
+/// Build the coltide-fenced block describing installed skills.
 pub fn build_block(skills: &[SkillInfo]) -> String {
     let mut out = String::new();
     out.push_str(BEGIN_FENCE);
@@ -36,7 +36,7 @@ pub fn build_block(skills: &[SkillInfo]) -> String {
     out
 }
 
-/// Write / replace the solo fence block in `<workspace>/AGENTS.md`.
+/// Write / replace the coltide fence block in `<workspace>/AGENTS.md`.
 ///
 /// - Missing file → create with just the block.
 /// - File with existing fence → replace fence contents in place.
@@ -95,7 +95,7 @@ pub async fn skills_write_workspace_agents_md(cwd: String) -> Result<(), String>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solo_protocol::SkillSource;
+    use coltide_protocol::SkillSource;
 
     fn sample(name: &str, desc: &str) -> SkillInfo {
         SkillInfo {
@@ -143,7 +143,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(
             tmp.path().join("AGENTS.md"),
-            "# My Project\n\n<!-- solo:begin -->\nOLD CONTENT\n<!-- solo:end -->\n\n## After\n",
+            "# My Project\n\n<!-- coltide:begin -->\nOLD CONTENT\n<!-- coltide:end -->\n\n## After\n",
         )
         .unwrap();
         let skills = vec![sample("ui", "Build UIs.")];

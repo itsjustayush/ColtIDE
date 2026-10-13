@@ -4,7 +4,7 @@
 
 **Goal:** Let a user click **Run** on an `executor=Agent` task and have it spawn an agent session against their main workspace. Stream run events into the task's history. When the session ends, update the task status to Done (success) or Failed.
 
-**Architecture:** Add an `Executor` module in `solo-tasks` that calls the existing `create_session_internal` helper (from `agent_commands.rs`) and subscribes to the agent event stream. Each run creates a `TaskRun` row and emits `BackendEvent::TaskRunStarted/Progress/Ended`. Phase 2 stays on the **main workspace** (no worktree isolation yet — that's Phase 3) with `permission=ask` (user confirms tool uses). Result capture: last assistant message + derived outcome (`Succeeded` for `result`, `Failed` for `error`).
+**Architecture:** Add an `Executor` module in `coltide-tasks` that calls the existing `create_session_internal` helper (from `agent_commands.rs`) and subscribes to the agent event stream. Each run creates a `TaskRun` row and emits `BackendEvent::TaskRunStarted/Progress/Ended`. Phase 2 stays on the **main workspace** (no worktree isolation yet — that's Phase 3) with `permission=ask` (user confirms tool uses). Result capture: last assistant message + derived outcome (`Succeeded` for `result`, `Failed` for `error`).
 
 **Tech Stack:** Continues Phase 1 stack. No new deps.
 
@@ -19,8 +19,8 @@
 - `apps/desktop/src-tauri/src/task_executor.rs` — spawn agent session + subscribe to events + write TaskRun rows.
 
 **Modify (Rust):**
-- `crates/solo-protocol/src/lib.rs` — add BackendEvent variants: `TaskRunStarted`, `TaskRunProgress`, `TaskRunEnded`.
-- `crates/solo-tasks/src/store.rs` — add `create_run`, `end_run`, `update_run_summary` methods; migrate trigger for `task_runs` updates (already FK'd).
+- `crates/colt-core/src/lib.rs` — add BackendEvent variants: `TaskRunStarted`, `TaskRunProgress`, `TaskRunEnded`.
+- `crates/coltide-tasks/src/store.rs` — add `create_run`, `end_run`, `update_run_summary` methods; migrate trigger for `task_runs` updates (already FK'd).
 - `apps/desktop/src-tauri/src/task_commands.rs` — add `task_run(id)` and `task_cancel(id)` commands.
 - `apps/desktop/src-tauri/src/lib.rs` — register new commands + (if needed) state for active run tracking.
 
@@ -40,7 +40,7 @@
 
 ## Task 1 · Add BackendEvent variants for run lifecycle
 
-**File:** `crates/solo-protocol/src/lib.rs`
+**File:** `crates/colt-core/src/lib.rs`
 
 - [ ] **Step 1.1:** Locate the `BackendEvent` enum. Before the closing brace, add three variants:
 
@@ -66,7 +66,7 @@ Verify `apps/desktop/src/bindings/BackendEvent.ts` contains `tasks:run_started`,
 
 - [ ] **Step 1.3:** Commit.
 ```bash
-git add crates/solo-protocol/src/lib.rs apps/desktop/src/bindings/BackendEvent.ts
+git add crates/colt-core/src/lib.rs apps/desktop/src/bindings/BackendEvent.ts
 git commit -m "feat(protocol): add TaskRun lifecycle events"
 ```
 
@@ -74,13 +74,13 @@ git commit -m "feat(protocol): add TaskRun lifecycle events"
 
 ## Task 2 · Store methods for run rows
 
-**File:** `crates/solo-tasks/src/store.rs`
+**File:** `crates/coltide-tasks/src/store.rs`
 
 Phase 1's schema already includes `task_runs` with FK to `tasks`. We add the method surface.
 
 - [ ] **Step 2.1:** Add imports at top if missing (most are already there):
 ```rust
-use solo_protocol::RunOutcome;
+use coltide_protocol::RunOutcome;
 ```
 
 - [ ] **Step 2.2:** Inside `impl TaskStore`, add these methods (paste at the end of the `impl`, before the internal `insert`):
@@ -165,14 +165,14 @@ use solo_protocol::RunOutcome;
 
 - [ ] **Step 2.5:** Test + clippy.
 ```bash
-cargo test -p solo-tasks --lib
-cargo clippy -p solo-tasks --all-targets -- -D warnings
+cargo test -p coltide-tasks --lib
+cargo clippy -p coltide-tasks --all-targets -- -D warnings
 ```
 Expected: 11 tests pass; clippy clean.
 
 - [ ] **Step 2.6:** Commit.
 ```bash
-git add crates/solo-tasks/src/store.rs
+git add crates/coltide-tasks/src/store.rs
 git commit -m "feat(tasks): TaskRun row lifecycle (create/update-summary/end)"
 ```
 
@@ -197,8 +197,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use serde_json::Value;
-use solo_protocol::{BackendEvent, RunOutcome, TaskStatus};
-use solo_tasks::TaskStore;
+use coltide_protocol::{BackendEvent, RunOutcome, TaskStatus};
+use coltide_tasks::TaskStore;
 use tauri::{AppHandle, Emitter as _, Listener as _};
 use tokio::sync::RwLock;
 use tracing::{debug, error, info, warn};
@@ -278,7 +278,7 @@ pub async fn spawn_agent_for_task(
 
     // Flip task to Running
     store
-        .update(&task_id, solo_protocol::TaskPatch {
+        .update(&task_id, coltide_protocol::TaskPatch {
             status: Some(TaskStatus::Running),
             ..Default::default()
         })
@@ -386,7 +386,7 @@ async fn finalize_run(
         RunOutcome::Failed | RunOutcome::Cancelled => TaskStatus::Failed,
         RunOutcome::Running => TaskStatus::Running,
     };
-    let patch = solo_protocol::TaskPatch {
+    let patch = coltide_protocol::TaskPatch {
         status: Some(new_status),
         ..Default::default()
     };
@@ -449,7 +449,7 @@ If `delete_session` doesn't exist with that exact signature, check the agent mod
 
 - [ ] **Step 3.3:** Build check:
 ```bash
-cargo check -p solo-desktop-lib
+cargo check -p coltide-desktop-lib
 ```
 If it fails with import errors on `SessionManager` or `listen`/`Listener`, fix by importing the right types. The plan uses `tauri::Listener as _` for `.listen()` — verify the Tauri version exposes this. If not, use `app.listen_global` or similar, whichever the existing code uses.
 
@@ -545,7 +545,7 @@ pub async fn task_cancel(
 
 - [ ] **Step 4.4:** Build.
 ```bash
-cargo check -p solo-desktop-lib
+cargo check -p coltide-desktop-lib
 ```
 
 - [ ] **Step 4.5:** Commit.
@@ -911,7 +911,7 @@ git commit -m "feat(tasks): pulsing dot on running task rows"
 - [ ] **Step 12.1:** Run full checks.
 ```bash
 cargo test --workspace --lib
-cargo clippy -p solo-tasks --all-targets -- -D warnings
+cargo clippy -p coltide-tasks --all-targets -- -D warnings
 bun run check
 ```
 All green.

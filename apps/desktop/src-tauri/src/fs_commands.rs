@@ -2,11 +2,11 @@
 //!
 //! This module contains all file system related IPC commands.
 
-use solo_fs::{
+use coltide_fs::{
     operations, tree,
     watcher::{FileEventType, FileWatcher},
 };
-use solo_protocol::{
+use coltide_protocol::{
     BackendEvent, DirectoryReadRequest, DirectoryReadResponse, FileCreateRequest,
     FileDeleteRequest, FileErrorCode, FileOperationError, FileRenameRequest, FileTreeEntry,
 };
@@ -38,19 +38,19 @@ impl Default for FsState {
     }
 }
 
-/// Convert solo_fs error to protocol error
-fn to_protocol_error(err: solo_fs::FsError, path: &str) -> FileOperationError {
+/// Convert coltide_fs error to protocol error
+fn to_protocol_error(err: coltide_fs::FsError, path: &str) -> FileOperationError {
     let code = match &err {
-        solo_fs::FsError::NotFound(_) => FileErrorCode::NotFound,
-        solo_fs::FsError::PermissionDenied(_) => FileErrorCode::PermissionDenied,
-        solo_fs::FsError::AlreadyExists(_) => FileErrorCode::AlreadyExists,
-        solo_fs::FsError::NotADirectory(_) => FileErrorCode::NotADirectory,
-        solo_fs::FsError::NotAFile(_) => FileErrorCode::NotAFile,
-        solo_fs::FsError::DirectoryNotEmpty(_) => FileErrorCode::DirectoryNotEmpty,
-        solo_fs::FsError::Io(_) => FileErrorCode::IoError,
-        solo_fs::FsError::InvalidPath(_) => FileErrorCode::InvalidPath,
-        solo_fs::FsError::PathOutsideWorkspace(_) => FileErrorCode::PathOutsideWorkspace,
-        solo_fs::FsError::Watcher(_) => FileErrorCode::IoError,
+        coltide_fs::FsError::NotFound(_) => FileErrorCode::NotFound,
+        coltide_fs::FsError::PermissionDenied(_) => FileErrorCode::PermissionDenied,
+        coltide_fs::FsError::AlreadyExists(_) => FileErrorCode::AlreadyExists,
+        coltide_fs::FsError::NotADirectory(_) => FileErrorCode::NotADirectory,
+        coltide_fs::FsError::NotAFile(_) => FileErrorCode::NotAFile,
+        coltide_fs::FsError::DirectoryNotEmpty(_) => FileErrorCode::DirectoryNotEmpty,
+        coltide_fs::FsError::Io(_) => FileErrorCode::IoError,
+        coltide_fs::FsError::InvalidPath(_) => FileErrorCode::InvalidPath,
+        coltide_fs::FsError::PathOutsideWorkspace(_) => FileErrorCode::PathOutsideWorkspace,
+        coltide_fs::FsError::Watcher(_) => FileErrorCode::IoError,
     };
 
     FileOperationError {
@@ -209,9 +209,9 @@ pub async fn create_file(
 /// Read file contents
 #[tauri::command]
 pub async fn read_file(
-    request: solo_protocol::FileReadRequest,
+    request: coltide_protocol::FileReadRequest,
     state: State<'_, FsState>,
-) -> Result<solo_protocol::FileReadResponse, FileOperationError> {
+) -> Result<coltide_protocol::FileReadResponse, FileOperationError> {
     let workspace = state.workspace_root.read().await;
     let workspace_path = workspace.as_ref().ok_or_else(|| FileOperationError {
         code: FileErrorCode::InvalidPath,
@@ -256,7 +256,7 @@ pub async fn read_file(
         path: request.path.clone(),
     })?;
 
-    Ok(solo_protocol::FileReadResponse {
+    Ok(coltide_protocol::FileReadResponse {
         content,
         encoding: "utf-8".to_string(),
     })
@@ -265,7 +265,7 @@ pub async fn read_file(
 /// Write content to a file
 #[tauri::command]
 pub async fn write_file(
-    request: solo_protocol::FileWriteRequest,
+    request: coltide_protocol::FileWriteRequest,
     state: State<'_, FsState>,
 ) -> Result<(), FileOperationError> {
     let workspace = state.workspace_root.read().await;

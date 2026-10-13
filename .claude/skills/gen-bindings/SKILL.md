@@ -1,18 +1,18 @@
 ---
 name: gen-bindings
-description: Regenerate TypeScript bindings after modifying solo-protocol Rust types. Invoke whenever IPC types, BackendEvent variants, or ts-rs derives change in crates/solo-protocol/src/lib.rs.
+description: Regenerate TypeScript bindings after modifying colt-core Rust types. Invoke whenever IPC types, BackendEvent variants, or ts-rs derives change in crates/colt-core/src/lib.rs.
 ---
 
 # Generate TypeScript Bindings
 
-When any Rust types in `crates/solo-protocol/src/lib.rs` are modified (structs, enums, BackendEvent variants), the TypeScript bindings must be regenerated.
+When any Rust types in `crates/colt-core/src/lib.rs` are modified (structs, enums, BackendEvent variants), the TypeScript bindings must be regenerated.
 
 ## When to trigger
 
 - Adding/modifying/removing a `#[derive(TS)]` struct or enum
 - Changing `BackendEvent` variants
 - Modifying any type used in `#[tauri::command]` return values or parameters
-- After adding new types to `solo-protocol`
+- After adding new types to `colt-core`
 
 ## Steps
 

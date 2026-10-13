@@ -150,5 +150,5 @@
   console.log(summary);
   console.groupEnd();
 
-  window.__soloVirtualizationSmoke = { summary, listReports, expectedReport };
+  window.__coltideVirtualizationSmoke = { summary, listReports, expectedReport };
 })();

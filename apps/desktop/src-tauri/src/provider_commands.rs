@@ -3,7 +3,7 @@
 //! These commands manage authentication, credentials, and provider settings.
 //! They are separate from the agent bridge commands.
 
-use solo_auth::{
+use coltide_auth::{
     credentials::CredentialSource,
     models::{get_all_models, get_models_for_provider},
     oauth::{
@@ -12,7 +12,7 @@ use solo_auth::{
     },
     CredentialManager, ProviderType,
 };
-use solo_protocol::ClaudeSetupStatus;
+use coltide_protocol::ClaudeSetupStatus;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -281,7 +281,7 @@ pub async fn set_credentials(
 
     // Validate the key against the provider's API before storing it.
     // Transient errors (5xx, network) do NOT block — see validate_api_key_http.
-    solo_auth::CredentialManager::validate_api_key_http(provider_type, &api_key)
+    coltide_auth::CredentialManager::validate_api_key_http(provider_type, &api_key)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -409,7 +409,7 @@ pub async fn validate_api_key(provider: String, api_key: String) -> Result<(), S
     debug!(provider = %provider, "Validating API key");
     let provider_type = ProviderType::from_str(&provider)
         .ok_or_else(|| format!("Unknown provider: {}", provider))?;
-    solo_auth::CredentialManager::validate_api_key_http(provider_type, &api_key)
+    coltide_auth::CredentialManager::validate_api_key_http(provider_type, &api_key)
         .await
         .map_err(|e| e.to_string())
 }
@@ -497,7 +497,7 @@ pub async fn verify_provider_model(
         ProviderType::OpenAI => {
             let uses_chatgpt_backend = matches!(
                 source,
-                CredentialSource::SoloOAuth | CredentialSource::CodexOAuthFile
+                CredentialSource::ColtIDEOAuth | CredentialSource::CodexOAuthFile
             );
             let url = if uses_chatgpt_backend {
                 "https://chatgpt.com/backend-api/codex/responses"
@@ -554,7 +554,7 @@ pub async fn verify_provider_model(
                     "messages": [{ "role": "user", "content": "Reply with ok." }],
                 }));
 
-            if source == CredentialSource::SoloOAuth {
+            if source == CredentialSource::ColtIDEOAuth {
                 req = req
                     .bearer_auth(&credential_info.api_key)
                     .header("anthropic-beta", "oauth-2025-04-20");
@@ -761,7 +761,7 @@ pub async fn disconnect_oauth(
 // Profile Management Commands
 // =============================================================================
 
-use solo_auth::credentials::ProfileSummary;
+use coltide_auth::credentials::ProfileSummary;
 
 /// List OAuth profiles for a provider.
 #[tauri::command]

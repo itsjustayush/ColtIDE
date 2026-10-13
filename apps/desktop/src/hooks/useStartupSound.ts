@@ -7,7 +7,7 @@ import { useEffect } from 'react';
  * Plays once per launch. Respects `prefers-reduced-motion`.
  */
 
-const SESSION_KEY = 'solo:startup-sound:played';
+const SESSION_KEY = 'coltide:startup-sound:played';
 const DURATION_MS = 5_000;
 const FADE_OUT_MS = 3_000;
 const HARD_STOP_GRACE_MS = 1_000;

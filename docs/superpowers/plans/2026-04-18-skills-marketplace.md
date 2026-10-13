@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship an open-source skills marketplace in ColtIDE's vault sidebar that can install, browse, and auto-suggest skills from `github.com/solo/skills-registry`, with the UI skill bundled by default.
+**Goal:** Ship an open-source skills marketplace in ColtIDE's vault sidebar that can install, browse, and auto-suggest skills from `github.com/coltide/skills-registry`, with the UI skill bundled by default.
 
 **Architecture:** Per-skill `AGENTS.md` (with `SKILL.md` fallback), monorepo registry fetched as static JSON, markdown-only content, embeddings-based semantic search surfacing suggestions above the agent input. Runtime integration keeps installed skills auto-injected into the system prompt; uninstalled skills only appear as UI suggestions (never as prompt-side tools).
 
-**Tech Stack:** Rust (Tauri commands, `reqwest`, `flate2`, `tar`, `sha2`, `include_dir`), TypeScript (React 19, Zustand + Immer, Vitest), existing `solo-embeddings` crate, existing `agent-bridge` Node sidecar.
+**Tech Stack:** Rust (Tauri commands, `reqwest`, `flate2`, `tar`, `sha2`, `include_dir`), TypeScript (React 19, Zustand + Immer, Vitest), existing `coltide-embeddings` crate, existing `agent-bridge` Node sidecar.
 
 **Spec:** `docs/superpowers/specs/2026-04-18-skills-marketplace-design.md`
 
@@ -18,11 +18,11 @@
 
 | Path | Responsibility |
 |---|---|
-| `crates/solo-protocol/src/lib.rs` (append) | `RegistryEntry`, `SkillSuggestion`, `InstalledSkillMeta`, new `BackendEvent` variants |
+| `crates/colt-core/src/lib.rs` (append) | `RegistryEntry`, `SkillSuggestion`, `InstalledSkillMeta`, new `BackendEvent` variants |
 | `apps/desktop/src-tauri/src/skills_marketplace.rs` | Registry fetch/cache, install, uninstall, sha256, path-traversal guard, tarball extract |
 | `apps/desktop/src-tauri/src/skills_search.rs` | Query embedding, cosine ranking over registry, dismiss tracking |
 | `apps/desktop/src-tauri/src/skills_bundled.rs` | `include_dir!` UI skill, first-launch extraction |
-| `apps/desktop/src-tauri/src/skills_aggregate.rs` | Workspace-root `AGENTS.md` generator with solo fence |
+| `apps/desktop/src-tauri/src/skills_aggregate.rs` | Workspace-root `AGENTS.md` generator with coltide fence |
 | `apps/desktop/src-tauri/bundled-skills/ui/` | Copy of `Inspirations/Skills/ui/` with `SKILL.md`→`AGENTS.md` rename |
 | `apps/desktop/src/lib/tauri/marketplace.ts` | TS wrappers for new commands |
 | `apps/desktop/src/stores/marketplaceStore.ts` | Zustand store: `registry`, `suggestions`, dismissals |
@@ -33,7 +33,7 @@
 | `apps/desktop/src/components/panels/SkillPreviewPanel.tsx` | Read-only markdown viewer for "View skill" |
 | `apps/desktop/src/components/agent/SkillSuggestionBanner.tsx` | Banner above ChatInput |
 | `apps/desktop/src/hooks/useSkillSuggestions.ts` | Listens for `SkillsSuggestion` event, wires store |
-| *(registry repo, separate)* `solo/skills-registry/` | Public marketplace repo, scaffolded in Phase 3 |
+| *(registry repo, separate)* `coltide/skills-registry/` | Public marketplace repo, scaffolded in Phase 3 |
 
 ### Modified files
 
@@ -53,11 +53,11 @@
 ### Task 1.1: Add protocol types
 
 **Files:**
-- Modify: `crates/solo-protocol/src/lib.rs` (append new section)
+- Modify: `crates/colt-core/src/lib.rs` (append new section)
 
 - [ ] **Step 1.1.1: Append the new types**
 
-Append at the end of `crates/solo-protocol/src/lib.rs`:
+Append at the end of `crates/colt-core/src/lib.rs`:
 
 ```rust
 // =============================================================================
@@ -125,7 +125,7 @@ pub struct InstalledSkillMeta {
 
 - [ ] **Step 1.1.2: Add BackendEvent variants**
 
-Find the `BackendEvent` enum in `crates/solo-protocol/src/lib.rs` and append new variants. If the enum doesn't yet exist (agent events flow via Tauri emits per module docs), add a dedicated `SkillsEvent`:
+Find the `BackendEvent` enum in `crates/colt-core/src/lib.rs` and append new variants. If the enum doesn't yet exist (agent events flow via Tauri emits per module docs), add a dedicated `SkillsEvent`:
 
 ```rust
 /// Events emitted by the skills marketplace subsystem.
@@ -148,13 +148,13 @@ Emit via `app.emit("skills-event", SkillsEvent::...)`.
 
 - [ ] **Step 1.1.3: Regenerate bindings**
 
-Run: `cd /Users/sachin/Developer/Orbit_Main/solo && bun run gen:bindings`
+Run: `cd /Users/sachin/Developer/Orbit_Main/coltide && bun run gen:bindings`
 Expected: new TS files in `apps/desktop/src/bindings/` (`RegistryEntry.ts`, `Registry.ts`, `SkillSuggestion.ts`, `InstalledSkillMeta.ts`, `OriginSource.ts`, `SkillsEvent.ts`).
 
 - [ ] **Step 1.1.4: Commit**
 
 ```bash
-git add solo/crates/solo-protocol/src/lib.rs solo/apps/desktop/src/bindings/
+git add coltide/crates/colt-core/src/lib.rs coltide/apps/desktop/src/bindings/
 git commit -m "protocol: add skills marketplace types"
 ```
 
@@ -211,7 +211,7 @@ Add `tempfile = "3"` to `[dev-dependencies]` in `apps/desktop/src-tauri/Cargo.to
 
 - [ ] **Step 1.2.2: Run the tests to verify they fail**
 
-Run: `cd /Users/sachin/Developer/Orbit_Main/solo && cargo test -p solo-desktop skills_commands::tests::prefers_agents_md_over_skill_md`
+Run: `cd /Users/sachin/Developer/Orbit_Main/coltide && cargo test -p coltide-desktop skills_commands::tests::prefers_agents_md_over_skill_md`
 Expected: FAIL (current code only checks for `SKILL.md`).
 
 - [ ] **Step 1.2.3: Update `scan_skills_dir` to prefer AGENTS.md**
@@ -253,13 +253,13 @@ Replace with:
 
 - [ ] **Step 1.2.4: Run tests to verify pass**
 
-Run: `cargo test -p solo-desktop skills_commands::tests`
+Run: `cargo test -p coltide-desktop skills_commands::tests`
 Expected: all tests pass.
 
 - [ ] **Step 1.2.5: Commit**
 
 ```bash
-git add solo/apps/desktop/src-tauri/src/skills_commands.rs solo/apps/desktop/src-tauri/Cargo.toml
+git add coltide/apps/desktop/src-tauri/src/skills_commands.rs coltide/apps/desktop/src-tauri/Cargo.toml
 git commit -m "skills: prefer AGENTS.md with SKILL.md fallback"
 ```
 
@@ -276,7 +276,7 @@ git commit -m "skills: prefer AGENTS.md with SKILL.md fallback"
 
 ```rust
 // apps/desktop/src-tauri/src/skills_origin.rs
-use solo_protocol::{InstalledSkillMeta, OriginSource};
+use coltide_protocol::{InstalledSkillMeta, OriginSource};
 use std::path::{Path, PathBuf};
 use tokio::fs;
 
@@ -364,13 +364,13 @@ mod skills_origin;
 
 - [ ] **Step 1.3.3: Run tests**
 
-Run: `cargo test -p solo-desktop skills_origin::tests`
+Run: `cargo test -p coltide-desktop skills_origin::tests`
 Expected: 3 passing tests.
 
 - [ ] **Step 1.3.4: Commit**
 
 ```bash
-git add solo/apps/desktop/src-tauri/src/skills_origin.rs solo/apps/desktop/src-tauri/src/lib.rs
+git add coltide/apps/desktop/src-tauri/src/skills_origin.rs coltide/apps/desktop/src-tauri/src/lib.rs
 git commit -m "skills: add .coltide-origin.json tracking"
 ```
 
@@ -388,10 +388,10 @@ git commit -m "skills: add .coltide-origin.json tracking"
 - [ ] **Step 1.4.1: Copy + rename the UI skill bundle**
 
 ```bash
-mkdir -p /Users/sachin/Developer/Orbit_Main/solo/apps/desktop/src-tauri/bundled-skills
-cp -R /Users/sachin/Developer/Orbit_Main/Inspirations/Skills/ui /Users/sachin/Developer/Orbit_Main/solo/apps/desktop/src-tauri/bundled-skills/ui
-mv /Users/sachin/Developer/Orbit_Main/solo/apps/desktop/src-tauri/bundled-skills/ui/SKILL.md \
-   /Users/sachin/Developer/Orbit_Main/solo/apps/desktop/src-tauri/bundled-skills/ui/AGENTS.md
+mkdir -p /Users/sachin/Developer/Orbit_Main/coltide/apps/desktop/src-tauri/bundled-skills
+cp -R /Users/sachin/Developer/Orbit_Main/Inspirations/Skills/ui /Users/sachin/Developer/Orbit_Main/coltide/apps/desktop/src-tauri/bundled-skills/ui
+mv /Users/sachin/Developer/Orbit_Main/coltide/apps/desktop/src-tauri/bundled-skills/ui/SKILL.md \
+   /Users/sachin/Developer/Orbit_Main/coltide/apps/desktop/src-tauri/bundled-skills/ui/AGENTS.md
 ```
 
 Then edit `bundled-skills/ui/AGENTS.md` frontmatter to add `version: 1.0.0`:
@@ -420,7 +420,7 @@ Create `apps/desktop/src-tauri/src/skills_bundled.rs`:
 ```rust
 use crate::skills_origin::{origin_path, write_origin};
 use include_dir::{include_dir, Dir};
-use solo_protocol::{InstalledSkillMeta, OriginSource};
+use coltide_protocol::{InstalledSkillMeta, OriginSource};
 use std::path::Path;
 use tokio::fs;
 
@@ -506,7 +506,7 @@ In the Tauri setup closure (search for `.setup(|app| {`), add (adjust to match e
     let handle = app.handle().clone();
     tauri::async_runtime::spawn(async move {
         if let Some(home) = std::env::var_os("HOME") {
-            let user_skills = std::path::PathBuf::from(home).join(".solo").join("skills");
+            let user_skills = std::path::PathBuf::from(home).join(".coltide").join("skills");
             if let Err(e) = skills_bundled::extract_bundled_if_missing(&user_skills).await {
                 tracing::warn!("failed to extract bundled skill: {}", e);
             }
@@ -520,13 +520,13 @@ If there's already a setup closure, merge inside it rather than replacing.
 
 - [ ] **Step 1.4.5: Run tests**
 
-Run: `cargo test -p solo-desktop skills_bundled::tests`
+Run: `cargo test -p coltide-desktop skills_bundled::tests`
 Expected: 2 passing tests.
 
 - [ ] **Step 1.4.6: Commit**
 
 ```bash
-git add solo/apps/desktop/src-tauri/bundled-skills/ solo/apps/desktop/src-tauri/src/skills_bundled.rs solo/apps/desktop/src-tauri/src/lib.rs solo/apps/desktop/src-tauri/Cargo.toml
+git add coltide/apps/desktop/src-tauri/bundled-skills/ coltide/apps/desktop/src-tauri/src/skills_bundled.rs coltide/apps/desktop/src-tauri/src/lib.rs coltide/apps/desktop/src-tauri/Cargo.toml
 git commit -m "skills: bundle ui skill with include_dir, extract on first launch"
 ```
 
@@ -543,14 +543,14 @@ git commit -m "skills: bundle ui skill with include_dir, extract on first launch
 
 ```rust
 // apps/desktop/src-tauri/src/skills_aggregate.rs
-use solo_protocol::SkillInfo;
+use coltide_protocol::SkillInfo;
 use std::path::Path;
 use tokio::fs;
 
-const BEGIN_FENCE: &str = "<!-- solo:begin -->";
-const END_FENCE: &str = "<!-- solo:end -->";
+const BEGIN_FENCE: &str = "<!-- coltide:begin -->";
+const END_FENCE: &str = "<!-- coltide:end -->";
 
-/// Build the solo-fenced block describing installed skills.
+/// Build the coltide-fenced block describing installed skills.
 pub fn build_block(skills: &[SkillInfo]) -> String {
     let mut out = String::new();
     out.push_str(BEGIN_FENCE);
@@ -569,9 +569,9 @@ pub fn build_block(skills: &[SkillInfo]) -> String {
     out
 }
 
-/// Write / replace the solo fence block in `<workspace>/AGENTS.md`.
+/// Write / replace the coltide fence block in `<workspace>/AGENTS.md`.
 /// - If the file doesn't exist, creates it with just the block.
-/// - If the file exists and contains a solo fence, replaces it in place.
+/// - If the file exists and contains a coltide fence, replaces it in place.
 /// - If the file exists without a fence, appends the block.
 pub async fn write_workspace_agents_md(workspace: &Path, skills: &[SkillInfo]) -> std::io::Result<()> {
     let path = workspace.join("AGENTS.md");
@@ -610,7 +610,7 @@ fn replace_or_append(existing: &str, block: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solo_protocol::SkillSource;
+    use coltide_protocol::SkillSource;
 
     fn sample_skill(name: &str, desc: &str) -> SkillInfo {
         SkillInfo {
@@ -630,7 +630,7 @@ mod tests {
         let skills = vec![sample_skill("ui", "Build UIs.")];
         write_workspace_agents_md(tmp.path(), &skills).await.unwrap();
         let content = std::fs::read_to_string(tmp.path().join("AGENTS.md")).unwrap();
-        assert!(content.contains("<!-- solo:begin -->"));
+        assert!(content.contains("<!-- coltide:begin -->"));
         assert!(content.contains("**ui** — Build UIs."));
     }
 
@@ -645,7 +645,7 @@ mod tests {
         write_workspace_agents_md(tmp.path(), &skills).await.unwrap();
         let content = std::fs::read_to_string(tmp.path().join("AGENTS.md")).unwrap();
         assert!(content.contains("Some custom notes."));
-        assert!(content.contains("<!-- solo:begin -->"));
+        assert!(content.contains("<!-- coltide:begin -->"));
     }
 
     #[tokio::test]
@@ -653,7 +653,7 @@ mod tests {
         let tmp = tempfile::tempdir().unwrap();
         std::fs::write(
             tmp.path().join("AGENTS.md"),
-            "# My Project\n\n<!-- solo:begin -->\nOLD CONTENT\n<!-- solo:end -->\n\n## After\n",
+            "# My Project\n\n<!-- coltide:begin -->\nOLD CONTENT\n<!-- coltide:end -->\n\n## After\n",
         ).unwrap();
         let skills = vec![sample_skill("ui", "Build UIs.")];
         write_workspace_agents_md(tmp.path(), &skills).await.unwrap();
@@ -701,14 +701,14 @@ Register in `.invoke_handler(tauri::generate_handler![..., skills_write_workspac
 
 - [ ] **Step 1.5.3: Run tests**
 
-Run: `cargo test -p solo-desktop skills_aggregate::tests`
+Run: `cargo test -p coltide-desktop skills_aggregate::tests`
 Expected: 4 passing tests.
 
 - [ ] **Step 1.5.4: Commit**
 
 ```bash
-git add solo/apps/desktop/src-tauri/src/skills_aggregate.rs solo/apps/desktop/src-tauri/src/lib.rs
-git commit -m "skills: auto-generate workspace AGENTS.md with solo fence"
+git add coltide/apps/desktop/src-tauri/src/skills_aggregate.rs coltide/apps/desktop/src-tauri/src/lib.rs
+git commit -m "skills: auto-generate workspace AGENTS.md with coltide fence"
 ```
 
 ---
@@ -721,7 +721,7 @@ git commit -m "skills: auto-generate workspace AGENTS.md with solo fence"
 
 - [ ] **Step 1.6.1: Read current skills.ts**
 
-Run: `cat /Users/sachin/Developer/Orbit_Main/solo/agent-bridge/src/skills.ts | head -100`
+Run: `cat /Users/sachin/Developer/Orbit_Main/coltide/agent-bridge/src/skills.ts | head -100`
 Note the existing structure. It currently looks for `SKILL.md` inside each skill directory.
 
 - [ ] **Step 1.6.2: Write failing test**
@@ -738,7 +738,7 @@ import { loadSkillsFromDir } from './skills';
 describe('loadSkillsFromDir', () => {
   let root: string;
   beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), 'solo-skills-'));
+    root = mkdtempSync(join(tmpdir(), 'coltide-skills-'));
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -774,7 +774,7 @@ describe('loadSkillsFromDir', () => {
 
 - [ ] **Step 1.6.3: Run test to verify it fails**
 
-Run: `cd /Users/sachin/Developer/Orbit_Main/solo/agent-bridge && bun test skills.test.ts`
+Run: `cd /Users/sachin/Developer/Orbit_Main/coltide/agent-bridge && bun test skills.test.ts`
 Expected: failures until AGENTS.md support is added.
 
 - [ ] **Step 1.6.4: Update `loadSkillsFromDir` (or equivalent)**
@@ -841,7 +841,7 @@ Expected: both tests pass.
 - [ ] **Step 1.6.7: Commit**
 
 ```bash
-git add solo/agent-bridge/src/skills.ts solo/agent-bridge/src/skills.test.ts
+git add coltide/agent-bridge/src/skills.ts coltide/agent-bridge/src/skills.test.ts
 git commit -m "agent-bridge: load AGENTS.md first, inject index + load_skill tool"
 ```
 
@@ -992,13 +992,13 @@ describe('marketplaceStore', () => {
 
 - [ ] **Step 2.1.3: Run tests**
 
-Run: `cd /Users/sachin/Developer/Orbit_Main/solo && bun test apps/desktop/src/stores/marketplaceStore.test.ts`
+Run: `cd /Users/sachin/Developer/Orbit_Main/coltide && bun test apps/desktop/src/stores/marketplaceStore.test.ts`
 Expected: 2 passing tests.
 
 - [ ] **Step 2.1.4: Commit**
 
 ```bash
-git add solo/apps/desktop/src/lib/tauri/marketplace.ts solo/apps/desktop/src/stores/marketplaceStore.ts solo/apps/desktop/src/stores/marketplaceStore.test.ts
+git add coltide/apps/desktop/src/lib/tauri/marketplace.ts coltide/apps/desktop/src/stores/marketplaceStore.ts coltide/apps/desktop/src/stores/marketplaceStore.test.ts
 git commit -m "marketplace: add IPC wrappers and Zustand store"
 ```
 
@@ -1144,13 +1144,13 @@ export function SkillsSection() {
 
 - [ ] **Step 2.2.3: Manual smoke test**
 
-Run: `cd /Users/sachin/Developer/Orbit_Main/solo && bun run dev` (from a terminal)
+Run: `cd /Users/sachin/Developer/Orbit_Main/coltide && bun run dev` (from a terminal)
 Expected: Vault → Skills now shows three tabs. Installed shows existing skills. Marketplace attempts to fetch (will show an error until Phase 3 is done — acceptable here; comment explaining).
 
 - [ ] **Step 2.2.4: Commit**
 
 ```bash
-git add solo/apps/desktop/src/components/sidebar/vault/
+git add coltide/apps/desktop/src/components/sidebar/vault/
 git commit -m "skills: replace placeholder with tabbed Installed/Marketplace/Forks UI"
 ```
 
@@ -1184,14 +1184,14 @@ Each task in this phase follows the same TDD rhythm as Phase 1 (write failing te
 - `InstalledSkillsTab` shows a small "Update available" pill on rows where update_available.
 - Tests: version-compare semver via `semver` crate; drift detection respects `modified` flag.
 
-**After Phase 3:** the plan document `solo/docs/superpowers/plans/2026-04-18-skills-marketplace-p3-tasks.md` is written with the same TDD detail as Phase 1. That sub-plan is authored at the Phase-3 checkpoint.
+**After Phase 3:** the plan document `coltide/docs/superpowers/plans/2026-04-18-skills-marketplace-p3-tasks.md` is written with the same TDD detail as Phase 1. That sub-plan is authored at the Phase-3 checkpoint.
 
 ---
 
 ## Phase 4 — Semantic Search + Suggestion Banner (sub-plan at checkpoint)
 
 Outline:
-- `skills_search::index_registry(entries: &[RegistryEntry])` — call `solo-embeddings` per entry, cache embeddings at `~/.coltide/cache/registry-embeddings.bin`, invalidate when `registry.version` changes.
+- `skills_search::index_registry(entries: &[RegistryEntry])` — call `coltide-embeddings` per entry, cache embeddings at `~/.coltide/cache/registry-embeddings.bin`, invalidate when `registry.version` changes.
 - `skills_search::search(query, installed_ids, dismissed_ids)` — embed query, cosine similarity, top-K ≥ 0.72, dedupe.
 - `ChatInput` dispatches search on message change (debounced 250ms).
 - `SkillSuggestionBanner` renders top 3, emits install/view/skip actions to the store.
@@ -1213,7 +1213,7 @@ Outline:
 ## Phase 6 — Testing & Hardening (sub-plan at checkpoint)
 
 Outline:
-- Registry CI workflow (`solo/skills-registry/.github/workflows/validate.yml`): YAML parse, required fields, size limit, no executables, name-matches-dirname. Regenerate `registry.json` on merge.
+- Registry CI workflow (`coltide/skills-registry/.github/workflows/validate.yml`): YAML parse, required fields, size limit, no executables, name-matches-dirname. Regenerate `registry.json` on merge.
 - Full Vitest suite runs on frontend CI.
 - Full `cargo test --workspace` on Rust CI.
 - Tauri E2E smoke test: launch app, install-via-marketplace (pointed at test registry fixture), verify on-disk state.
@@ -1223,7 +1223,7 @@ Outline:
 
 ## Registry Repo Scaffolding (one-time, separate)
 
-At Phase 3 start, create `solo/skills-registry/` on GitHub with:
+At Phase 3 start, create `coltide/skills-registry/` on GitHub with:
 - `README.md` — what this is, how to contribute
 - `LICENSE` — MIT
 - `CONTRIBUTING.md` — required AGENTS.md fields, banned content, review criteria

@@ -4,7 +4,7 @@
 //! `project_id`. Deleting a project nulls out `project_id` on every task that
 //! pointed to it.
 
-use solo_protocol::{BackendEvent, Project, ProjectDraft, ProjectPatch};
+use coltide_protocol::{BackendEvent, Project, ProjectDraft, ProjectPatch};
 use tauri::{AppHandle, Emitter as _, State};
 use tracing::debug;
 

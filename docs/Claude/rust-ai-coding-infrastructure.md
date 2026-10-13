@@ -72,7 +72,7 @@ Three parallel jobs that enforce everything:
 2. **rust-test** — `cargo test --workspace --lib` (depends on rust-check)
 3. **ts-check** — `bun install` + TypeScript typecheck (independent)
 
-The CI runs on `paths: ['solo/**']` so it only triggers on ColtIDE changes. The desktop crate is excluded from clippy/test because `tauri::generate_context!()` requires the frontend `dist` directory.
+The CI runs on `paths: ['coltide/**']` so it only triggers on ColtIDE changes. The desktop crate is excluded from clippy/test because `tauri::generate_context!()` requires the frontend `dist` directory.
 
 ---
 
@@ -103,8 +103,8 @@ After this work:
 | Check | Status |
 |-------|--------|
 | `cargo fmt --all -- --check` | Pass |
-| `cargo clippy --workspace --exclude solo-desktop -- -D warnings` | Pass |
-| `cargo test --workspace --lib --exclude solo-desktop` | 38/38 pass |
+| `cargo clippy --workspace --exclude coltide-desktop -- -D warnings` | Pass |
+| `cargo test --workspace --lib --exclude coltide-desktop` | 38/38 pass |
 
 **For AI tools specifically:**
 - Claude Code can now look at `CLAUDE.md` and know exactly how to structure errors, handle async, manage locks, and tag serde enums
@@ -133,12 +133,12 @@ The infrastructure we built — `CLAUDE.md`, clippy pedantic, rustfmt, CI — ma
 
 | File | Description |
 |------|-------------|
-| `solo/CLAUDE.md` | Added 7 new Rust-specific sections |
-| `solo/clippy.toml` | Tuned thresholds for this codebase |
-| `solo/rustfmt.toml` | Codified actual code style |
-| `solo/crates/*/src/lib.rs` (7 files) | Added pedantic lint attributes |
+| `coltide/CLAUDE.md` | Added 7 new Rust-specific sections |
+| `coltide/clippy.toml` | Tuned thresholds for this codebase |
+| `coltide/rustfmt.toml` | Codified actual code style |
+| `coltide/crates/*/src/lib.rs` (7 files) | Added pedantic lint attributes |
 | `.github/workflows/ci.yml` | Three-job CI pipeline |
-| `.claude/skills/solo-rust-ai-skill/` | Reusable skill for AI Rust coding |
+| `.claude/skills/coltide-rust-ai-skill/` | Reusable skill for AI Rust coding |
 | ~40 Rust source files | Fixed clippy warnings |
 
 ---

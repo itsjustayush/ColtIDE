@@ -4,7 +4,7 @@
 //! tasks. Tasks carry a nullable `cycle_id`. Deleting a cycle nulls out
 //! `cycle_id` on every task that pointed to it.
 
-use solo_protocol::{BackendEvent, Cycle, CycleDraft, CyclePatch};
+use coltide_protocol::{BackendEvent, Cycle, CycleDraft, CyclePatch};
 use tauri::{AppHandle, Emitter as _, State};
 use tracing::debug;
 

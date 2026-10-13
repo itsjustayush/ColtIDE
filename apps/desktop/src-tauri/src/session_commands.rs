@@ -12,7 +12,7 @@ fn sessions_dir() -> Result<PathBuf, String> {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .map_err(|_| "Could not determine home directory (HOME/USERPROFILE not set)".to_string())?;
-    Ok(PathBuf::from(home).join(".solo").join("sessions"))
+    Ok(PathBuf::from(home).join(".coltide").join("sessions"))
 }
 
 /// Ensure the sessions directory exists

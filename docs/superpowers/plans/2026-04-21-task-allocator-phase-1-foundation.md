@@ -4,7 +4,7 @@
 
 **Goal:** Ship a working **manual-task** board inside the existing Vault `Tasks` surface — schema, CRUD, list view, drawer — so a user can create / edit / delete / search tasks. No agents, no scheduler, no LLM. Those land in Phases 2-5.
 
-**Architecture:** New `solo-tasks` crate (SQLite + FTS5, modeled on `solo-vault`). Rust `task_commands.rs` exposes CRUD through Tauri IPC. Protocol types in `solo-protocol` generate TS bindings via ts-rs. Frontend: Zustand store + event hook + Plane-styled grouped list view + 480px side drawer, replacing the current `TasksSection` placeholder.
+**Architecture:** New `coltide-tasks` crate (SQLite + FTS5, modeled on `coltide-vault`). Rust `task_commands.rs` exposes CRUD through Tauri IPC. Protocol types in `colt-core` generate TS bindings via ts-rs. Frontend: Zustand store + event hook + Plane-styled grouped list view + 480px side drawer, replacing the current `TasksSection` placeholder.
 
 **Tech Stack:** Rust 1.8x (workspace), `rusqlite` (bundled FTS5), `serde`, `ts-rs`, `uuid`, `tokio`, `tracing`. Frontend: React 19, Zustand + Immer, Tailwind, `motion/react`, Lucide icons.
 
@@ -17,16 +17,16 @@
 ## File map for Phase 1
 
 **Create (Rust):**
-- `crates/solo-tasks/Cargo.toml`
-- `crates/solo-tasks/src/lib.rs`
-- `crates/solo-tasks/src/store.rs`
-- `crates/solo-tasks/src/error.rs`
+- `crates/coltide-tasks/Cargo.toml`
+- `crates/coltide-tasks/src/lib.rs`
+- `crates/coltide-tasks/src/store.rs`
+- `crates/coltide-tasks/src/error.rs`
 - `apps/desktop/src-tauri/src/task_commands.rs`
 
 **Modify (Rust):**
-- `Cargo.toml` (workspace root) — add `solo-tasks` member
-- `crates/solo-protocol/src/lib.rs` — add Task types + `BackendEvent::TasksChanged`
-- `apps/desktop/src-tauri/Cargo.toml` — add `solo-tasks` dep
+- `Cargo.toml` (workspace root) — add `coltide-tasks` member
+- `crates/colt-core/src/lib.rs` — add Task types + `BackendEvent::TasksChanged`
+- `apps/desktop/src-tauri/Cargo.toml` — add `coltide-tasks` dep
 - `apps/desktop/src-tauri/src/lib.rs` — `mod task_commands`, `use`, `.manage()`, `generate_handler![]`
 
 **Create (TS):**
@@ -50,11 +50,11 @@
 ## Task 1 · Protocol types
 
 **Files:**
-- Modify: `crates/solo-protocol/src/lib.rs` (append new section before BackendEvent)
+- Modify: `crates/colt-core/src/lib.rs` (append new section before BackendEvent)
 
 Phase 1 only needs the fields a manual task uses. Forward-compatible: `agent_config`, `schedule`, `runs`, `context_anchors` are `Option` / `Vec` so later phases add variants without migration. `TaskStatus` includes all lifecycle states from the spec — but v1 UI only uses `Queued`, `Running` (for parity), `Done`, `Failed`, `Archived`. `Running`/`NeedsReview`/`Suggested` become visible in later phases but exist in the enum now so we never bump the protocol.
 
-- [ ] **Step 1.1:** Open `crates/solo-protocol/src/lib.rs` and locate the `BackendEvent` enum (around line 837). We add a new `// Task Allocator` section directly before it.
+- [ ] **Step 1.1:** Open `crates/colt-core/src/lib.rs` and locate the `BackendEvent` enum (around line 837). We add a new `// Task Allocator` section directly before it.
 
 - [ ] **Step 1.2:** Insert the following block immediately before the `BackendEvent` section comment (before line 825).
 
@@ -227,25 +227,25 @@ pub struct TaskPatch {
 }
 ```
 
-- [ ] **Step 1.3:** Add `serde_json` to `solo-protocol` dependencies if not present.
+- [ ] **Step 1.3:** Add `serde_json` to `colt-core` dependencies if not present.
 
-Check `crates/solo-protocol/Cargo.toml`:
+Check `crates/colt-core/Cargo.toml`:
 ```bash
-grep "serde_json" /Users/sachin/Developer/Orbit_Main/solo/crates/solo-protocol/Cargo.toml
+grep "serde_json" /Users/sachin/Developer/Orbit_Main/coltide/crates/colt-core/Cargo.toml
 ```
 Expected: a line containing `serde_json`. If missing, add `serde_json.workspace = true` under `[dependencies]`.
 
 - [ ] **Step 1.4:** Type-check.
 
-Run from `solo/`:
+Run from `coltide/`:
 ```bash
-cargo check -p solo-protocol
+cargo check -p colt-core
 ```
 Expected: no errors.
 
 - [ ] **Step 1.5:** Regenerate TS bindings.
 
-Run from `solo/`:
+Run from `coltide/`:
 ```bash
 bun run gen:bindings
 ```
@@ -259,7 +259,7 @@ ls apps/desktop/src/bindings/ | grep -E "Task|Executor|Run|Anchor"
 - [ ] **Step 1.6:** Commit.
 
 ```bash
-git add crates/solo-protocol/src/lib.rs crates/solo-protocol/Cargo.toml apps/desktop/src/bindings/
+git add crates/colt-core/src/lib.rs crates/colt-core/Cargo.toml apps/desktop/src/bindings/
 git commit -m "feat(protocol): add Task allocator types (ts-rs bindings)"
 ```
 
@@ -268,7 +268,7 @@ git commit -m "feat(protocol): add Task allocator types (ts-rs bindings)"
 ## Task 2 · Add `BackendEvent::TasksChanged`
 
 **Files:**
-- Modify: `crates/solo-protocol/src/lib.rs` (inside `enum BackendEvent`)
+- Modify: `crates/colt-core/src/lib.rs` (inside `enum BackendEvent`)
 
 - [ ] **Step 2.1:** Locate `enum BackendEvent` (line ~837) and add a new variant at the end (just before the closing `}`):
 
@@ -289,33 +289,33 @@ Expected: `apps/desktop/src/bindings/BackendEvent.ts` updated with the new varia
 - [ ] **Step 2.3:** Commit.
 
 ```bash
-git add crates/solo-protocol/src/lib.rs apps/desktop/src/bindings/BackendEvent.ts
+git add crates/colt-core/src/lib.rs apps/desktop/src/bindings/BackendEvent.ts
 git commit -m "feat(protocol): emit BackendEvent::TasksChanged"
 ```
 
 ---
 
-## Task 3 · Scaffold `solo-tasks` crate
+## Task 3 · Scaffold `coltide-tasks` crate
 
 **Files:**
-- Create: `crates/solo-tasks/Cargo.toml`
-- Create: `crates/solo-tasks/src/lib.rs`
-- Create: `crates/solo-tasks/src/error.rs`
+- Create: `crates/coltide-tasks/Cargo.toml`
+- Create: `crates/coltide-tasks/src/lib.rs`
+- Create: `crates/coltide-tasks/src/error.rs`
 - Modify: root `Cargo.toml` (workspace `members`)
 
 - [ ] **Step 3.1:** Check the workspace root `Cargo.toml` `members` array.
 
 ```bash
-grep -n "members" /Users/sachin/Developer/Orbit_Main/solo/Cargo.toml
+grep -n "members" /Users/sachin/Developer/Orbit_Main/coltide/Cargo.toml
 ```
 
-- [ ] **Step 3.2:** Add `"crates/solo-tasks"` to the workspace `members` in `solo/Cargo.toml`. Keep alphabetical order.
+- [ ] **Step 3.2:** Add `"crates/coltide-tasks"` to the workspace `members` in `coltide/Cargo.toml`. Keep alphabetical order.
 
-- [ ] **Step 3.3:** Create `crates/solo-tasks/Cargo.toml`:
+- [ ] **Step 3.3:** Create `crates/coltide-tasks/Cargo.toml`:
 
 ```toml
 [package]
-name = "solo-tasks"
+name = "coltide-tasks"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -329,8 +329,8 @@ serde_json.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 
-solo-core = { path = "../solo-core" }
-solo-protocol = { path = "../solo-protocol" }
+colt-core = { path = "../colt-core" }
+colt-core = { path = "../colt-core" }
 
 rusqlite = { version = "0.32", features = ["bundled"] }
 uuid = { version = "1.11", features = ["v4"] }
@@ -340,7 +340,7 @@ dirs = "5.0"
 tempfile = "3.14"
 ```
 
-- [ ] **Step 3.4:** Create `crates/solo-tasks/src/error.rs`:
+- [ ] **Step 3.4:** Create `crates/coltide-tasks/src/error.rs`:
 
 ```rust
 use thiserror::Error;
@@ -366,7 +366,7 @@ pub enum TaskError {
 pub type TaskResult<T> = std::result::Result<T, TaskError>;
 ```
 
-- [ ] **Step 3.5:** Create `crates/solo-tasks/src/lib.rs`:
+- [ ] **Step 3.5:** Create `crates/coltide-tasks/src/lib.rs`:
 
 ```rust
 #![warn(clippy::all, clippy::pedantic)]
@@ -377,7 +377,7 @@ pub type TaskResult<T> = std::result::Result<T, TaskError>;
     clippy::missing_panics_doc
 )]
 
-//! solo-tasks — Task allocator core.
+//! coltide-tasks — Task allocator core.
 //!
 //! Phase 1 ships `store` only (SQLite-backed CRUD + FTS search). Later
 //! phases add `context`, `planner`, `scheduler`, `executor`.
@@ -389,7 +389,7 @@ pub use error::{TaskError, TaskResult};
 pub use store::TaskStore;
 ```
 
-- [ ] **Step 3.6:** Create a stub `crates/solo-tasks/src/store.rs` so the crate builds before we implement it:
+- [ ] **Step 3.6:** Create a stub `crates/coltide-tasks/src/store.rs` so the crate builds before we implement it:
 
 ```rust
 //! SQLite-backed task store. Implementation lands in Task 4.
@@ -411,15 +411,15 @@ impl TaskStore {
 - [ ] **Step 3.7:** Verify the workspace builds.
 
 ```bash
-cargo check -p solo-tasks
+cargo check -p coltide-tasks
 ```
 Expected: no errors; `unimplemented!` is fine at this stage.
 
 - [ ] **Step 3.8:** Commit.
 
 ```bash
-git add Cargo.toml crates/solo-tasks/
-git commit -m "feat(tasks): scaffold solo-tasks crate"
+git add Cargo.toml crates/coltide-tasks/
+git commit -m "feat(tasks): scaffold coltide-tasks crate"
 ```
 
 ---
@@ -427,11 +427,11 @@ git commit -m "feat(tasks): scaffold solo-tasks crate"
 ## Task 4 · Implement `TaskStore` — schema, CRUD, TDD
 
 **Files:**
-- Modify: `crates/solo-tasks/src/store.rs` (full rewrite)
+- Modify: `crates/coltide-tasks/src/store.rs` (full rewrite)
 
 We drive the implementation test-first. Every CRUD operation gets a test before its code.
 
-- [ ] **Step 4.1:** Replace `crates/solo-tasks/src/store.rs` with the stub + test scaffolding:
+- [ ] **Step 4.1:** Replace `crates/coltide-tasks/src/store.rs` with the stub + test scaffolding:
 
 ```rust
 //! SQLite-backed task store (FTS5 in Task 5).
@@ -439,7 +439,7 @@ We drive the implementation test-first. Every CRUD operation gets a test before 
 use std::path::PathBuf;
 use std::sync::Mutex;
 use rusqlite::{Connection, OptionalExtension, params};
-use solo_protocol::{
+use coltide_protocol::{
     ContextAnchor, Executor, RunOutcome, Task, TaskDraft, TaskListFilters,
     TaskOrigin, TaskPatch, TaskPriority, TaskRun, TaskStatus,
 };
@@ -928,18 +928,18 @@ Actually — `execute_batch` handles multiple statements; just prepend `PRAGMA f
 
 Since we paste the full implementation in one step, just run:
 ```bash
-cargo test -p solo-tasks
+cargo test -p coltide-tasks
 ```
 Expected: 7 tests pass.
 
 - [ ] **Step 4.4:** Fix the two `#[allow(unused)]` items if compiler still complains about `priority_from` / `executor_from` being dead code (they're used inside `load_task_row`, so no allow needed).
 
-Run `cargo clippy -p solo-tasks --all-targets` — expected: no warnings.
+Run `cargo clippy -p coltide-tasks --all-targets` — expected: no warnings.
 
 - [ ] **Step 4.5:** Commit.
 
 ```bash
-git add crates/solo-tasks/src/store.rs crates/solo-tasks/src/error.rs
+git add crates/coltide-tasks/src/store.rs crates/coltide-tasks/src/error.rs
 git commit -m "feat(tasks): SQLite store with CRUD + tests"
 ```
 
@@ -948,7 +948,7 @@ git commit -m "feat(tasks): SQLite store with CRUD + tests"
 ## Task 5 · FTS5 search on the store
 
 **Files:**
-- Modify: `crates/solo-tasks/src/store.rs`
+- Modify: `crates/coltide-tasks/src/store.rs`
 
 Phase 1 list-query already does substring match; adding FTS now costs little and unlocks proper tokenization for Phase 5's planner-side dedup.
 
@@ -1020,14 +1020,14 @@ fn fts_search_matches_title_tokens() {
 - [ ] **Step 5.4:** Run tests.
 
 ```bash
-cargo test -p solo-tasks
+cargo test -p coltide-tasks
 ```
 Expected: 8 tests pass.
 
 - [ ] **Step 5.5:** Commit.
 
 ```bash
-git add crates/solo-tasks/src/store.rs
+git add crates/coltide-tasks/src/store.rs
 git commit -m "feat(tasks): FTS5 search on title + description"
 ```
 
@@ -1037,14 +1037,14 @@ git commit -m "feat(tasks): FTS5 search on title + description"
 
 **Files:**
 - Create: `apps/desktop/src-tauri/src/task_commands.rs`
-- Modify: `apps/desktop/src-tauri/Cargo.toml` (add `solo-tasks` dep)
+- Modify: `apps/desktop/src-tauri/Cargo.toml` (add `coltide-tasks` dep)
 - Modify: `apps/desktop/src-tauri/src/lib.rs` (module, use, manage, handler)
 
-- [ ] **Step 6.1:** Add `solo-tasks` to desktop dependencies.
+- [ ] **Step 6.1:** Add `coltide-tasks` to desktop dependencies.
 
 In `apps/desktop/src-tauri/Cargo.toml`, under `[dependencies]`, add:
 ```toml
-solo-tasks = { path = "../../../crates/solo-tasks" }
+coltide-tasks = { path = "../../../crates/coltide-tasks" }
 ```
 
 - [ ] **Step 6.2:** Create `apps/desktop/src-tauri/src/task_commands.rs`:
@@ -1057,10 +1057,10 @@ solo-tasks = { path = "../../../crates/solo-tasks" }
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use solo_protocol::{
+use coltide_protocol::{
     BackendEvent, Task, TaskDraft, TaskListFilters, TaskPatch,
 };
-use solo_tasks::TaskStore;
+use coltide_tasks::TaskStore;
 use tauri::{AppHandle, Emitter as _, State};
 use tokio::sync::RwLock;
 use tracing::{debug, info};
@@ -1093,7 +1093,7 @@ async fn get_store(state: &State<'_, TaskState>) -> Result<Arc<TaskStore>, Strin
     if let Some(s) = guard.as_ref() { return Ok(s.clone()); }
 
     let home = dirs::home_dir().ok_or_else(|| "home dir not found".to_string())?;
-    let path: PathBuf = home.join(".solo").join("tasks").join("tasks.db");
+    let path: PathBuf = home.join(".coltide").join("tasks").join("tasks.db");
     info!(path = %path.display(), "Opening task store");
     let store = Arc::new(TaskStore::open(path).map_err(|e| e.to_string())?);
     *guard = Some(store.clone());
@@ -1199,7 +1199,7 @@ Find the `tauri::generate_handler![...]` block and add the new commands (alphabe
 - [ ] **Step 6.4:** Build.
 
 ```bash
-cargo check -p solo-desktop-lib
+cargo check -p coltide-desktop-lib
 ```
 Expected: no errors.
 

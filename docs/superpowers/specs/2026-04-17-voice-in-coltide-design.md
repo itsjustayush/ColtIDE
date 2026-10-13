@@ -33,8 +33,8 @@ Dispatch is silent-spawn: no focus-steal; a toast + dock badge confirms the disp
 ### Crate layout
 
 ```
-solo/
-├─ crates/solo-voice/              NEW
+coltide/
+├─ crates/coltide-voice/              NEW
 │   ├─ src/lib.rs                  pub surface
 │   ├─ src/audio.rs                cpal ring-buffer capture
 │   ├─ src/vad.rs                  silero-vad via `ort`
@@ -45,7 +45,7 @@ solo/
 │   ├─ src/history.rs              SQLite (rusqlite) — voice_transcripts table
 │   └─ src/mode.rs                 VoiceMode { Dictation, Dispatch }
 │
-├─ crates/solo-protocol/           EXTENDED (see Protocol additions)
+├─ crates/colt-core/           EXTENDED (see Protocol additions)
 │
 ├─ apps/desktop/src-tauri/src/
 │   ├─ voice_commands.rs           NEW — Tauri command surface
@@ -62,14 +62,14 @@ solo/
 │   └─ components/settings/tabs/VoiceTab.tsx    REWRITTEN
 │
 └─ REMOVED:
-    crates/solo-elevenlabs/
+    crates/coltide-elevenlabs/
     apps/desktop/src-tauri/src/elevenlabs_commands.rs
     apps/desktop/src/stores/elevenlabsStore.ts
     apps/desktop/src/lib/tauri/elevenlabs.ts
     apps/desktop/src/lib/elevenlabs/
 ```
 
-### Protocol additions (`crates/solo-protocol/src/lib.rs`)
+### Protocol additions (`crates/colt-core/src/lib.rs`)
 
 ```rust
 #[derive(TS, Serialize, Deserialize, Clone, Debug)]
@@ -110,7 +110,7 @@ BackendEvent variants (tagged union, colon-separated names):
 - `voice:error` — `{ message: String }`
 - `voice:model_progress` — `{ model_id, bytes, total }` during downloads
 
-After any change to `solo-protocol/src/lib.rs`: run `bun run gen:bindings` from `solo/`.
+After any change to `colt-core/src/lib.rs`: run `bun run gen:bindings` from `coltide/`.
 
 ### Pipeline state machine
 
@@ -145,7 +145,7 @@ Cancel (Esc) is always honored — aborts immediately from any non-Idle state, r
 
 ### Hotkey manager (ported)
 
-Source: `voiceflow/platform/tauri/src-tauri/src/hotkey/{manager,event_tap,config}.rs` → `solo/apps/desktop/src-tauri/src/voice/hotkey.rs`.
+Source: `voiceflow/platform/tauri/src-tauri/src/hotkey/{manager,event_tap,config}.rs` → `coltide/apps/desktop/src-tauri/src/voice/hotkey.rs`.
 
 - CGEvent tap at `kCGSessionEventTap`, filtering KeyDown, KeyUp, FlagsChanged.
 - Dedicated thread owning a private `CFRunLoop`.
@@ -157,7 +157,7 @@ Source: `voiceflow/platform/tauri/src-tauri/src/hotkey/{manager,event_tap,config
 
 ### Text injection (ported)
 
-Source: `voiceflow/.../injection/text.rs` → `solo/apps/desktop/src-tauri/src/voice/injection.rs`.
+Source: `voiceflow/.../injection/text.rs` → `coltide/apps/desktop/src-tauri/src/voice/injection.rs`.
 
 `inject_text(text: &str)`:
 
@@ -173,7 +173,7 @@ On `CGEventPost` failure: toast "Paste failed — text copied to clipboard, past
 
 ### App monitor (ported)
 
-Source: `voiceflow/.../context/app_monitor.rs` → `solo/apps/desktop/src-tauri/src/voice/app_monitor.rs`.
+Source: `voiceflow/.../context/app_monitor.rs` → `coltide/apps/desktop/src-tauri/src/voice/app_monitor.rs`.
 
 Uses `NSWorkspace.frontmostApplication`. No permission required. Polled at 200 ms while pipeline state is Arming or Recording. Returned data: `{ bundle_id, app_name, window_title }`.
 
@@ -229,7 +229,7 @@ pub trait FormatterProvider: Send + Sync {
 }
 ```
 
-Default models per provider (hardcoded constants in `solo-voice/src/formatter.rs`; swappable without API changes):
+Default models per provider (hardcoded constants in `coltide-voice/src/formatter.rs`; swappable without API changes):
 
 | Provider | Constant | Default model |
 |---|---|---|
@@ -237,7 +237,7 @@ Default models per provider (hardcoded constants in `solo-voice/src/formatter.rs
 | Codex | `DEFAULT_CODEX_FORMATTER_MODEL` | `gpt-5-nano` |
 
 Implementations:
-- `ClaudeFormatter` — wraps ColtIDE's existing Claude provider auth (`solo-auth::providers::claude`). Prompt cache enabled on the system prompt (the dictation/dispatch instructions don't change per-call — large cache-hit ratio).
+- `ClaudeFormatter` — wraps ColtIDE's existing Claude provider auth (`coltide-auth::providers::claude`). Prompt cache enabled on the system prompt (the dictation/dispatch instructions don't change per-call — large cache-hit ratio).
 - `CodexFormatter` — same pattern against OpenAI auth.
 - `LocalLlamaFormatter` — `llama-cpp-rs` against `Llama-3.2-1B-Instruct-Q4_K_M.gguf`. Lazy-loads on first call; stays resident until app quit or user disables voice.
 
@@ -274,9 +274,9 @@ Sections in order:
 
 ## Model download
 
-Model directory root: ColtIDE's app data dir resolved via `AppHandle::path().app_data_dir()?` (on macOS, `~/Library/Application Support/com.solo.desktop/`), then `models/` subdirectory.
+Model directory root: ColtIDE's app data dir resolved via `AppHandle::path().app_data_dir()?` (on macOS, `~/Library/Application Support/com.coltide.desktop/`), then `models/` subdirectory.
 
-- **Parakeet**: `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8` from HuggingFace. ~250 MB. Downloaded via `reqwest` streaming to `<models>/parakeet-tdt-0.6b-v2.tmp`, SHA-256 verified against a manifest in `solo-voice/src/models.rs`, atomically renamed to `<models>/parakeet-tdt-0.6b-v2/`. HTTP `Range` for resume on interruption.
+- **Parakeet**: `csukuangfj/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8` from HuggingFace. ~250 MB. Downloaded via `reqwest` streaming to `<models>/parakeet-tdt-0.6b-v2.tmp`, SHA-256 verified against a manifest in `coltide-voice/src/models.rs`, atomically renamed to `<models>/parakeet-tdt-0.6b-v2/`. HTTP `Range` for resume on interruption.
 - **Local Llama (optional)**: `bartowski/Llama-3.2-1B-Instruct-GGUF`, Q4_K_M variant, ~770 MB. Downloaded to `<models>/llama-3.2-1b-instruct-q4km.gguf` with the same verify + atomic-rename pattern.
 - **Progress**: `voice:model_progress` events drive the Voice settings progress bar.
 - **Delivery**: HuggingFace direct. If rate-limiting becomes a real problem, mirror to S3/CloudFront later — no code change required if the manifest URLs are swappable.
@@ -298,7 +298,7 @@ Model directory root: ColtIDE's app data dir resolved via `AppHandle::path().app
 
 ## Testing
 
-### Unit (`solo-voice`)
+### Unit (`coltide-voice`)
 
 - `formatter::prompt` snapshot tests for dictation and dispatch prompts across providers
 - `pipeline` state-machine transitions using `MockStt` + `MockFormatter`
@@ -322,8 +322,8 @@ Model directory root: ColtIDE's app data dir resolved via `AppHandle::path().app
 
 ## Migration — ElevenLabs removal checklist
 
-1. Delete `crates/solo-elevenlabs/`
-2. Remove `solo-elevenlabs` from workspace `Cargo.toml` members
+1. Delete `crates/coltide-elevenlabs/`
+2. Remove `coltide-elevenlabs` from workspace `Cargo.toml` members
 3. Drop elevenlabs state registration from `apps/desktop/src-tauri/src/lib.rs`
 4. Delete `apps/desktop/src-tauri/src/elevenlabs_commands.rs` and strip from `generate_handler!`
 5. Delete frontend: `stores/elevenlabsStore.ts`, `lib/tauri/elevenlabs.ts`, `lib/elevenlabs/`, existing `hooks/useVoiceInput.ts` (will be rewritten)
@@ -331,11 +331,11 @@ Model directory root: ColtIDE's app data dir resolved via `AppHandle::path().app
 7. Rewire `ChatInputContainer` and `components/agent/input/voice-button.tsx` against `voiceStore`
 8. Regenerate bindings via `bun run gen:bindings`
 9. Drop `tokio-tungstenite` and `base64` from root `Cargo.toml` if `cargo tree -i <dep>` shows no other consumer
-10. Update `solo/CLAUDE.md` references from `solo-elevenlabs` to `solo-voice`
+10. Update `coltide/CLAUDE.md` references from `coltide-elevenlabs` to `coltide-voice`
 
 ## Phasing
 
-- **Phase 1 — pipeline + chat mic.** Section A crates/protocol, `solo-voice` end-to-end, chat mic rewired, ElevenLabs fully removed, Voice settings tab (enable + models + permissions + history). No hotkeys, no HUD, no dispatch. First shippable milestone.
+- **Phase 1 — pipeline + chat mic.** Section A crates/protocol, `coltide-voice` end-to-end, chat mic rewired, ElevenLabs fully removed, Voice settings tab (enable + models + permissions + history). No hotkeys, no HUD, no dispatch. First shippable milestone.
 - **Phase 2 — global dictation.** Hotkey tap, text injection, app monitor, cursor-pill HUD, dictation hotkey binding + Voice settings shortcut recorder. VoiceFlow-parity.
 - **Phase 3 — agent dispatch.** Dispatch hotkey, dispatch-prompt formatter variant, silent-spawn + toast + dock badge + sidebar-row + auto-pop-on-focus flow, history-to-session linking.
 
@@ -355,7 +355,7 @@ Model directory root: ColtIDE's app data dir resolved via `AppHandle::path().app
 | 10 | Session visibility: sidebar row + auto-pop on first ColtIDE focus |
 | 11 | Transcript history: SQLite in ColtIDE's app data dir |
 | 12 | Model download: explicit opt-in via Voice settings |
-| 13 | Crates: `solo-voice` + `voice_commands.rs`; ElevenLabs fully removed |
+| 13 | Crates: `coltide-voice` + `voice_commands.rs`; ElevenLabs fully removed |
 | 14 | Phasing: P1 pipeline+chat, P2 dictation, P3 dispatch |
 
 ## Open questions for the implementation plan
