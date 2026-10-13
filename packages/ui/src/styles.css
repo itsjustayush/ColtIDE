@@ -1,0 +1,6 @@
+/*
+ * @colt/ui entry stylesheet. Imports the generated design tokens so any
+ * consumer can register the full theme with a single `@import "@colt/ui/styles"`.
+ */
+
+@import "./tokens.css";

@@ -1,0 +1,17 @@
+import type { PanelProps } from '@/lib/panels/types';
+import { Puzzle } from 'lucide-react';
+import { PluginsSection } from '@/components/sidebar/vault/PluginsSection';
+import { VaultPanelShell } from './VaultPanelShell';
+
+export function PluginsPanel(_props: PanelProps) {
+  return (
+    <VaultPanelShell
+      wide
+      icon={Puzzle}
+      title="Plugins"
+      description="Extend ColtIDE with plugins from the ColtIDE plugin marketplace. Plugins add commands, panels, and agent tools."
+    >
+      <PluginsSection />
+    </VaultPanelShell>
+  );
+}

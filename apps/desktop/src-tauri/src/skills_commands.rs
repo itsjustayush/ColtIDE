@@ -1,0 +1,642 @@
+//! Skills discovery & authoring commands for ColtIDE.
+//!
+//! ColtIDE's canonical skill directories are `~/.coltide/skills/` (user) and
+//! `{cwd}/.coltide/skills/` (project). On top of those, ColtIDE runs read-only
+//! *adapters* that surface skills authored for other platforms so users
+//! keep what they already have:
+//!
+//!  - `~/.claude/skills/`                      (Claude Code personal)
+//!  - `~/.claude/plugins/**/skills/`           (Claude Code plugin marketplace)
+//!  - `{ancestors}/.claude/skills/`            (project-scoped Claude skills)
+//!  - `~/.codex/skills/`                       (Codex, forward-compat)
+//!  - `~/.codex/plugins/cache/**/skills/`      (Codex plugin marketplace)
+//!
+//! Each adapter can be toggled in user settings (`skills.importClaudeUser`
+//! etc.). Skills from higher-priority sources override those from lower
+//! ones on name collision — see `SkillSource::priority()`.
+
+use solo_core::settings as settings_io;
+use solo_protocol::{
+    OnboardingImportMode, SkillInfo, SkillSource, SkillWriteRequest, SkillsConfig,
+    SkillsOnboardingStatus,
+};
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use tokio::fs;
+use tracing::{debug, warn};
+
+// ─── Frontmatter ─────────────────────────────────────────────────────
+
+/// Minimal YAML-like frontmatter parser — only handles `key: value` lines.
+fn parse_frontmatter(raw: &str) -> (HashMap<String, String>, String) {
+    let mut meta = HashMap::new();
+
+    if !raw.starts_with("---") {
+        return (meta, raw.to_string());
+    }
+
+    let Some(end_idx) = raw[3..].find("\n---") else {
+        return (meta, raw.to_string());
+    };
+
+    let fm_block = &raw[3..3 + end_idx];
+    let body_start = 3 + end_idx + 4;
+    let body = raw[body_start..].trim_start_matches('\n').to_string();
+
+    for line in fm_block.lines() {
+        let line = line.trim();
+        if let Some(colon_idx) = line.find(':') {
+            let key = line[..colon_idx].trim().to_string();
+            let value = line[colon_idx + 1..].trim().to_string();
+            if !key.is_empty() {
+                meta.insert(key, value);
+            }
+        }
+    }
+
+    (meta, body)
+}
+
+// ─── Directory Scanner ───────────────────────────────────────────────
+
+/// Scan a single skills directory for both flat (`foo.md`) and nested
+/// (`foo/SKILL.md`) layouts. Tolerant of missing dirs.
+async fn scan_skills_dir(dir: &Path, source: SkillSource) -> Vec<SkillInfo> {
+    let mut skills = Vec::new();
+
+    let mut entries = match fs::read_dir(dir).await {
+        Ok(e) => e,
+        Err(_) => return skills,
+    };
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let path = entry.path();
+        let (raw, skill_path, derived_name) =
+            if path.is_file() && path.extension().is_some_and(|e| e == "md") {
+                let name = path
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned();
+                match fs::read_to_string(&path).await {
+                    Ok(content) => (content, path.clone(), name),
+                    Err(_) => continue,
+                }
+            } else if path.is_dir() {
+                // Prefer AGENTS.md (the open standard) but fall back to SKILL.md
+                // for drop-in compatibility with Claude Code skill folders.
+                let agents_md = path.join("AGENTS.md");
+                let skill_md = path.join("SKILL.md");
+                let chosen = if agents_md.exists() {
+                    agents_md
+                } else if skill_md.exists() {
+                    skill_md
+                } else {
+                    continue;
+                };
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .into_owned();
+                match fs::read_to_string(&chosen).await {
+                    Ok(content) => (content, chosen, name),
+                    Err(_) => continue,
+                }
+            } else {
+                continue;
+            };
+
+        let (meta, body) = parse_frontmatter(&raw);
+
+        let name = meta
+            .get("name")
+            .filter(|v| !v.is_empty())
+            .cloned()
+            .unwrap_or(derived_name);
+        let description = meta.get("description").cloned().unwrap_or_default();
+        let enabled = meta.get("enabled").map_or(true, |v| v != "false");
+        let priority = meta
+            .get("priority")
+            .and_then(|v| v.parse::<i32>().ok())
+            .unwrap_or(0);
+
+        skills.push(SkillInfo {
+            name,
+            description,
+            content: body,
+            source,
+            file_path: skill_path.to_string_lossy().into_owned(),
+            enabled,
+            priority,
+        });
+    }
+
+    skills
+}
+
+// ─── Path Resolvers ──────────────────────────────────────────────────
+
+fn home_dir() -> Option<PathBuf> {
+    std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .ok()
+        .map(PathBuf::from)
+}
+
+fn solo_user_skills_dir() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".solo").join("skills"))
+}
+
+fn claude_user_skills_dir() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".claude").join("skills"))
+}
+
+fn codex_user_skills_dir() -> Option<PathBuf> {
+    home_dir().map(|h| h.join(".codex").join("skills"))
+}
+
+// ─── Adapters ────────────────────────────────────────────────────────
+
+async fn discover_solo_user() -> Vec<SkillInfo> {
+    match solo_user_skills_dir() {
+        Some(d) => scan_skills_dir(&d, SkillSource::User).await,
+        None => Vec::new(),
+    }
+}
+
+async fn discover_solo_project(cwd: &Path) -> Vec<SkillInfo> {
+    let dir = cwd.join(".solo").join("skills");
+    scan_skills_dir(&dir, SkillSource::Project).await
+}
+
+async fn discover_claude_user() -> Vec<SkillInfo> {
+    match claude_user_skills_dir() {
+        Some(d) => scan_skills_dir(&d, SkillSource::ClaudeUser).await,
+        None => Vec::new(),
+    }
+}
+
+/// Walk from `cwd` up to (but not including) `$HOME`, collecting any
+/// `.claude/skills/` directories. Bounded to 12 ancestors to avoid
+/// pathological traversal on weird layouts.
+async fn discover_claude_project(cwd: &Path) -> Vec<SkillInfo> {
+    let home = home_dir();
+    let mut skills = Vec::new();
+    let mut current: Option<&Path> = Some(cwd);
+    let mut hops = 0;
+
+    while let Some(dir) = current {
+        if hops >= 12 {
+            break;
+        }
+        if home.as_deref() == Some(dir) {
+            break;
+        }
+        let candidate = dir.join(".claude").join("skills");
+        if candidate.exists() {
+            skills.extend(scan_skills_dir(&candidate, SkillSource::ClaudeProject).await);
+        }
+        current = dir.parent();
+        hops += 1;
+    }
+
+    skills
+}
+
+/// Discover skills bundled inside Claude Code plugins, delegating installed-
+/// plugins.json parsing + path resolution to the `solo-plugins` crate.
+///
+/// Falls back to an empty list if `~/.claude/plugins/` does not exist.
+async fn discover_claude_plugins() -> Vec<SkillInfo> {
+    let Some(plugins_dir) = home_dir().map(|h| h.join(".claude").join("plugins")) else {
+        return Vec::new();
+    };
+    if !plugins_dir.exists() {
+        return Vec::new();
+    }
+
+    let adapter_plugins = solo_plugins::discover_claude_adapter(&plugins_dir);
+    let mut skills = Vec::new();
+    for plugin in adapter_plugins {
+        let skills_dir = plugin.root.join("skills");
+        if !skills_dir.exists() {
+            continue;
+        }
+        skills.extend(scan_skills_dir(&skills_dir, SkillSource::ClaudePlugin).await);
+    }
+    skills
+}
+
+async fn discover_codex_user() -> Vec<SkillInfo> {
+    match codex_user_skills_dir() {
+        Some(d) => scan_skills_dir(&d, SkillSource::Codex).await,
+        None => Vec::new(),
+    }
+}
+
+async fn discover_codex_plugins() -> Vec<SkillInfo> {
+    let Some(cache_dir) = home_dir().map(|h| h.join(".codex").join("plugins").join("cache")) else {
+        return Vec::new();
+    };
+    if !cache_dir.exists() {
+        return Vec::new();
+    }
+
+    let adapter_plugins = solo_plugins::discover_codex_adapter(&cache_dir);
+    let mut skills = Vec::new();
+    for plugin in adapter_plugins {
+        let manifest = solo_plugins::load_plugin_manifest(&plugin.root);
+        let skills_dir = manifest
+            .as_ref()
+            .and_then(|m| m.paths.skills.as_ref())
+            .map(|p| p.as_path().to_path_buf())
+            .unwrap_or_else(|| plugin.root.join("skills"));
+        if !skills_dir.exists() {
+            continue;
+        }
+        skills.extend(scan_skills_dir(&skills_dir, SkillSource::Codex).await);
+    }
+    skills
+}
+
+// ─── Dedup ───────────────────────────────────────────────────────────
+
+/// Collapse duplicates by name, keeping the entry whose `SkillSource`
+/// has the highest priority (Project > User > ClaudeProject > ...).
+fn dedupe_by_priority(skills: Vec<SkillInfo>) -> Vec<SkillInfo> {
+    let mut best: HashMap<String, SkillInfo> = HashMap::new();
+    for skill in skills {
+        match best.get(&skill.name) {
+            Some(existing) if existing.source.priority() >= skill.source.priority() => {}
+            _ => {
+                best.insert(skill.name.clone(), skill);
+            }
+        }
+    }
+    best.into_values().collect()
+}
+
+// ─── Public Commands ─────────────────────────────────────────────────
+
+/// List every skill ColtIDE can see, across all enabled sources.
+/// Dedup by name using source priority; sort by priority (desc), name (asc).
+#[tauri::command]
+pub async fn skills_list_available(cwd: String) -> Result<Vec<SkillInfo>, String> {
+    let workspace = PathBuf::from(&cwd);
+    let config = settings_io::load_skills_config(&workspace).unwrap_or_default();
+
+    let mut all = Vec::new();
+    all.extend(discover_solo_user().await);
+    all.extend(discover_solo_project(&workspace).await);
+
+    if config.import_claude_user {
+        all.extend(discover_claude_user().await);
+    }
+    if config.import_claude_project {
+        all.extend(discover_claude_project(&workspace).await);
+    }
+    if config.import_claude_plugins {
+        all.extend(discover_claude_plugins().await);
+    }
+    if config.import_codex {
+        all.extend(discover_codex_user().await);
+        all.extend(discover_codex_plugins().await);
+    }
+
+    let mut skills = dedupe_by_priority(all);
+    skills.sort_by(|a, b| {
+        b.priority
+            .cmp(&a.priority)
+            .then_with(|| a.name.cmp(&b.name))
+    });
+
+    debug!("Found {} skills for cwd={}", skills.len(), cwd);
+    Ok(skills)
+}
+
+/// Create or overwrite a `.coltide/skills/<name>/SKILL.md` file.
+///
+/// The agent calls this when the user says "save this as a skill" — the
+/// body is wrapped in frontmatter and written to the requested scope.
+#[tauri::command]
+pub async fn skills_write_skill(req: SkillWriteRequest) -> Result<String, String> {
+    let sanitized_name = sanitize_skill_name(&req.name)
+        .ok_or_else(|| "skill name must be non-empty and contain only [A-Za-z0-9_-]".to_string())?;
+
+    let base_dir = match req.scope {
+        SkillSource::User => {
+            solo_user_skills_dir().ok_or_else(|| "could not resolve home directory".to_string())?
+        }
+        SkillSource::Project => {
+            let cwd = req
+                .cwd
+                .clone()
+                .ok_or_else(|| "cwd is required for project-scoped skill writes".to_string())?;
+            PathBuf::from(cwd).join(".solo").join("skills")
+        }
+        other => {
+            return Err(format!(
+                "refusing to write to read-only source: {:?}",
+                other
+            ))
+        }
+    };
+
+    let skill_dir = base_dir.join(&sanitized_name);
+    fs::create_dir_all(&skill_dir)
+        .await
+        .map_err(|e| format!("create_dir_all failed: {}", e))?;
+
+    let file_path = skill_dir.join("SKILL.md");
+    let content = format_skill_file(&sanitized_name, &req.description, &req.body);
+    fs::write(&file_path, content)
+        .await
+        .map_err(|e| format!("write failed: {}", e))?;
+
+    Ok(file_path.to_string_lossy().into_owned())
+}
+
+/// Probe for onboarding: have we already shown the prompt? Are there
+/// external skills worth importing? Is `~/.coltide/skills/` empty?
+#[tauri::command]
+pub async fn skills_onboarding_status(cwd: String) -> Result<SkillsOnboardingStatus, String> {
+    let workspace = PathBuf::from(&cwd);
+    let config: SkillsConfig = settings_io::load_skills_config(&workspace).unwrap_or_default();
+
+    let solo_skills = discover_solo_user().await;
+    let has_solo_skills = !solo_skills.is_empty();
+
+    let mut importable: Vec<SkillInfo> = Vec::new();
+    importable.extend(discover_claude_user().await);
+    importable.extend(discover_claude_plugins().await);
+    importable.extend(discover_codex_user().await);
+    importable.extend(discover_codex_plugins().await);
+
+    let importable_count = u32::try_from(importable.len()).unwrap_or(u32::MAX);
+
+    Ok(SkillsOnboardingStatus {
+        should_prompt: !config.onboarding_shown && !has_solo_skills && importable_count > 0,
+        importable_count,
+        has_solo_skills,
+    })
+}
+
+/// Apply the user's onboarding choice and mark the flag so we never prompt again.
+///
+/// - `ReadOnly` — just keeps the adapters enabled (no file changes).
+/// - `Copy`     — snapshot external skills into `~/.coltide/skills/`.
+/// - `Symlink`  — symlink each external skill dir into `~/.coltide/skills/`.
+#[tauri::command]
+pub async fn skills_onboarding_apply(
+    cwd: String,
+    mode: OnboardingImportMode,
+) -> Result<u32, String> {
+    let workspace = PathBuf::from(&cwd);
+    let mut imported: u32 = 0;
+
+    if matches!(
+        mode,
+        OnboardingImportMode::Copy | OnboardingImportMode::Symlink
+    ) {
+        let target =
+            solo_user_skills_dir().ok_or_else(|| "could not resolve home directory".to_string())?;
+        fs::create_dir_all(&target)
+            .await
+            .map_err(|e| format!("create_dir_all {}: {}", target.display(), e))?;
+
+        let mut external: Vec<SkillInfo> = Vec::new();
+        external.extend(discover_claude_user().await);
+        external.extend(discover_claude_plugins().await);
+        external.extend(discover_codex_user().await);
+        external.extend(discover_codex_plugins().await);
+        external = dedupe_by_priority(external);
+
+        for skill in external {
+            let source_path = PathBuf::from(&skill.file_path);
+            let skill_root = source_path.parent().map(Path::to_path_buf);
+            let Some(skill_root) = skill_root else {
+                continue;
+            };
+            let Some(sanitized) = sanitize_skill_name(&skill.name) else {
+                continue;
+            };
+            let dest = target.join(&sanitized);
+            if dest.exists() {
+                continue;
+            }
+
+            let result = match mode {
+                OnboardingImportMode::Copy => copy_dir_recursive(&skill_root, &dest).await,
+                OnboardingImportMode::Symlink => symlink_dir(&skill_root, &dest).await,
+                OnboardingImportMode::ReadOnly => Ok(()),
+            };
+            match result {
+                Ok(()) => imported += 1,
+                Err(e) => warn!("skill import failed for {}: {}", skill.name, e),
+            }
+        }
+    }
+
+    settings_io::mark_skills_onboarding_shown(&workspace)
+        .map_err(|e| format!("failed to mark onboarding shown: {}", e))?;
+
+    Ok(imported)
+}
+
+/// Dismiss onboarding without importing (leaves adapters at their current settings).
+#[tauri::command]
+pub async fn skills_onboarding_dismiss(cwd: String) -> Result<(), String> {
+    let workspace = PathBuf::from(&cwd);
+    settings_io::mark_skills_onboarding_shown(&workspace)
+        .map_err(|e| format!("failed to mark onboarding shown: {}", e))?;
+    Ok(())
+}
+
+/// Re-arm onboarding — the dialog will appear again next time `skills_onboarding_status`
+/// runs (assuming there are still importable skills and `~/.coltide/skills/` is empty).
+#[tauri::command]
+pub async fn skills_onboarding_reset(cwd: String) -> Result<(), String> {
+    let workspace = PathBuf::from(&cwd);
+    settings_io::reset_skills_onboarding(&workspace)
+        .map_err(|e| format!("failed to reset onboarding: {}", e))?;
+    Ok(())
+}
+
+/// Toggle individual source adapters from a settings UI.
+#[tauri::command]
+pub async fn skills_set_imports(
+    cwd: String,
+    claude_user: Option<bool>,
+    claude_plugins: Option<bool>,
+    claude_project: Option<bool>,
+    codex: Option<bool>,
+) -> Result<SkillsConfig, String> {
+    let workspace = PathBuf::from(&cwd);
+    let updated = settings_io::update_skill_imports(
+        &workspace,
+        claude_user,
+        claude_plugins,
+        claude_project,
+        codex,
+    )
+    .map_err(|e| format!("update_skill_imports: {}", e))?;
+    Ok(updated.skills)
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────
+
+/// Allow only alphanumerics, `-`, and `_` in skill directory names.
+fn sanitize_skill_name(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if !trimmed
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return None;
+    }
+    Some(trimmed.to_string())
+}
+
+fn format_skill_file(name: &str, description: &str, body: &str) -> String {
+    let safe_description = description.replace('\n', " ");
+    format!(
+        "---\nname: {}\ndescription: {}\n---\n\n{}\n",
+        name,
+        safe_description,
+        body.trim_end()
+    )
+}
+
+async fn copy_dir_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dst).await?;
+    let mut stack = vec![(src.to_path_buf(), dst.to_path_buf())];
+    while let Some((src_dir, dst_dir)) = stack.pop() {
+        let mut entries = fs::read_dir(&src_dir).await?;
+        while let Some(entry) = entries.next_entry().await? {
+            let ty = entry.file_type().await?;
+            let from = entry.path();
+            let to = dst_dir.join(entry.file_name());
+            if ty.is_dir() {
+                fs::create_dir_all(&to).await?;
+                stack.push((from, to));
+            } else if ty.is_file() {
+                fs::copy(&from, &to).await?;
+            }
+            // symlinks inside source trees are deliberately ignored.
+        }
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+async fn symlink_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
+    tokio::fs::symlink(src, dst).await
+}
+
+#[cfg(windows)]
+async fn symlink_dir(src: &Path, dst: &Path) -> std::io::Result<()> {
+    let src = src.to_path_buf();
+    let dst = dst.to_path_buf();
+    tokio::task::spawn_blocking(move || std::os::windows::fs::symlink_dir(&src, &dst))
+        .await
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_rejects_traversal() {
+        assert!(sanitize_skill_name("../evil").is_none());
+        assert!(sanitize_skill_name("a b").is_none());
+        assert!(sanitize_skill_name("").is_none());
+        assert_eq!(sanitize_skill_name("my-skill_1"), Some("my-skill_1".into()));
+    }
+
+    #[test]
+    fn dedupe_keeps_higher_priority() {
+        let lower = SkillInfo {
+            name: "x".into(),
+            description: "claude".into(),
+            content: String::new(),
+            source: SkillSource::ClaudeUser,
+            file_path: "/a".into(),
+            enabled: true,
+            priority: 0,
+        };
+        let higher = SkillInfo {
+            name: "x".into(),
+            description: "solo".into(),
+            content: String::new(),
+            source: SkillSource::User,
+            file_path: "/b".into(),
+            enabled: true,
+            priority: 0,
+        };
+        let result = dedupe_by_priority(vec![lower, higher]);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].description, "solo");
+    }
+
+    #[test]
+    fn format_skill_file_injects_frontmatter() {
+        let out = format_skill_file("foo", "does a thing", "body content\n");
+        assert!(out.starts_with("---\nname: foo\ndescription: does a thing\n---"));
+        assert!(out.trim_end().ends_with("body content"));
+    }
+
+    #[tokio::test]
+    async fn prefers_agents_md_over_skill_md() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill_dir = tmp.path().join("my-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("AGENTS.md"),
+            "---\nname: my-skill\ndescription: from AGENTS\n---\nagents body\n",
+        )
+        .unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: my-skill\ndescription: from SKILL\n---\nskill body\n",
+        )
+        .unwrap();
+
+        let found = scan_skills_dir(tmp.path(), SkillSource::User).await;
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].description, "from AGENTS");
+        assert!(found[0].content.contains("agents body"));
+    }
+
+    #[tokio::test]
+    async fn falls_back_to_skill_md_when_agents_md_missing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill_dir = tmp.path().join("claude-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            "---\nname: claude-skill\ndescription: skill md only\n---\nbody\n",
+        )
+        .unwrap();
+
+        let found = scan_skills_dir(tmp.path(), SkillSource::User).await;
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].description, "skill md only");
+    }
+
+    #[tokio::test]
+    async fn scan_returns_empty_for_dir_without_either_file() {
+        let tmp = tempfile::tempdir().unwrap();
+        let skill_dir = tmp.path().join("empty-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        // only a stray file, no AGENTS.md or SKILL.md
+        std::fs::write(skill_dir.join("README.md"), "nothing to see").unwrap();
+
+        let found = scan_skills_dir(tmp.path(), SkillSource::User).await;
+        assert!(found.is_empty());
+    }
+}

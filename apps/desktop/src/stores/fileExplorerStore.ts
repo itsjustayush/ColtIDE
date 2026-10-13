@@ -1,0 +1,847 @@
+/**
+ * File Explorer Zustand Store
+ * Manages file tree state, selection, and expansion
+ */
+
+import { create } from 'zustand';
+import { immer } from 'zustand/middleware/immer';
+import { enableMapSet } from 'immer';
+import type { FileTreeEntry } from '../bindings';
+import * as fs from '../lib/tauri/fs';
+
+// Enable Map and Set support in Immer
+enableMapSet();
+
+/**
+ * Get the parent path of a given path.
+ * Handles both Unix (/) and Windows (\) path separators.
+ */
+export function getParentPath(path: string): string {
+  // Find the last path separator (either / or \)
+  const lastSlash = path.lastIndexOf('/');
+  const lastBackslash = path.lastIndexOf('\\');
+  const lastSeparator = Math.max(lastSlash, lastBackslash);
+
+  if (lastSeparator <= 0) {
+    return path; // No parent or root
+  }
+
+  return path.substring(0, lastSeparator);
+}
+
+/**
+ * Get the filename from a path.
+ * Handles both Unix (/) and Windows (\) path separators.
+ */
+export function getFileName(path: string): string {
+  const lastSlash = path.lastIndexOf('/');
+  const lastBackslash = path.lastIndexOf('\\');
+  const lastSeparator = Math.max(lastSlash, lastBackslash);
+
+  if (lastSeparator < 0) {
+    return path;
+  }
+
+  return path.substring(lastSeparator + 1);
+}
+
+interface FileTreeState {
+  // Root workspace path
+  rootPath: string | null;
+  // Flat map of path -> entry for O(1) lookups
+  entries: Map<string, FileTreeEntry>;
+  // Set of expanded directory paths
+  expanded: Set<string>;
+  // Currently selected paths
+  selected: Set<string>;
+  // Path being renamed (if any)
+  renamingPath: string | null;
+  // Inline creation state
+  creatingInPath: string | null;
+  creatingType: 'file' | 'folder' | null;
+  // Loading directories
+  loading: Set<string>;
+  // Error state
+  error: string | null;
+}
+
+interface FileTreeActions {
+  // Initialization
+  openFolder: () => Promise<void>;
+  setRootPath: (path: string) => Promise<void>;
+  closeFolder: () => Promise<void>;
+
+  // Tree navigation
+  expandDirectory: (path: string) => Promise<void>;
+  collapseDirectory: (path: string) => void;
+  toggleDirectory: (path: string) => Promise<void>;
+
+  // Selection
+  selectFile: (path: string, multi?: boolean) => void;
+  clearSelection: () => void;
+
+  // CRUD operations
+  createFile: (parentPath: string, name: string) => Promise<void>;
+  createDirectory: (parentPath: string, name: string) => Promise<void>;
+  rename: (path: string, newName: string) => Promise<void>;
+  delete: (paths: string[]) => Promise<void>;
+
+  // Rename mode
+  startRename: (path: string) => void;
+  cancelRename: () => void;
+
+  // Inline creation mode
+  startCreating: (parentPath: string, type: 'file' | 'folder') => Promise<void>;
+  cancelCreating: () => void;
+  submitCreating: (name: string) => Promise<void>;
+
+  // File watcher events
+  handleFileCreated: (path: string) => void;
+  handleFileDeleted: (path: string) => void;
+  handleFileChanged: (path: string) => void;
+  handleFileRenamed: (oldPath: string, newPath: string) => void;
+
+  // Collapse all directories
+  collapseAll: () => void;
+
+  // Error handling
+  setError: (error: string | null) => void;
+}
+
+type FileExplorerStore = FileTreeState & FileTreeActions;
+
+const initialState: FileTreeState = {
+  rootPath: null,
+  entries: new Map(),
+  expanded: new Set(),
+  selected: new Set(),
+  renamingPath: null,
+  creatingInPath: null,
+  creatingType: null,
+  loading: new Set(),
+  error: null,
+};
+
+const ROOT_SNAPSHOT_LIMIT = 3;
+
+interface CachedRootSnapshot {
+  entries: Map<string, FileTreeEntry>;
+  expanded: Set<string>;
+}
+
+const rootSnapshotCache = new Map<string, CachedRootSnapshot>();
+
+function cloneEntry(entry: FileTreeEntry): FileTreeEntry {
+  return {
+    ...entry,
+    children: entry.children ? entry.children.map(cloneEntry) : entry.children,
+  };
+}
+
+function cloneEntryMap(entries: Map<string, FileTreeEntry>): Map<string, FileTreeEntry> {
+  return new Map(Array.from(entries, ([path, entry]) => [path, cloneEntry(entry)]));
+}
+
+function rememberRootSnapshot(
+  rootPath: string,
+  entries: Map<string, FileTreeEntry>,
+  expanded: Set<string>,
+): void {
+  if (entries.size === 0) return;
+  rootSnapshotCache.delete(rootPath);
+  rootSnapshotCache.set(rootPath, {
+    entries: cloneEntryMap(entries),
+    expanded: new Set(expanded),
+  });
+  while (rootSnapshotCache.size > ROOT_SNAPSHOT_LIMIT) {
+    const oldest = rootSnapshotCache.keys().next().value as string | undefined;
+    if (!oldest) break;
+    rootSnapshotCache.delete(oldest);
+  }
+}
+
+function getRootSnapshot(rootPath: string): CachedRootSnapshot | null {
+  const snapshot = rootSnapshotCache.get(rootPath);
+  if (!snapshot) return null;
+  rootSnapshotCache.delete(rootPath);
+  rootSnapshotCache.set(rootPath, snapshot);
+  return {
+    entries: cloneEntryMap(snapshot.entries),
+    expanded: new Set(snapshot.expanded),
+  };
+}
+
+function rememberCurrentRoot(): void {
+  const state = useFileExplorerStore.getState();
+  if (!state.rootPath) return;
+  rememberRootSnapshot(state.rootPath, state.entries, state.expanded);
+}
+
+function sortChildren(children: FileTreeEntry[]): void {
+  children.sort((a: FileTreeEntry, b: FileTreeEntry) => {
+    if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
+    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  });
+}
+
+export const useFileExplorerStore = create<FileExplorerStore>()(
+  immer((set, get) => ({
+    ...initialState,
+
+    openFolder: async () => {
+      try {
+        const path = await fs.openFolderDialog();
+        if (path) {
+          await get().setRootPath(path);
+        }
+      } catch (error) {
+        console.error('Failed to open folder:', error);
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        set((state) => {
+          state.error = `Failed to open folder: ${errorMsg}`;
+        });
+      }
+    },
+
+    setRootPath: async (path: string) => {
+      const current = get();
+      if (current.rootPath) {
+        rememberRootSnapshot(current.rootPath, current.entries, current.expanded);
+      }
+
+      const cached = getRootSnapshot(path);
+      set((state) => {
+        state.rootPath = path;
+        state.entries = cached?.entries ?? new Map();
+        state.expanded = cached?.expanded ?? new Set([path]);
+        state.selected = new Set();
+        state.loading = cached ? new Set() : new Set([path]);
+        state.error = null;
+        state.renamingPath = null;
+        state.creatingInPath = null;
+        state.creatingType = null;
+      });
+
+      try {
+        // Set workspace root in backend
+        await fs.setWorkspaceRoot(path);
+
+        // Start watching for changes (non-blocking - folder can still be used without live updates)
+        void fs.startWatching(path, true).catch((watchError) => {
+          console.warn('Failed to start file watcher:', watchError);
+        });
+
+        // Read the root directory
+        const response = await fs.readDirectory(path, 1);
+        if (get().rootPath !== path) return;
+
+        set((state) => {
+          state.rootPath = path;
+          state.entries = new Map();
+          state.expanded = new Set([path]);
+          state.selected = new Set();
+          state.loading = new Set();
+          state.error = null;
+
+          // Add root entry
+          state.entries.set(path, response.entry);
+
+          // Add children entries
+          if (response.entry.children) {
+            for (const child of response.entry.children) {
+              state.entries.set(child.path, child);
+            }
+          }
+        });
+        rememberCurrentRoot();
+      } catch (error) {
+        set((state) => {
+          state.loading.delete(path);
+          state.error = `Failed to open folder: ${error}`;
+        });
+      }
+    },
+
+    closeFolder: async () => {
+      const current = get();
+      if (current.rootPath) {
+        rememberRootSnapshot(current.rootPath, current.entries, current.expanded);
+      }
+
+      await fs.stopWatching().catch(console.error);
+
+      set((state) => {
+        state.rootPath = null;
+        state.entries = new Map();
+        state.expanded = new Set();
+        state.selected = new Set();
+        state.loading = new Set();
+        state.error = null;
+      });
+    },
+
+    expandDirectory: async (path: string) => {
+      const entry = get().entries.get(path);
+      if (!entry || !entry.is_dir) return;
+
+      // Already loaded: expand synchronously from the in-memory tree.
+      if (entry.children !== null) {
+        set((state) => {
+          state.expanded.add(path);
+        });
+        rememberCurrentRoot();
+        return;
+      }
+
+      const rootPath = get().rootPath;
+      const cachedEntry = rootPath ? getRootSnapshot(rootPath)?.entries.get(path) : null;
+      if (cachedEntry?.children !== null && cachedEntry?.children !== undefined) {
+        set((state) => {
+          state.expanded.add(path);
+          state.entries.set(path, cachedEntry);
+          for (const child of cachedEntry.children ?? []) {
+            state.entries.set(child.path, child);
+          }
+          state.loading.delete(path);
+        });
+        rememberCurrentRoot();
+        return;
+      }
+
+      set((state) => {
+        state.loading.add(path);
+      });
+
+      try {
+        const response = await fs.readDirectory(path, 1);
+
+        set((state) => {
+          state.expanded.add(path);
+          state.loading.delete(path);
+
+          // Update the directory entry with children
+          const existingEntry = state.entries.get(path);
+          if (existingEntry) {
+            existingEntry.children = response.entry.children;
+          }
+
+          // Add children entries to the map
+          if (response.entry.children) {
+            for (const child of response.entry.children) {
+              state.entries.set(child.path, child);
+            }
+          }
+        });
+        rememberCurrentRoot();
+      } catch (error) {
+        set((state) => {
+          state.loading.delete(path);
+          state.error = `Failed to load directory: ${error}`;
+        });
+      }
+    },
+
+    collapseDirectory: (path: string) => {
+      set((state) => {
+        state.expanded.delete(path);
+      });
+      rememberCurrentRoot();
+    },
+
+    toggleDirectory: async (path: string) => {
+      if (get().expanded.has(path)) {
+        get().collapseDirectory(path);
+      } else {
+        await get().expandDirectory(path);
+      }
+    },
+
+    selectFile: (path: string, multi: boolean = false) => {
+      set((state) => {
+        if (multi) {
+          if (state.selected.has(path)) {
+            state.selected.delete(path);
+          } else {
+            state.selected.add(path);
+          }
+        } else {
+          state.selected = new Set([path]);
+        }
+      });
+    },
+
+    clearSelection: () => {
+      set((state) => {
+        state.selected = new Set();
+      });
+    },
+
+    createFile: async (parentPath: string, name: string) => {
+      const path = `${parentPath}/${name}`;
+
+      try {
+        const entry = await fs.createFile(path);
+
+        set((state) => {
+          state.entries.set(path, entry);
+
+          // Add to parent's children
+          const parent = state.entries.get(parentPath);
+          if (parent && parent.children) {
+            parent.children.push(entry);
+            sortChildren(parent.children);
+          }
+
+          // Select the new file
+          state.selected = new Set([path]);
+        });
+        rememberCurrentRoot();
+      } catch (error) {
+        set((state) => {
+          state.error = `Failed to create file: ${error}`;
+        });
+      }
+    },
+
+    createDirectory: async (parentPath: string, name: string) => {
+      const path = `${parentPath}/${name}`;
+
+      try {
+        const entry = await fs.createDirectory(path);
+
+        set((state) => {
+          state.entries.set(path, entry);
+
+          // Add to parent's children
+          const parent = state.entries.get(parentPath);
+          if (parent && parent.children) {
+            parent.children.push(entry);
+            sortChildren(parent.children);
+          }
+
+          // Expand the new directory
+          state.expanded.add(path);
+          state.selected = new Set([path]);
+        });
+        rememberCurrentRoot();
+      } catch (error) {
+        set((state) => {
+          state.error = `Failed to create directory: ${error}`;
+        });
+      }
+    },
+
+    rename: async (path: string, newName: string) => {
+      const entry = get().entries.get(path);
+      if (!entry) return;
+
+      const parentPath = getParentPath(path);
+      // Use the same separator as the original path
+      const separator = path.includes('\\') ? '\\' : '/';
+      const newPath = `${parentPath}${separator}${newName}`;
+
+      try {
+        const updatedEntry = await fs.renameFile(path, newPath);
+
+        set((state) => {
+          // Remove old entry
+          state.entries.delete(path);
+          state.selected.delete(path);
+          state.expanded.delete(path);
+
+          // Add new entry
+          state.entries.set(newPath, updatedEntry);
+          state.selected.add(newPath);
+
+          // B4: Cascade rename to children if this is a directory
+          if (entry.is_dir) {
+            const oldPrefix = path + separator;
+            const keysToUpdate: string[] = [];
+            for (const key of state.entries.keys()) {
+              if (key.startsWith(oldPrefix)) {
+                keysToUpdate.push(key);
+              }
+            }
+            for (const oldChildPath of keysToUpdate) {
+              const childEntry = state.entries.get(oldChildPath);
+              if (childEntry) {
+                const newChildPath = newPath + separator + oldChildPath.slice(oldPrefix.length);
+                childEntry.path = newChildPath;
+                state.entries.delete(oldChildPath);
+                state.entries.set(newChildPath, childEntry);
+
+                // Update selection and expanded state
+                if (state.selected.has(oldChildPath)) {
+                  state.selected.delete(oldChildPath);
+                  state.selected.add(newChildPath);
+                }
+                if (state.expanded.has(oldChildPath)) {
+                  state.expanded.delete(oldChildPath);
+                  state.expanded.add(newChildPath);
+                }
+              }
+            }
+
+            // Update children arrays in the renamed directory and its descendants
+            for (const [, e] of state.entries) {
+              if (e.children) {
+                for (const child of e.children) {
+                  if (child.path.startsWith(oldPrefix)) {
+                    child.path = newPath + separator + child.path.slice(oldPrefix.length);
+                  }
+                }
+              }
+            }
+          }
+
+          // Update parent's children
+          const parent = state.entries.get(parentPath);
+          if (parent && parent.children) {
+            const index = parent.children.findIndex((c: FileTreeEntry) => c.path === path);
+            if (index !== -1) {
+              parent.children[index] = updatedEntry;
+              sortChildren(parent.children);
+            }
+          }
+
+          state.renamingPath = null;
+        });
+        rememberCurrentRoot();
+      } catch (error) {
+        set((state) => {
+          state.error = `Failed to rename: ${error}`;
+          state.renamingPath = null;
+        });
+      }
+    },
+
+    delete: async (paths: string[]) => {
+      // Use Promise.allSettled to attempt all deletions even if some fail
+      const deletePromises = paths.map(async (path) => {
+        const entry = get().entries.get(path);
+        // For directories, always use recursive=true to handle non-empty dirs
+        // If entry is not in our store (edge case), check filesystem via path heuristics
+        // but default to recursive=true to be safe
+        const isDirectory = entry?.is_dir ?? true;
+        await fs.deleteFile(path, isDirectory);
+        return path;
+      });
+
+      const results = await Promise.allSettled(deletePromises);
+
+      // Process successful deletions
+      const successfulPaths: string[] = [];
+      const errors: string[] = [];
+
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successfulPaths.push(result.value);
+        } else {
+          const fileName = getFileName(paths[index]);
+          errors.push(`${fileName}: ${result.reason}`);
+        }
+      });
+
+      // Update state for successful deletions
+      if (successfulPaths.length > 0) {
+        set((state) => {
+          for (const path of successfulPaths) {
+            // Remove from entries
+            state.entries.delete(path);
+            state.selected.delete(path);
+            state.expanded.delete(path);
+
+            // Remove from parent's children
+            const parentPath = getParentPath(path);
+            const parent = state.entries.get(parentPath);
+            if (parent && parent.children) {
+              parent.children = parent.children.filter((c: FileTreeEntry) => c.path !== path);
+            }
+          }
+        });
+        rememberCurrentRoot();
+      }
+
+      // Report errors if any
+      if (errors.length > 0) {
+        set((state) => {
+          state.error = `Failed to delete ${errors.length} item(s): ${errors.join('; ')}`;
+        });
+      }
+    },
+
+    startRename: (path: string) => {
+      set((state) => {
+        state.renamingPath = path;
+        state.creatingInPath = null;
+        state.creatingType = null;
+      });
+    },
+
+    cancelRename: () => {
+      set((state) => {
+        state.renamingPath = null;
+      });
+    },
+
+    startCreating: async (parentPath: string, type: 'file' | 'folder') => {
+      set((state) => {
+        state.renamingPath = null;
+        state.creatingInPath = null;
+        state.creatingType = null;
+      });
+      await get().expandDirectory(parentPath);
+      set((state) => {
+        state.creatingInPath = parentPath;
+        state.creatingType = type;
+      });
+    },
+
+    cancelCreating: () => {
+      set((state) => {
+        state.creatingInPath = null;
+        state.creatingType = null;
+      });
+    },
+
+    submitCreating: async (name: string) => {
+      const { creatingInPath, creatingType } = get();
+      if (!creatingInPath || !creatingType) return;
+
+      set((state) => {
+        state.creatingInPath = null;
+        state.creatingType = null;
+      });
+
+      if (creatingType === 'file') {
+        await get().createFile(creatingInPath, name);
+      } else {
+        await get().createDirectory(creatingInPath, name);
+      }
+    },
+
+    handleFileCreated: (path: string) => {
+      // File was created externally - refresh parent directory
+      const parentPath = getParentPath(path);
+      const state = get();
+
+      // Refresh if parent is expanded or is the root path (root is always visible)
+      if (state.expanded.has(parentPath) || parentPath === state.rootPath) {
+        fs.readDirectory(parentPath, 1)
+          .then((response) => {
+            set((state) => {
+              const parent = state.entries.get(parentPath);
+              if (parent) {
+                // Collect old child paths before replacing
+                const oldChildPaths = new Set<string>(
+                  parent.children?.map((c: FileTreeEntry) => c.path as string) ?? [],
+                );
+                parent.children = response.entry.children;
+
+                // Add new children to entries map and track their paths
+                const newChildPaths = new Set<string>();
+                if (response.entry.children) {
+                  for (const child of response.entry.children) {
+                    state.entries.set(child.path, child);
+                    newChildPaths.add(child.path);
+                  }
+                }
+
+                // Remove entries no longer in the directory
+                for (const oldPath of oldChildPaths) {
+                  if (!newChildPaths.has(oldPath)) {
+                    state.entries.delete(oldPath);
+                    state.selected.delete(oldPath);
+                    state.expanded.delete(oldPath);
+                  }
+                }
+              }
+            });
+            rememberCurrentRoot();
+          })
+          .catch(console.error);
+      }
+    },
+
+    handleFileDeleted: (path: string) => {
+      set((state) => {
+        // Remove from entries
+        state.entries.delete(path);
+        state.selected.delete(path);
+        state.expanded.delete(path);
+
+        // Remove from parent's children
+        const parentPath = getParentPath(path);
+        const parent = state.entries.get(parentPath);
+        if (parent && parent.children) {
+          parent.children = parent.children.filter((c: FileTreeEntry) => c.path !== path);
+        }
+      });
+      rememberCurrentRoot();
+    },
+
+    handleFileChanged: (path: string) => {
+      const entry = get().entries.get(path);
+      if (!entry) {
+        // Unknown file - treat as creation (macOS FSEvents can coalesce Create into Modify)
+        get().handleFileCreated(path);
+        return;
+      }
+      if (!entry.is_dir) {
+        // Re-read the parent directory to get updated metadata
+        const parentPath = getParentPath(path);
+        fs.readDirectory(parentPath, 1)
+          .then((response) => {
+            set((state) => {
+              // Find and update the changed file's entry
+              const updatedChild = response.entry.children?.find(
+                (c: FileTreeEntry) => c.path === path
+              );
+              if (updatedChild) {
+                state.entries.set(path, updatedChild);
+                // Also update in parent's children array
+                const parent = state.entries.get(parentPath);
+                if (parent?.children) {
+                  const idx = parent.children.findIndex((c: FileTreeEntry) => c.path === path);
+                  if (idx !== -1) {
+                    parent.children[idx] = updatedChild;
+                  }
+                }
+              }
+            });
+            rememberCurrentRoot();
+          })
+          .catch(console.error);
+      }
+    },
+
+    handleFileRenamed: (oldPath: string, newPath: string) => {
+      set((state) => {
+        const entry = state.entries.get(oldPath);
+        if (entry) {
+          // Update the entry's path and name
+          entry.path = newPath;
+          entry.name = getFileName(newPath);
+
+          // Move in the map
+          state.entries.delete(oldPath);
+          state.entries.set(newPath, entry);
+
+          // Update selection
+          if (state.selected.has(oldPath)) {
+            state.selected.delete(oldPath);
+            state.selected.add(newPath);
+          }
+
+          // Update expanded state
+          if (state.expanded.has(oldPath)) {
+            state.expanded.delete(oldPath);
+            state.expanded.add(newPath);
+          }
+
+          // B4: Cascade to children if directory
+          if (entry.is_dir) {
+            const separator = oldPath.includes('\\') ? '\\' : '/';
+            const oldPrefix = oldPath + separator;
+            const keysToUpdate: string[] = [];
+            for (const key of state.entries.keys()) {
+              if (key.startsWith(oldPrefix)) {
+                keysToUpdate.push(key);
+              }
+            }
+            for (const oldChildPath of keysToUpdate) {
+              const childEntry = state.entries.get(oldChildPath);
+              if (childEntry) {
+                const newChildPath = newPath + separator + oldChildPath.slice(oldPrefix.length);
+                childEntry.path = newChildPath;
+                childEntry.name = getFileName(newChildPath);
+                state.entries.delete(oldChildPath);
+                state.entries.set(newChildPath, childEntry);
+
+                if (state.selected.has(oldChildPath)) {
+                  state.selected.delete(oldChildPath);
+                  state.selected.add(newChildPath);
+                }
+                if (state.expanded.has(oldChildPath)) {
+                  state.expanded.delete(oldChildPath);
+                  state.expanded.add(newChildPath);
+                }
+              }
+            }
+          }
+        }
+      });
+      rememberCurrentRoot();
+    },
+
+    collapseAll: () => {
+      set((state) => {
+        if (state.rootPath) {
+          state.expanded = new Set([state.rootPath]);
+        } else {
+          state.expanded = new Set();
+        }
+      });
+      rememberCurrentRoot();
+    },
+
+    setError: (error: string | null) => {
+      set((state) => {
+        state.error = error;
+      });
+    },
+  }))
+);
+
+// Discriminated union for flattened tree items
+export type FlatTreeItem =
+  | { kind: 'entry'; entry: FileTreeEntry; depth: number }
+  | { kind: 'creating'; parentPath: string; type: 'file' | 'folder'; depth: number };
+
+// Selector for flattened tree items
+export function useFlattenedTree(): FlatTreeItem[] {
+  // Subscribe to the entire store state to ensure we re-render on any change
+  // This is necessary because Map/Set changes need special handling in Zustand
+  const store = useFileExplorerStore();
+  const { rootPath, entries, expanded, creatingInPath, creatingType } = store;
+
+  if (!rootPath) return [];
+
+  const result: FlatTreeItem[] = [];
+
+  function traverse(path: string, depth: number) {
+    const entry = entries.get(path);
+    if (!entry) return;
+
+    result.push({ kind: 'entry', entry, depth });
+
+    if (entry.is_dir && expanded.has(path)) {
+      // Inject ghost creation row as first child of the target directory
+      if (creatingInPath === path && creatingType) {
+        result.push({ kind: 'creating', parentPath: path, type: creatingType, depth: depth + 1 });
+      }
+      if (entry.children) {
+        for (const child of entry.children) {
+          traverse(child.path, depth + 1);
+        }
+      }
+    }
+  }
+
+  // Skip root entry — start with its children at depth 0
+  // The root name is displayed in the ContextHeader instead
+  const rootEntry = entries.get(rootPath);
+  if (rootEntry?.is_dir) {
+    // Inject ghost row at root level if creating in root
+    if (creatingInPath === rootPath && creatingType) {
+      result.push({ kind: 'creating', parentPath: rootPath, type: creatingType, depth: 0 });
+    }
+    if (rootEntry.children) {
+      for (const child of rootEntry.children) {
+        traverse(child.path, 0);
+      }
+    }
+  }
+
+  return result;
+}

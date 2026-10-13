@@ -1,0 +1,76 @@
+/**
+ * Panel System Constants
+ */
+
+/** Tab bar dimensions */
+export const TAB_BAR = {
+  /** Height of the tab bar in pixels */
+  height: 41,
+  /** Fixed visible tab width in pixels. Overflow goes into the tab menu. */
+  fixedTabWidth: 168,
+  /** Approximate repo group label width in pixels. Used for overflow budgeting. */
+  groupLabelWidth: 154,
+  /** Minimum tab width in pixels */
+  minTabWidth: 80,
+  /** Maximum tab width in pixels */
+  maxTabWidth: 200,
+  /** Collapsed agent pill width in pixels */
+  collapsedAgentWidth: 32,
+} as const;
+
+/** Tile constraints */
+export const TILE = {
+  /** Minimum tile width in pixels */
+  minWidth: 200,
+  /** Minimum tile height in pixels */
+  minHeight: 100,
+  /** Minimum size as percentage (for mosaic) */
+  minSizePercentage: 10,
+} as const;
+
+/** Right sidebar defaults */
+export const RIGHT_SIDEBAR = {
+  /** Default width as percentage */
+  defaultWidth: 25,
+  /** Minimum width as percentage */
+  minWidth: 15,
+  /** Maximum width as percentage */
+  maxWidth: 50,
+} as const;
+
+/** Layout persistence */
+export const PERSISTENCE = {
+  /** Current layout schema version */
+  version: 1,
+  /** Directory name for storing layout */
+  directory: '.coltide',
+  /** Layout filename */
+  filename: 'layout.json',
+  /** Debounce delay for auto-save in milliseconds */
+  saveDebounceMs: 1000,
+} as const;
+
+/** Default tile IDs */
+export const DEFAULT_TILES = {
+  /** Main editor tile */
+  editor: 'tile-editor-main',
+} as const;
+
+/**
+ * List of built-in panel type IDs
+ */
+export const BUILTIN_PANEL_TYPES = {
+  FILE_VIEWER: 'file-viewer',
+  WELCOME: 'welcome',
+  AGENT: 'agent',
+  TERMINAL: 'terminal',
+  GIT_DIFF: 'git-diff',
+  WORKTREE_DIFF: 'worktree-diff',
+  BRANCH_DIFF: 'branch-diff',
+  VAULT_SKILLS: 'vault-skills',
+  VAULT_MEMORY: 'vault-memory',
+  VAULT_TASKS: 'vault-tasks',
+  VAULT_CURRENT: 'vault-current',
+  VAULT_PLUGINS: 'vault-plugins',
+  VAULT_CONNECTORS: 'vault-connectors',
+} as const;

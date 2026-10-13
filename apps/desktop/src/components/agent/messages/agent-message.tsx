@@ -1,0 +1,412 @@
+import { useRef, useState } from 'react';
+import { ChevronRightIcon } from '@radix-ui/react-icons';
+import { StreamdownNarrative as AgentNarrative } from './StreamdownNarrative';
+import { InterruptIndicator } from './interrupt-indicator';
+import { MessageActions } from './message-actions';
+import { NotifyUserCard } from './notify-user-card';
+import { ProceedIndicator } from './proceed-indicator';
+import { ColtIDEAgentBadge } from './ColtIDEAgentBadge';
+import { ThinkingBox } from './thinking-box';
+import { TodoToolWidget } from './tools';
+import { renderToolCard } from '../streaming/tool-registry';
+import { StreamingSkeleton } from '../streaming/StreamingSkeleton';
+import { ToolApprovalCard } from '../streaming/ToolApprovalCard';
+import { ElapsedTimer } from '../streaming/ElapsedTimer';
+import { MessageCircle } from 'lucide-react';
+import { ProgressTracker } from '../streaming/ProgressTracker';
+import { ProgressTrackerItem } from '../streaming/ProgressTrackerItem';
+import { deriveProgressPhases, buildInterleavedTimeline } from '@/lib/deriveProgressPhases';
+import type { RenderBlock } from '../messageAdapter';
+
+import type { CSSProperties, FC, ReactNode } from 'react';
+
+export interface PendingApproval {
+  requestId: string;
+  toolName: string;
+  toolInput: unknown;
+}
+
+export interface AgentMessageContent {
+  narrative?: string;
+  /** Ordered blocks for interleaved rendering (text, thinking, tools mixed in order) */
+  blocks?: RenderBlock[];
+  toolCalls?: {
+    id: string;
+    toolName: string;
+    toolInput: Record<string, unknown>;
+    status: 'running' | 'success' | 'error';
+    output?: string;
+  }[];
+  pendingApprovals?: PendingApproval[];
+  notifications?: {
+    id: string;
+    type: 'info' | 'warning' | 'error' | 'success';
+    message: string;
+    actions?: {
+      label: string;
+      onClick: () => void;
+    }[];
+  }[];
+  autoProceed?: boolean;
+  isStreaming?: boolean;
+  isInterrupted?: boolean;
+  isLastAssistantMessage?: boolean;
+  turnNumber?: number;
+}
+
+export interface AgentMessageProps {
+  content: AgentMessageContent;
+  timestamp: Date;
+  agentName?: string;
+  onToolApproval?: (toolCallId: string, approved: boolean) => void;
+  onAnswerQuestion?: (requestId: string, answers: Record<string, string>) => void;
+  messageId?: string;
+  className?: string;
+}
+
+/** Render the appropriate specialized tool widget based on toolName */
+const renderToolWidget = (
+  key: string,
+  toolName: string,
+  toolInput: Record<string, unknown>,
+  status: 'running' | 'success' | 'error',
+  output?: string,
+  style?: CSSProperties,
+): ReactNode => {
+  const name = toolName.toLowerCase();
+
+  // Tasks are hoisted into the sticky overlay above the chat input, so we
+  // intentionally suppress the inline rendering here to avoid showing the
+  // same todo list twice (once mid-stream, once pinned). Hidden by `false`
+  // so we can flip back if we ever want the inline view again.
+  const HOIST_TODOS_TO_STICKY = true;
+  if (
+    HOIST_TODOS_TO_STICKY &&
+    (name === 'todowrite' || name === 'taskcreate' || name === 'taskupdate' || name === 'tasklist' || name === 'taskget')
+  ) {
+    return null;
+  }
+
+  // TodoWrite and TaskCreate/TaskUpdate use the todo widget
+  if (name === 'todowrite' || name === 'taskcreate') {
+    // TodoWrite passes an array of todos; TaskCreate passes a single task
+    const todosInput = toolInput['todos'];
+    const todos = Array.isArray(todosInput)
+      ? todosInput
+      : [{ content: (toolInput['subject'] as string) || (toolInput['description'] as string), status: status === 'success' ? 'completed' : 'pending' }];
+    return <TodoToolWidget key={key} todos={todos} isRunning={status === 'running'} />;
+  }
+
+  if (name === 'taskupdate') {
+    const taskId = toolInput['taskId'] as string || '';
+    const newStatus = toolInput['status'] as string || '';
+    const subject = toolInput['subject'] as string || '';
+    const label = subject || `Task ${taskId}`;
+    return <TodoToolWidget key={key} todos={[{ content: label, status: newStatus || (status === 'success' ? 'completed' : 'pending') }]} isRunning={status === 'running'} />;
+  }
+
+  if (name === 'tasklist' || name === 'taskget') {
+    // Show output as a list if available, otherwise just the generic card
+    if (output) {
+      try {
+        const parsed = JSON.parse(output);
+        if (Array.isArray(parsed)) {
+          const todos = parsed.map((t: Record<string, unknown>) => ({
+            content: (t['subject'] as string) || (t['description'] as string) || JSON.stringify(t),
+            status: (t['status'] as string) || 'pending',
+            id: t['id'] as string,
+          }));
+          return <TodoToolWidget key={key} todos={todos} isRunning={false} />;
+        }
+      } catch { /* fall through to generic card */ }
+    }
+    return renderToolCard(key, toolName, toolInput, status, output);
+  }
+
+  // Use the registry for all other tools
+  return renderToolCard(key, toolName, toolInput, status, output, style);
+};
+
+export const AgentMessage: FC<AgentMessageProps> = ({
+  content,
+  timestamp,
+  agentName: _agentName = 'Agent',
+  onToolApproval,
+  onAnswerQuestion: _onAnswerQuestion,
+  messageId: _messageId,
+  className = '',
+}) => {
+  const formatTime = (date: Date): string => {
+    return new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    }).format(date);
+  };
+
+  // Track streaming start time for elapsed timer + capture final duration on completion.
+  const streamStartRef = useRef<number | null>(null);
+  const finalDurationMsRef = useRef<number | null>(null);
+  if (content.isStreaming && !streamStartRef.current) {
+    streamStartRef.current = Date.now();
+  }
+  if (!content.isStreaming && streamStartRef.current) {
+    finalDurationMsRef.current = Date.now() - streamStartRef.current;
+    streamStartRef.current = null;
+  }
+
+  // Codex-style "Worked for X" collapse: once the turn finishes, fold all
+  // intermediate blocks (thinking, tool calls) above the final narrative
+  // behind a single chevron header. User can re-expand to audit the trace.
+  const [traceExpanded, setTraceExpanded] = useState(false);
+
+  // Use ordered blocks if available, otherwise fall back to legacy rendering
+  const hasBlocks = content.blocks && content.blocks.length > 0;
+
+  // Build interleaved timeline for block-based messages, legacy phases for fallback
+  const timeline = hasBlocks
+    ? buildInterleavedTimeline(content.blocks ?? [], !!content.isStreaming)
+    : [];
+  const legacyProgressPhases = !hasBlocks && content.isStreaming
+    ? deriveProgressPhases(content.blocks ?? [], true)
+    : [];
+
+  // Find the index of the final non-empty narrative block. Intermediate blocks
+  // before it become collapsible once streaming completes.
+  const blocks = content.blocks ?? [];
+  let finalNarrativeIdx = -1;
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const b = blocks[i];
+    if (b && b.type === 'narrative' && b.content.trim().length > 0) {
+      finalNarrativeIdx = i;
+      break;
+    }
+  }
+  const hasIntermediateTrace =
+    !content.isStreaming &&
+    hasBlocks &&
+    finalNarrativeIdx >= 0 &&
+    timeline.some(
+      (e) => e.kind === 'content' && e.blockIndex < finalNarrativeIdx,
+    );
+
+  const formatDuration = (ms: number): string => {
+    const sec = Math.round(ms / 1000);
+    if (sec < 60) return `${sec}s`;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s === 0 ? `${m}m` : `${m}m ${s}s`;
+  };
+
+  return (
+    <div className={`chat-surface animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ${className}`}>
+      <div className="min-w-0 space-y-3.5" style={{ maxWidth: 'min(56rem, 100%)' }}>
+        <div className="flex items-center gap-2 text-[11px]">
+          <ColtIDEAgentBadge />
+          <span className="text-muted-foreground/72">{formatTime(timestamp)}</span>
+          {content.autoProceed ? <ProceedIndicator /> : null}
+        </div>
+
+        {/* "Worked for Xm Ys" — Codex-style collapsed trace once the turn finishes.
+            Renders only when there's intermediate work to hide AND a final answer to show. */}
+        {hasIntermediateTrace ? (
+          <div>
+            <button
+              type="button"
+              onClick={() => setTraceExpanded((v) => !v)}
+              className="relative inline-flex min-h-8 items-center gap-1.5 rounded-full bg-background/55 px-3 py-1 text-xs text-muted-foreground transition-[background-color,color,transform] duration-150 before:absolute before:-inset-1 before:content-[''] hover:bg-card hover:text-foreground active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+              aria-expanded={traceExpanded}
+              title={traceExpanded ? 'Hide work' : 'Show work'}
+            >
+              <span>
+                {finalDurationMsRef.current
+                  ? `Worked for ${formatDuration(finalDurationMsRef.current)}`
+                  : 'Worked'}
+              </span>
+              <ChevronRightIcon
+                width={12} height={12}
+                className={`text-muted-foreground/50 transition-transform duration-200 ${
+                  traceExpanded ? 'rotate-90' : ''
+                }`}
+              />
+            </button>
+          </div>
+        ) : null}
+
+        {/* === Ordered Blocks Rendering (interleaved timeline) === */}
+        {hasBlocks ? (
+          <div className="space-y-3">
+            {timeline.map((entry) => {
+              // Hide intermediate blocks behind the "Worked for X" collapse once
+              // streaming has completed, unless the user has expanded it.
+              if (
+                hasIntermediateTrace &&
+                !traceExpanded &&
+                entry.kind === 'content' &&
+                entry.blockIndex < finalNarrativeIdx
+              ) {
+                return null;
+              }
+              if (
+                hasIntermediateTrace &&
+                !traceExpanded &&
+                entry.kind === 'progress'
+              ) {
+                return null;
+              }
+              if (entry.kind === 'progress') {
+                return (
+                  <ProgressTrackerItem
+                    key={entry.phase.id}
+                    label={entry.phase.label}
+                    status={entry.phase.status}
+                    isFirst={true}
+                    preview={entry.phase.preview}
+                  />
+                );
+              }
+              // entry.kind === 'content'
+              const block = entry.block;
+              const idx = entry.blockIndex;
+              const isActiveStreamingBlock = Boolean(
+                content.isStreaming && idx === blocks.length - 1,
+              );
+              switch (block.type) {
+                case 'narrative':
+                  return block.content ? (
+                    <AgentNarrative
+                      key={`block-${idx}`}
+                      content={block.content}
+                      isStreaming={isActiveStreamingBlock}
+                    />
+                  ) : null;
+                case 'thinking':
+                  return block.content ? (
+                    <ThinkingBox
+                      key={`block-${idx}`}
+                      thinking={block.content}
+                      thinkingDurationMs={block.durationMs}
+                      isStreaming={Boolean(content.isStreaming && block.isStreaming)}
+                    />
+                  ) : null;
+                case 'toolCall': {
+                  const toolIndex = content.blocks!.slice(0, idx).filter(b => b.type === 'toolCall').length;
+                  return renderToolWidget(
+                    `block-${idx}`,
+                    block.toolName,
+                    block.toolInput,
+                    block.status,
+                    block.output,
+                    toolIndex > 0 ? { animationDelay: `${toolIndex * 60}ms` } : undefined,
+                  );
+                }
+                case 'approval':
+                  if (block.toolName.toLowerCase() === 'askuserquestion') {
+                    return (
+                      <div
+                        key={`block-${idx}`}
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/15 text-xs text-primary/70"
+                      >
+                        <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+                        <span>Waiting for your answer below...</span>
+                      </div>
+                    );
+                  }
+                  return (
+                    <ToolApprovalCard
+                      key={`block-${idx}`}
+                      requestId={block.requestId}
+                      toolName={block.toolName}
+                      toolInput={block.toolInput}
+                      onApproved={(requestId) => onToolApproval?.(requestId, true)}
+                      onRejected={(requestId) => onToolApproval?.(requestId, false)}
+                    />
+                  );
+                default:
+                  return null;
+              }
+            })}
+
+            {/* Elapsed time during streaming */}
+            {content.isStreaming && streamStartRef.current && (
+              <div className="flex items-center gap-1.5 pl-[26px]">
+                <ElapsedTimer startTime={streamStartRef.current} />
+              </div>
+            )}
+          </div>
+        ) : (
+          /* === Legacy (non-block) Rendering === */
+          <>
+            {/* Progress tracker for pre-block streaming, fallback skeleton for legacy messages */}
+            {content.isStreaming && !content.narrative && !content.toolCalls?.length ? (
+              legacyProgressPhases.length > 0 ? <ProgressTracker phases={legacyProgressPhases} /> : <StreamingSkeleton />
+            ) : null}
+
+            {/* Narrative */}
+            {content.narrative ? <AgentNarrative content={content.narrative} isStreaming={content.isStreaming} /> : null}
+
+            {/* Tool Calls */}
+            {content.toolCalls && content.toolCalls.length > 0 ? (
+              <div className="space-y-2">
+                {content.toolCalls.map((toolCall) =>
+                  renderToolWidget(toolCall.id, toolCall.toolName, toolCall.toolInput, toolCall.status, toolCall.output)
+                )}
+              </div>
+            ) : null}
+
+            {/* Trailing loader: shown when streaming and all tools are done
+                (gap between tool completion and next output) */}
+            {content.isStreaming && content.toolCalls && content.toolCalls.length > 0
+              && content.toolCalls.every((tc) => tc.status !== 'running')
+              && !content.pendingApprovals?.length ? (
+              <StreamingSkeleton label="Thinking..." />
+            ) : null}
+
+            {/* Pending Tool Approvals */}
+            {content.pendingApprovals && content.pendingApprovals.length > 0 ? (
+              <div className="space-y-2">
+                {content.pendingApprovals.map((approval) => (
+                  <ToolApprovalCard
+                    key={approval.requestId}
+                    requestId={approval.requestId}
+                    toolName={approval.toolName}
+                    toolInput={approval.toolInput}
+                    onApproved={(requestId) => onToolApproval?.(requestId, true)}
+                    onRejected={(requestId) => onToolApproval?.(requestId, false)}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
+
+
+        {/* Message Actions (shown after message completes, not during streaming) */}
+        {!content.isStreaming && !content.isInterrupted && content.isLastAssistantMessage !== undefined ? (
+          <MessageActions
+            showDisclaimer={content.isLastAssistantMessage}
+            messageText={content.narrative}
+          />
+        ) : null}
+
+        {/* Interrupt indicator */}
+        {content.isInterrupted ? <InterruptIndicator /> : null}
+
+        {/* Notifications (always rendered, not block-ordered) */}
+        {content.notifications && content.notifications.length > 0 ? (
+          <div className="space-y-2">
+            {content.notifications.map((notification) => (
+              <NotifyUserCard
+                key={notification.id}
+                type={notification.type}
+                message={notification.message}
+                {...(notification.actions && { actions: notification.actions })}
+              />
+            ))}
+          </div>
+        ) : null}
+
+      </div>
+    </div>
+  );
+};

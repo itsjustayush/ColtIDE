@@ -1,0 +1,224 @@
+# Release & Distribution Guide
+
+ColtIDE's auto-update and DMG distribution pipeline.
+
+---
+
+## Architecture
+
+```
+ColtIDE-UDE/solo  (private source)              ColtIDE-UDE/solo-releases  (public downloads)
+───────────────────────────                  ────────────────────────────────────────
+  push tag v*
+        │
+        ▼
+  .github/workflows/release.yml
+        │
+        ├── build .app (Tauri, aarch64-apple-darwin)
+        ├── code-sign with Developer ID Application (inside-out)
+        ├── notarize via xcrun notarytool (blocking)
+        ├── staple ticket + spctl assess
+        ├── create DMG, code-sign DMG
+        ├── create ColtIDE.app.tar.gz, minisign with Tauri key
+        ├── generate latest.json
+        │
+        └──────► publish via RELEASE_PAT ─────►  GitHub Release
+                                                    - Solo_X.Y.Z_aarch64.dmg
+                                                    - ColtIDE.app.tar.gz
+                                                    - ColtIDE.app.tar.gz.sig
+                                                    - latest.json
+                                                        ▲
+                                                        │ anonymous HTTPS GET
+                                                        │
+                                                Installed ColtIDE checks
+                                                `/releases/latest/download/latest.json`
+                                                on next launch → toast → update
+```
+
+Why the two-repo split: Tauri's updater does an anonymous `GET` for `latest.json`. GitHub blocks anonymous downloads from private-repo release assets, so the source repo stays private while a public sibling hosts the downloads.
+
+---
+
+## GitHub Secrets (on ColtIDE-UDE/solo, repo-level)
+
+| Secret | Value | Source |
+|---|---|---|
+| `APPLE_CERTIFICATE_P12` | base64-encoded `.p12` | `base64 -i cert.p12 \| pbcopy` |
+| `APPLE_CERTIFICATE_PASSWORD` | `.p12` export password | set during Keychain export |
+| `APPLE_TEAM_ID` | Apple team identifier | developer.apple.com → Membership |
+| `APPLE_SIGN_IDENTITY` | `Developer ID Application: Name (TEAM)` | `security find-identity -v -p codesigning` |
+| `APPLE_API_KEY_ID` | App Store Connect API key ID | App Store Connect → Users and Access → Integrations |
+| `APPLE_API_ISSUER` | App Store Connect issuer UUID | App Store Connect → Users and Access → Integrations |
+| `APPLE_API_KEY_P8_BASE64` | base64-encoded App Store Connect `.p8` key | `base64 -i AuthKey_XXXXXXXXXX.p8 \| pbcopy` |
+| `TAURI_SIGNING_PRIVATE_KEY` | contents of `~/.tauri/solo-ide.key` | `cat ~/.tauri/solo-ide.key` |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | empty string | (key generated without password) |
+| `RELEASE_PAT` | fine-grained PAT with `Contents: write` on ColtIDE-UDE/solo-releases | github.com/settings/personal-access-tokens/new |
+
+## GitHub Variables (on ColtIDE-UDE/solo, repo-level)
+
+The workflows map **stage-specific** GitHub variables into the generic desktop
+env contract used by the Tauri build:
+
+### Dev workflows (`premerge-master.yml`, `build-master-dmg.yml`)
+
+| Variable | Value |
+|---|---|
+| `SOLO_DEV_COGNITO_DOMAIN` | `solo-ide-dev.auth.us-east-1.amazoncognito.com` |
+| `SOLO_DEV_COGNITO_CLIENT_ID` | dev Cognito desktop client ID |
+| `SOLO_DEV_AWS_REGION` | `us-east-1` |
+| `SOLO_DEV_API_ENDPOINT` | dev ColtIDE API endpoint |
+
+### Release workflow (`release.yml`)
+
+| Variable | Value |
+|---|---|
+| `SOLO_PROD_COGNITO_DOMAIN` | `solo-ide-prod.auth.us-east-1.amazoncognito.com` |
+| `SOLO_PROD_COGNITO_CLIENT_ID` | prod Cognito desktop client ID |
+| `SOLO_PROD_AWS_REGION` | `us-east-1` |
+| `SOLO_PROD_API_ENDPOINT` | prod ColtIDE API endpoint |
+
+---
+
+## Tauri signing keys
+
+Private key `~/.tauri/solo-ide.key` is the minisign key that signs `ColtIDE.app.tar.gz`. Its public half is base64-embedded in `apps/desktop/src-tauri/tauri.conf.json` under `plugins.updater.pubkey` — every installed ColtIDE verifies updates against that pubkey.
+
+**Never regenerate this key.** Changing it would strand every existing install (they would reject every future update as "invalid signature") with no in-app recovery path.
+
+Back up `~/.tauri/solo-ide.key` to a password manager or encrypted archive.
+
+---
+
+## How to release
+
+Preferred path: release from `master` with the helper script.
+
+```bash
+# 1. Make sure the release workflow change is already merged to master.
+git switch master
+git pull --ff-only origin master
+
+# 2. Cut the release. This bumps version files, commits the bump, creates an
+#    annotated v* tag, pushes master + the tag, then watches GitHub Actions.
+bun run release:master 0.3.0 --notes-file ./release-notes.md
+
+# 3. Verify the release on the public download repo.
+gh release view v0.3.0 --repo ColtIDE-UDE/solo-releases
+```
+
+The helper intentionally refuses to run unless:
+
+- the current branch is `master`
+- tracked files are clean
+- local `master` exactly matches `origin/master`
+- the requested tag does not already exist
+
+The tag push triggers `.github/workflows/release.yml`, which builds from the
+tagged master commit, signs/notarizes/staples the `.app`, signs/notarizes/staples
+the DMG, creates the updater archive/signature, writes `latest.json`, and
+publishes everything to `ColtIDE-UDE/solo-releases`.
+
+Manual fallback: use the GitHub Actions `Release` workflow dispatch from the
+`master` branch. The optional `version` input must match
+`apps/desktop/src-tauri/tauri.conf.json`.
+
+---
+
+## Pre-release (beta) versions
+
+Semver pre-release suffixes work: `0.3.0-beta.1`, `0.3.0-rc.2`, etc. Semver ordering is `0.2.0 < 0.3.0-beta.1 < 0.3.0`, so existing stable installs will auto-update to betas as long as:
+
+- The GitHub "Set as a pre-release" checkbox on the Release is **unchecked** (the workflow leaves it unchecked by default).
+
+If you want a gated beta channel where only opted-in users see betas, that is a larger design change — a dual-channel `latest-stable.json` / `latest-beta.json` split with channel-selector UI. Not implemented.
+
+---
+
+## Update flow (end user)
+
+1. User launches ColtIDE.
+2. 5 s after launch, `useUpdateStream` calls `check_for_update()`.
+3. Rust fetches `https://github.com/ColtIDE-UDE/solo-releases/releases/latest/download/latest.json`.
+4. If `latest.json.version > installed-version`, emits `BackendEvent::UpdateAvailable`.
+5. Frontend shows persistent toast: "New update available".
+6. User clicks "Restart" → Tauri downloads `.tar.gz`, verifies `.sig` against pubkey, swaps app, restarts.
+7. User clicks "See changes" → opens GitHub Release page in browser.
+
+---
+
+## Local development build (unsigned)
+
+```bash
+export TAURI_SIGNING_PRIVATE_KEY="$(cat ~/.tauri/solo-ide.key)"
+export COLTIDE_COGNITO_DOMAIN="solo-ide-dev.auth.us-east-1.amazoncognito.com"
+export COLTIDE_COGNITO_CLIENT_ID="4rcj8gv02gj3t5tlhv3gnqrvq1"
+export COLTIDE_AWS_REGION="us-east-1"
+export COLTIDE_API_ENDPOINT="https://9qpve9xe1b.execute-api.us-east-1.amazonaws.com"
+
+bun tauri build
+
+# Output:
+#   target/release/bundle/macos/ColtIDE.app
+#   target/release/bundle/dmg/Solo_X.Y.Z_aarch64.dmg      (unsigned, right-click-open)
+#   target/release/bundle/macos/ColtIDE.app.tar.gz           (updater payload)
+#   target/release/bundle/macos/ColtIDE.app.tar.gz.sig       (updater signature)
+```
+
+Use this to sanity-check changes locally before tagging. For auth-flow testing in
+dev, prefer `bun run auth:doctor` and `bun run dev:auth`. For Apple-signed
+builds, only CI produces them (requires the keychain dance in `release.yml`).
+
+---
+
+## File reference
+
+| File | Role |
+|---|---|
+| `apps/desktop/src-tauri/src/update_commands.rs` | Rust update commands |
+| `apps/desktop/src-tauri/tauri.conf.json` | Updater endpoint, pubkey, version |
+| `apps/desktop/src-tauri/Entitlements.plist` | macOS entitlements for code signing |
+| `apps/desktop/src-tauri/capabilities/default.json` | Updater + process permissions |
+| `apps/desktop/src-tauri/Cargo.toml` | Plugin dependencies |
+| `apps/desktop/src/hooks/useUpdateStream.ts` | Frontend update toast |
+| `apps/desktop/src/lib/tauri/update.ts` | TypeScript IPC wrappers |
+| `apps/desktop/src/App.tsx` | Mounts `useUpdateStream()` |
+| `.github/workflows/release.yml` | CI/CD release pipeline |
+| `scripts/bump-version.mjs` | Version bump across all manifests |
+| `~/.tauri/solo-ide.key` | Private signing key (local, never committed) |
+| `docs/superpowers/specs/2026-04-17-solo-dmg-autoupdate-design.md` | Design rationale |
+| `docs/superpowers/plans/2026-04-17-solo-dmg-autoupdate.md` | Implementation plan |
+
+---
+
+## Failure recovery
+
+### Workflow fails before release is published
+
+Delete the tag, fix, re-tag:
+
+```bash
+git tag -d v0.X.Y
+git push origin :refs/tags/v0.X.Y
+# fix, commit
+git tag -a v0.X.Y -m "..."
+git push origin v0.X.Y
+```
+
+### Workflow succeeded but release is broken (DMG bad, latest.json malformed, etc.)
+
+**Never re-tag a public release.** Bump the patch (e.g., `v0.X.Y+1`), cut a new release. Delete the broken GitHub Release from solo-releases so the updater does not see it:
+
+```bash
+gh release delete vX.Y.Z --repo ColtIDE-UDE/solo-releases --yes
+```
+
+### Notarization fails
+
+Read the submission log for the specific rejection:
+
+```bash
+xcrun notarytool log <submission-id> \
+  --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER"
+```
+
+Common causes: unsigned `.dylib` inside Frameworks (workflow should have caught it), entitlements mismatch, expired cert.

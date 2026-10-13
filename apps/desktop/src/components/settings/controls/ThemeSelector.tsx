@@ -1,0 +1,224 @@
+/**
+ * ThemeSelector - Visual preview cards for theme selection
+ */
+
+import { DesktopIcon, SunIcon, MoonIcon } from '@radix-ui/react-icons';
+import type { ColorScheme, ThemePalette } from '@/stores/settingsStore';
+
+type PreviewPalette = Pick<ThemePalette, 'accent' | 'background' | 'foreground'>;
+
+interface ThemeSelectorProps {
+  value: ColorScheme;
+  onChange: (scheme: ColorScheme) => void;
+  palettes?: Record<'light' | 'dark', PreviewPalette>;
+}
+
+// Hardcoded preview colors so each card always shows its theme regardless of current mode
+const light = {
+  bg: 'oklch(0.98 0.005 75)',
+  sidebar: 'oklch(0.95 0.008 70)',
+  titlebar: 'oklch(0.93 0.01 70)',
+  text: 'oklch(0.50 0.03 60)',
+  textFaint: 'oklch(0.75 0.02 60)',
+  accent: 'oklch(0.68 0.17 140)',
+};
+
+const dark = {
+  bg: 'oklch(0.16 0.012 60)',
+  sidebar: 'oklch(0.18 0.012 58)',
+  titlebar: 'oklch(0.14 0.01 58)',
+  text: 'oklch(0.65 0.03 60)',
+  textFaint: 'oklch(0.35 0.02 60)',
+  accent: 'oklch(0.86 0.14 135)',
+};
+
+type PreviewTheme = typeof light;
+
+const mix = (foreground: string, foregroundPercent: number, background: string) =>
+  `color-mix(in srgb, ${foreground} ${foregroundPercent}%, ${background})`;
+
+const previewFromPalette = (palette: PreviewPalette | undefined, fallback: PreviewTheme): PreviewTheme => {
+  if (!palette) return fallback;
+
+  return {
+    bg: palette.background,
+    sidebar: mix(palette.foreground, 8, palette.background),
+    titlebar: mix(palette.foreground, 12, palette.background),
+    text: mix(palette.foreground, 74, palette.background),
+    textFaint: mix(palette.foreground, 38, palette.background),
+    accent: palette.accent,
+  };
+};
+
+const trafficLights = (
+  <div style={{ display: 'flex', gap: 3 }}>
+    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#ff5f57' }} />
+    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#febc2e' }} />
+    <div style={{ width: 5, height: 5, borderRadius: '50%', background: '#28c840' }} />
+  </div>
+);
+
+const CodeLines = ({ color, faintColor }: { color: string; faintColor: string }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '4px 5px' }}>
+    <div style={{ height: 2, width: '70%', borderRadius: 1, background: color }} />
+    <div style={{ height: 2, width: '50%', borderRadius: 1, background: faintColor }} />
+    <div style={{ height: 2, width: '85%', borderRadius: 1, background: color }} />
+    <div style={{ height: 2, width: '40%', borderRadius: 1, background: faintColor }} />
+    <div style={{ height: 2, width: '60%', borderRadius: 1, background: color }} />
+  </div>
+);
+
+const SidebarLines = ({ color }: { color: string }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, padding: '4px 3px' }}>
+    <div style={{ height: 2, width: '80%', borderRadius: 1, background: color }} />
+    <div style={{ height: 2, width: '60%', borderRadius: 1, background: color }} />
+    <div style={{ height: 2, width: '70%', borderRadius: 1, background: color }} />
+  </div>
+);
+
+/** Miniature IDE preview for light or dark theme */
+const ThemePreview = ({ theme }: { theme: typeof light }) => (
+  <div
+    style={{
+      width: '100%',
+      height: '100%',
+      borderRadius: 6,
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      background: theme.bg,
+    }}
+  >
+    {/* Titlebar */}
+    <div
+      style={{
+        height: 14,
+        background: theme.titlebar,
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 5px',
+      }}
+    >
+      {trafficLights}
+    </div>
+    {/* Body */}
+    <div style={{ flex: 1, display: 'flex' }}>
+      {/* Sidebar */}
+      <div style={{ width: '30%', background: theme.sidebar }}>
+        <SidebarLines color={theme.textFaint} />
+      </div>
+      {/* Editor */}
+      <div style={{ flex: 1 }}>
+        <CodeLines color={theme.text} faintColor={theme.textFaint} />
+      </div>
+    </div>
+  </div>
+);
+
+/** Split preview for "System" — left half light, right half dark */
+const SystemPreview = ({ lightTheme, darkTheme }: { lightTheme: PreviewTheme; darkTheme: PreviewTheme }) => (
+  <div
+    style={{
+      width: '100%',
+      height: '100%',
+      borderRadius: 6,
+      overflow: 'hidden',
+      display: 'flex',
+    }}
+  >
+    {/* Light half */}
+    <div style={{ width: '50%', display: 'flex', flexDirection: 'column', background: lightTheme.bg }}>
+      <div
+        style={{
+          height: 14,
+          background: lightTheme.titlebar,
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 5px',
+        }}
+      >
+        {trafficLights}
+      </div>
+      <div style={{ flex: 1 }}>
+        <CodeLines color={lightTheme.text} faintColor={lightTheme.textFaint} />
+      </div>
+    </div>
+    {/* Dark half */}
+    <div style={{ width: '50%', display: 'flex', flexDirection: 'column', background: darkTheme.bg }}>
+      <div style={{ height: 14, background: darkTheme.titlebar }} />
+      <div style={{ flex: 1 }}>
+        <CodeLines color={darkTheme.text} faintColor={darkTheme.textFaint} />
+      </div>
+    </div>
+  </div>
+);
+
+const options: { value: ColorScheme; label: string; Icon: typeof DesktopIcon }[] = [
+  { value: 'system', label: 'System', Icon: DesktopIcon },
+  { value: 'light', label: 'Light', Icon: SunIcon },
+  { value: 'dark', label: 'Dark', Icon: MoonIcon },
+];
+
+export function ThemeSelector({ value, onChange, palettes }: ThemeSelectorProps) {
+  const lightPreview = previewFromPalette(palettes?.light, light);
+  const darkPreview = previewFromPalette(palettes?.dark, dark);
+
+  return (
+    <div className="flex gap-2.5">
+      {options.map(({ value: scheme, label, Icon }) => {
+        const selected = value === scheme;
+        return (
+          <button
+            key={scheme}
+            type="button"
+            onClick={() => onChange(scheme)}
+            className={`
+              group flex flex-col items-center gap-2 rounded-[10px] border px-2 py-2
+              transition-[transform,background-color,border-color,box-shadow] duration-200
+              ${selected
+                ? 'border-primary/50 bg-primary/8 shadow-[0_10px_24px_-18px_rgba(0,0,0,0.28)] dark:shadow-[0_10px_24px_-18px_rgba(0,0,0,0.45)]'
+                : 'border-border/60 bg-background/70 hover:border-border hover:bg-background'
+              }
+            `}
+            style={{
+              transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}
+          >
+            {/* Preview card */}
+            <div
+              className={`
+                h-[68px] w-[112px] overflow-hidden rounded-[7px] border border-border/50
+                transition-transform duration-200
+                ${!selected ? 'group-hover:scale-[1.01]' : ''}
+              `}
+              style={{
+                transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+              }}
+            >
+              {scheme === 'system' ? (
+                <SystemPreview lightTheme={lightPreview} darkTheme={darkPreview} />
+              ) : (
+                <ThemePreview theme={scheme === 'light' ? lightPreview : darkPreview} />
+              )}
+            </div>
+            {/* Label */}
+            <div className="flex items-center gap-1.5">
+              <Icon
+                width={14}
+                height={14}
+                className={selected ? 'text-primary' : 'text-muted-foreground'}
+              />
+              <span
+                className={`text-[12px] font-medium ${
+                  selected ? 'text-primary' : 'text-muted-foreground'
+                }`}
+              >
+                {label}
+              </span>
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}

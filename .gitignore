@@ -1,0 +1,103 @@
+# Rust
+/target
+Cargo.lock
+
+# Node/Bun
+node_modules
+bun.lockb
+
+# Tauri
+/apps/desktop/src-tauri/target
+
+# Build outputs
+/apps/desktop/dist
+/dist
+
+# Generated files
+/apps/desktop/src/bindings/*.ts
+/apps/desktop/src-tauri/binaries/agent-bridge-*
+# ts-rs intermediate outputs (generated at wrong path during cargo test)
+crates/*/apps/
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.*.local
+scripts/.env.release
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage
+docs/CLAUDE.md
+apps/desktop/CLAUDE.md
+apps/desktop/src/stores/CLAUDE.md
+packages/ui/CLAUDE.md
+crates/solo-agent/CLAUDE.md
+crates/solo-core/CLAUDE.md
+crates/solo-fs/CLAUDE.md
+crates/solo-protocol/CLAUDE.md
+apps/desktop/src-tauri/CLAUDE.md
+apps/desktop/src-tauri/src/CLAUDE.md
+apps/desktop/src/lib/tauri/CLAUDE.md
+crates/solo-protocol/src/CLAUDE.md
+crates/solo-fs/src/CLAUDE.md
+crates/solo-agent/src/CLAUDE.md
+apps/desktop/src/components/sidebar/CLAUDE.md
+apps/desktop/src/components/panels/CLAUDE.md
+apps/desktop/src/components/file-explorer/CLAUDE.md
+apps/desktop/src/components/editor/CLAUDE.md
+
+# Local-only migration planning docs
+docs/MIGRATION.md
+.claude/CLAUDE.md
+
+#.superpowers files
+.superpowers/*
+
+# claude sessions
+.claude/sessions/*
+
+# claude backups
+.claude/backups/*
+
+# claude todos
+.claude/todos/*
+
+# claude worktrees
+.claude/worktrees/*
+
+# .envrc
+.envrc
+
+# Local OAuth / credential scratchpads — never commit these. Broad pattern so
+# ad-hoc files (Oauth_app_setup.md, oauth.md, secrets.env, etc.) can't slip in.
+infra/Oauth_app_setup.md
+infra/oauth*
+infra/*secret*
+infra/*credential*
+**/oauth-setup*
+**/oauth_setup*
+
+# codex-extract runtime artefacts
+scripts/codex-extract/.tmp-profile/
+packages/ui/design-dump/codex/assets/
+packages/ui/design-dump/codex/manual/*.json
+infra/cdk.out.auth/
+.claude/scheduled_tasks.lock
+agent-bridge/dist/*
+!agent-bridge/dist/*.js
+!agent-bridge/dist/*.js.map

@@ -1,0 +1,879 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Design tokens (colors, typography, radii, shadows, motion, chrome) live
+   in @colt/ui/tokens.css which is pulled in via this single import. See
+   `.coltide/skills/design/tokens.md` for the token contract, and
+   `packages/ui/src/tokens/` for the source-of-truth TypeScript. */
+@import "@colt/ui/styles";
+
+/* Tailwind v4: scan Streamdown's compiled output so its utility classes survive purging. */
+@source "../../../node_modules/streamdown/dist/*.js";
+@source "../../../node_modules/@streamdown/code/dist/*.js";
+@source "../../../node_modules/@streamdown/math/dist/*.js";
+@source "../../../node_modules/@streamdown/mermaid/dist/*.js";
+
+/* CRITICAL: Tell Tailwind v4 how to handle dark mode */
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-sans: "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+/* =============================================================================
+   BASE STYLES (Critical for shadcn/ui)
+   ============================================================================= */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    @apply border-border;
+  }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body {
+    background-color: transparent;
+    color: var(--foreground);
+    font-family: var(--font-sans, "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html[data-font-smoothing="auto"] body {
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
+  }
+
+  code, pre, kbd, samp {
+    font-family: var(--font-mono, "SF Mono", SFMono-Regular, ui-monospace, monospace);
+  }
+}
+
+/* =============================================================================
+   TITLEBAR + VIBRANCY
+   Vibrancy overrides raw tokens (--sidebar, --card, --popover) so the macOS
+   NSVisualEffectView shows through translucent surfaces. Cascade flows to the
+   @theme inline mappings in @colt/ui/tokens.css.
+   ============================================================================= */
+.titlebar-glass {
+  background: color-mix(in oklch, var(--card) 96%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+html.dark .titlebar-glass {
+  background: color-mix(in oklch, var(--card) 88%, transparent);
+}
+
+html[data-vibrancy] {
+  background-color: color-mix(in srgb, var(--background) 94%, transparent) !important;
+}
+
+html[data-vibrancy] #root > div {
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+}
+
+html[data-vibrancy] .titlebar-glass {
+  background: color-mix(in oklch, var(--card) 92%, transparent);
+}
+
+html[data-vibrancy] .split-divider {
+  background-color: var(--background);
+}
+
+html.dark[data-vibrancy] {
+  background-color: color-mix(in srgb, var(--background) 88%, transparent) !important;
+}
+
+html.dark[data-vibrancy] #root > div {
+  background: color-mix(in srgb, var(--background) 90%, transparent);
+}
+
+html.dark[data-vibrancy] .titlebar-glass {
+  background: color-mix(in oklch, var(--card) 88%, transparent);
+}
+
+html.dark[data-vibrancy] .split-divider {
+  background-color: transparent;
+}
+
+html[data-vibrancy] .terminal-panel {
+  background: transparent !important;
+}
+
+html[data-vibrancy] .terminal-panel .xterm-viewport {
+  background-color: transparent !important;
+}
+
+.liquid-sidebar {
+  position: relative;
+  isolation: isolate;
+  background: var(--liquid-sidebar-bg, var(--sidebar)) !important;
+  border-color: var(--liquid-sidebar-border, var(--border)) !important;
+  box-shadow: var(--liquid-sidebar-shadow, none);
+  backdrop-filter: saturate(1.45) blur(28px);
+  -webkit-backdrop-filter: saturate(1.45) blur(28px);
+}
+
+.liquid-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, var(--liquid-sidebar-highlight, transparent), transparent 54%),
+    radial-gradient(circle at 24px 18px, color-mix(in srgb, var(--primary) 12%, transparent), transparent 36%);
+}
+
+html[data-translucent-sidebar="false"] .liquid-sidebar {
+  background: var(--sidebar) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.liquid-sidebar [data-sidebar-active="true"] {
+  background: var(--liquid-sidebar-active, var(--accent));
+}
+
+.liquid-sidebar [data-sidebar-hover]:hover {
+  background: var(--liquid-sidebar-hover, var(--accent));
+}
+
+/* =============================================================================
+   SPLIT DIVIDER (sidebar resize handle)
+   ============================================================================= */
+.split-divider {
+  flex-shrink: 0;
+  width: 16px;
+  margin-left: -8px;
+  margin-right: -8px;
+  cursor: col-resize;
+  position: relative;
+  z-index: 20;
+  touch-action: none;
+}
+
+.split-divider::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background-color: var(--sidebar);
+  transition: background-color 150ms ease;
+}
+
+.split-divider:hover::after {
+  background-color: color-mix(in oklch, var(--ring) 55%, var(--sidebar));
+}
+
+.sidebar-reopen-sliver {
+  flex-shrink: 0;
+  width: 18px;
+  border: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in oklch, var(--muted-foreground) 82%, transparent);
+  background: linear-gradient(
+    to right,
+    var(--sidebar) 0,
+    var(--sidebar) 34%,
+    color-mix(in oklch, var(--border) 88%, transparent) 34%,
+    color-mix(in oklch, var(--border) 88%, transparent) 42%,
+    var(--card) 42%,
+    var(--card) 100%
+  );
+  transition: color 200ms var(--ease-smooth), background 200ms var(--ease-smooth);
+}
+
+.sidebar-reopen-sliver:hover {
+  color: var(--foreground);
+}
+
+.sidebar-reopen-sliver:active {
+  transform: scaleX(0.96);
+}
+
+/* Kill all transitions during sidebar/split resize for zero-lag dragging */
+body.is-resizing,
+body.is-resizing *,
+body.is-resizing *::before,
+body.is-resizing *::after {
+  transition: none !important;
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.is-resizing-row,
+body.is-resizing-row *,
+body.is-resizing-row *::before,
+body.is-resizing-row *::after {
+  transition: none !important;
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
+/* Disable text selection on UI elements */
+button,
+[role="button"],
+[data-tauri-drag-region] {
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+
+/* =============================================================================
+   SCROLLBAR STYLING
+   ============================================================================= */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.55 0.02 60 / 50%);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow: 0 0 6px 1px oklch(0.55 0.02 60 / 15%);
+}
+
+/* Hidden scrollbar utility (webkit + firefox). Used for tab bars, textareas,
+   and any surface where scroll functionality is needed but chrome isn't. */
+.tab-scrollbar-none::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.tab-scrollbar-none,
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.55 0.02 60 / 70%);
+  background-clip: padding-box;
+  box-shadow: 0 0 8px 2px oklch(0.55 0.02 60 / 25%);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Dark mode scrollbar */
+html.dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.65 0.02 60 / 50%);
+  background-clip: padding-box;
+  box-shadow: 0 0 6px 1px oklch(0.65 0.02 60 / 15%);
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.65 0.02 60 / 60%);
+  background-clip: padding-box;
+  box-shadow: 0 0 8px 2px oklch(0.65 0.02 60 / 20%);
+}
+
+/* Monaco editor scrollbar — pill-shaped thumb */
+.monaco-scrollable-element > .scrollbar > .slider {
+  border-radius: 9999px !important;
+}
+
+/* =============================================================================
+   REACT-MOSAIC OVERRIDES
+   ============================================================================= */
+@import "react-mosaic-component/react-mosaic-component.css";
+
+.mosaic {
+  height: 100%;
+  background: transparent;
+}
+
+.mosaic-tile {
+  margin: 0;
+}
+
+.mosaic-window {
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.mosaic-window-toolbar,
+.mosaic-window-title,
+.mosaic-window-controls,
+.mosaic-window-body-overlay {
+  display: none;
+}
+
+.mosaic-window .mosaic-window-body {
+  background: transparent;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.mosaic-split {
+  background: transparent;
+  z-index: 2;
+  transition: background-color 150ms ease;
+}
+
+.mosaic-split:hover {
+  background: var(--ring);
+}
+
+.mosaic-split.-row {
+  width: 4px;
+  margin: 0 -2px;
+  cursor: col-resize;
+}
+
+.mosaic-split.-column {
+  height: 4px;
+  margin: -2px 0;
+  cursor: row-resize;
+}
+
+.mosaic-drop-target {
+  position: relative;
+}
+
+.mosaic-drop-target .drop-target-container {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.mosaic-drop-target .drop-target-container .drop-target {
+  position: absolute;
+  background: var(--primary);
+  opacity: 0;
+  transition: opacity 150ms ease;
+  border-radius: var(--radius-sm);
+}
+
+.mosaic-drop-target .drop-target-container .drop-target.drop-target-hover {
+  opacity: 0.25;
+}
+
+.mosaic-preview {
+  position: absolute;
+  background: var(--primary);
+  opacity: 0.2;
+  border-radius: var(--radius-sm);
+  z-index: 20;
+  pointer-events: none;
+}
+
+/* Fix Monaco horizontal overflow in @monaco-editor/react's internal row flex. */
+.monaco-mount {
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.mosaic-zero-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: transparent;
+}
+
+/* =============================================================================
+   GLOW & GLASS UTILITIES (app-specific class utilities, referenced by name)
+   ============================================================================= */
+
+.glow-active {
+  background: color-mix(in oklch, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+.glow-active-text {
+  color: var(--primary);
+  text-shadow: 0 0 8px oklch(from var(--primary) l c h / 40%);
+}
+
+.shadow-glass {
+  box-shadow:
+    0 16px 30px -26px oklch(0% 0 0 / 18%),
+    0 6px 12px -10px oklch(0% 0 0 / 10%);
+}
+
+html.dark .shadow-glass {
+  box-shadow:
+    0 28px 60px -28px oklch(0% 0 0 / 42%),
+    0 12px 24px -20px oklch(0% 0 0 / 28%);
+}
+
+.shell-shadow {
+  box-shadow:
+    0 20px 48px -34px oklch(0% 0 0 / 20%),
+    0 6px 16px -14px oklch(0% 0 0 / 12%);
+}
+
+html.dark .shell-shadow {
+  box-shadow:
+    0 36px 90px -44px oklch(0% 0 0 / 52%),
+    0 14px 30px -20px oklch(0% 0 0 / 36%);
+}
+
+.glow-primary {
+  transition: box-shadow 200ms ease;
+}
+
+.glow-primary:hover {
+  box-shadow:
+    0 4px 16px -2px oklch(from var(--primary) l c h / 25%),
+    0 0 0 1px oklch(from var(--primary) l c h / 8%);
+}
+
+.hover-lift {
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+
+.hover-lift:hover {
+  box-shadow: 0 4px 12px -2px oklch(0% 0 0 / 10%);
+  transform: translateY(-1px);
+}
+
+html.dark .hover-lift:hover {
+  box-shadow: 0 4px 12px -2px oklch(0% 0 0 / 25%);
+}
+
+/* =============================================================================
+   ACCESSIBILITY
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-pulse, .animate-spin, .animate-bounce, .animate-ping {
+    animation: none !important;
+  }
+  .streaming-dot {
+    animation: none !important;
+  }
+}
+
+/* =============================================================================
+   APP-SPECIFIC KEYFRAMES
+   (Shared keyframes — fade-in-scale, pop-in, slide-up, streaming-dot,
+   collapsible-down/up, dialog-enter, overlay-in, loading-shimmer, shimmer,
+   spring-pop — live in @colt/ui/tokens.css via the @import above.)
+   ============================================================================= */
+
+/* Startup glow intro — fades in and scales up during the 3s decrypt animation */
+@keyframes startup-glow-intro {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.6); }
+  15%  { opacity: 0.04; transform: translate(-50%, -50%) scale(0.7); }
+  40%  { opacity: 0.08; transform: translate(-50%, -50%) scale(0.85); }
+  60%  { opacity: 0.18; transform: translate(-50%, -50%) scale(1.1); }
+  75%  { opacity: 0.12; transform: translate(-50%, -50%) scale(1.0); }
+  100% { opacity: 0.10; transform: translate(-50%, -50%) scale(1.0); }
+}
+
+/* Continuous breathing pulse — loops after the intro finishes */
+@keyframes startup-glow-breathe {
+  0%   { opacity: 0.10; transform: translate(-50%, -50%) scale(1.0); }
+  50%  { opacity: 0.16; transform: translate(-50%, -50%) scale(1.06); }
+  100% { opacity: 0.10; transform: translate(-50%, -50%) scale(1.0); }
+}
+
+.startup-glow {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.6);
+  animation:
+    startup-glow-intro 3s ease-out forwards,
+    startup-glow-breathe 4s ease-in-out 3s infinite;
+}
+
+@keyframes draw-down {
+  0% { clip-path: inset(0 0 100% 0); }
+  100% { clip-path: inset(0 0 0 0); }
+}
+
+@keyframes progress-fade-in-up {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes progress-scale-in {
+  0% { opacity: 0; transform: scale(0.8); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.streaming-dot {
+  animation: streaming-dot 1.2s ease-in-out infinite;
+}
+
+/* =============================================================================
+   AGENT TAB ATTENTION — collapsed pill animations
+   ============================================================================= */
+
+@keyframes agent-attention-pulse {
+  0%, 100% { background-color: oklch(from var(--warning) l c h / 0.18); }
+  50% { background-color: oklch(from var(--warning) l c h / 0.35); }
+}
+
+@keyframes agent-attention-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: 0.8; }
+}
+
+.agent-attention-pill {
+  animation: agent-attention-pulse 1.6s ease-in-out infinite;
+}
+
+.agent-attention-pill .agent-attention-dot {
+  animation: agent-attention-dot 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-attention-pill,
+  .agent-attention-pill .agent-attention-dot {
+    animation: none;
+  }
+  .agent-attention-pill {
+    background-color: oklch(from var(--warning) l c h / 0.3);
+  }
+}
+
+/* Sidebar gradient separator — fades at edges */
+.sidebar-section-separator {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent);
+  opacity: 0.15;
+}
+
+/* =============================================================================
+   STREAMDOWN OVERRIDES — Claude.ai-style code blocks
+   ============================================================================= */
+
+[data-streamdown^='heading-'] {
+  overflow-wrap: anywhere;
+}
+
+[data-streamdown='inline-code'] {
+  background: transparent !important;
+  border: 0.5px solid color-mix(in oklch, var(--border) 50%, transparent) !important;
+  border-radius: 0.375rem !important;
+  padding: 1px 4px !important;
+  font-size: 0.9em !important;
+  color: var(--primary) !important;
+  white-space: pre-wrap !important;
+}
+
+[data-streamdown='code-block'],
+[data-streamdown='code-block-container'] {
+  position: relative !important;
+  margin: 0.75rem 0 !important;
+  border-radius: 0.75rem !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  background-color: var(--chat-area) !important;
+  overflow: hidden !important;
+}
+
+html.dark [data-streamdown='code-block'],
+html.dark [data-streamdown='code-block-container'] {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+  background-color: oklch(23% 0 0) !important;
+}
+
+[data-streamdown='code-block-header'] {
+  display: contents !important;
+}
+
+[data-streamdown='code-block-header'] > span:first-child {
+  display: block !important;
+  margin-left: 0 !important;
+  padding: 0.5rem 0.5rem 0 !important;
+  font-size: 0.6875rem !important;
+  line-height: 1 !important;
+  color: var(--orbit-900) !important;
+}
+
+[data-streamdown='code-block-header'] > span:first-child:empty {
+  display: none !important;
+}
+
+[data-streamdown='code-block-header'] > div:last-child {
+  position: absolute !important;
+  top: 0.375rem !important;
+  right: 0.375rem !important;
+  z-index: 10 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.25rem !important;
+}
+
+[data-streamdown='code-block-download-button'] {
+  display: none;
+}
+
+[data-streamdown='code-block-copy-button'] {
+  height: 1.75rem !important;
+  width: 1.75rem !important;
+  padding: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+  color: var(--muted-foreground) !important;
+  opacity: 0 !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    opacity 300ms var(--ease-out-quart),
+    background-color 150ms var(--ease-snappy),
+    color 150ms var(--ease-snappy),
+    transform 80ms var(--ease-snappy) !important;
+}
+
+[data-streamdown='code-block']:hover [data-streamdown='code-block-copy-button'] {
+  opacity: 1 !important;
+}
+
+[data-streamdown='code-block-copy-button'] svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+}
+
+[data-streamdown='code-block-copy-button']:hover {
+  background: rgba(0, 0, 0, 0.06) !important;
+  color: var(--foreground) !important;
+}
+
+html.dark [data-streamdown='code-block-copy-button']:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+[data-streamdown='code-block-copy-button']:active {
+  transform: scale(0.95) !important;
+}
+
+[data-streamdown='code-block-body'] {
+  margin: 0 !important;
+  padding: 0.5rem 0.5rem 0.75rem !important;
+  font-size: 0.75rem !important;
+  line-height: 1.5 !important;
+  background-color: transparent !important;
+  border-top: none !important;
+  overflow-x: hidden !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+[data-streamdown='code-block-body'] code > span {
+  min-height: 1lh !important;
+  padding-left: 0 !important;
+}
+
+[data-streamdown='code-block-body'] code > span::before {
+  display: none !important;
+}
+
+[data-streamdown='code-block-body'] code > span:last-child {
+  min-height: 0 !important;
+}
+
+[data-streamdown="code-block"] {
+  content-visibility: visible !important;
+  contain-intrinsic-size: none !important;
+}
+
+/* ── Tables, blockquotes, caret, mermaid, math ────────────────── */
+[data-streamdown="table"] {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid oklch(from var(--border) l c h / 0.2);
+  margin: 0.75rem 0;
+}
+
+[data-streamdown="table"] th {
+  background: oklch(from var(--muted) l c h / 0.3);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+[data-streamdown="table"] tr:nth-child(even) {
+  background: oklch(from var(--muted) l c h / 0.15);
+}
+
+[data-streamdown="table"] td,
+[data-streamdown="table"] th {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid oklch(from var(--border) l c h / 0.1);
+}
+
+[data-streamdown="blockquote"] {
+  border-left: 3px solid oklch(from var(--primary) l c h / 0.3);
+  background: oklch(from var(--muted) l c h / 0.2);
+  border-radius: 0 8px 8px 0;
+  padding: 0.75rem 1rem;
+  margin: 0.75rem 0;
+}
+
+[data-streamdown="caret"] {
+  background: var(--primary);
+  opacity: 0.8;
+}
+
+[data-streamdown="mermaid"] {
+  border-radius: 10px;
+  border: 1px solid oklch(from var(--border) l c h / 0.2);
+  overflow: hidden;
+  margin: 0.75rem 0;
+  padding: 1rem;
+  background: oklch(from var(--card) l c h / 0.5);
+}
+
+[data-streamdown="math"] {
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  overflow-x: auto;
+}
+
+/* =============================================================================
+   SHIKI CODE BLOCK STYLES
+   ============================================================================= */
+.code-block-content pre {
+  padding: 1rem;
+  margin: 0;
+  overflow-x: auto;
+  background: transparent !important;
+}
+
+.code-block-content code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.code-block-content [data-line] {
+  display: block;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.code-block-content [data-line]::before {
+  content: attr(data-line);
+  display: inline-block;
+  width: 2rem;
+  margin-right: 1rem;
+  text-align: right;
+  color: var(--muted-foreground);
+  opacity: 0.5;
+}
+
+/* =============================================================================
+   CHAT SURFACE (13px VS-Code scale — scoped to agent chat only)
+   ============================================================================= */
+.chat-surface {
+  font-family: var(--font-sans, "Inter Variable", Inter, ui-sans-serif, system-ui, sans-serif);
+  font-size: 13px;
+  line-height: 1.68;
+  font-feature-settings: "rlig" 1, "calt" 1, "cv11" 1;
+  text-rendering: geometricPrecision;
+}
+
+.chat-surface code,
+.chat-surface pre,
+.chat-surface .font-mono {
+  font-family: var(--font-mono);
+}
+
+.chat-surface .chat-markdown {
+  font-size: 13px;
+  line-height: 1.8;
+  color: color-mix(in oklch, var(--foreground) 96%, white 4%);
+  font-weight: 430;
+  text-wrap: pretty;
+}
+
+.chat-surface .chat-markdown p,
+.chat-surface .chat-markdown li,
+.chat-surface .chat-markdown span {
+  color: color-mix(in oklch, var(--foreground) 97%, white 3%);
+}
+
+.chat-surface .chat-markdown h1 { font-size: 20px; font-weight: 600; line-height: 1.25; margin: 1.25rem 0 0.5rem; }
+.chat-surface .chat-markdown h2 { font-size: 16px; font-weight: 600; line-height: 1.3;  margin: 1.25rem 0 0.375rem; }
+.chat-surface .chat-markdown h3 { font-size: 14px; font-weight: 600; line-height: 1.35; margin: 1rem 0 0.25rem; }
+.chat-surface .chat-markdown h4,
+.chat-surface .chat-markdown h5,
+.chat-surface .chat-markdown h6 { font-size: 13px; font-weight: 600; margin: 0.875rem 0 0.25rem; }
+.chat-surface .chat-markdown > *:first-child { margin-top: 0; }
+
+.chat-surface .chat-markdown code:not([class*="language-"]):not([class*="shiki"]) {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: transparent;
+  border: 0.5px solid color-mix(in oklch, var(--border) 60%, transparent);
+  border-radius: 0.375rem;
+  padding: 1px 4px;
+  color: var(--foreground);
+}
+
+/* =============================================================================
+   FLOW-TOKEN STREAMING — per-word fade-in during assistant streaming
+   (keyframe flow-token-in lives in @colt/ui/tokens.css)
+   ============================================================================= */
+[data-streaming="true"] .flow-token {
+  animation: flow-token-in 300ms var(--ease-smooth) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-streaming="true"] .flow-token { animation: none; }
+}
+
+/* =============================================================================
+   TOOL WIDGET SURFACES — Codex-flat
+   ============================================================================= */
+.tool-widget-frame {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.tool-widget-divider {
+  border-color: var(--border-tool);
+}
+
+.tool-widget-output {
+  background: color-mix(in oklch, var(--tool-output-bg) 86%, transparent);
+  border: 1px solid color-mix(in oklch, var(--border-tool) 78%, transparent);
+  border-radius: 0.5rem;
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, white 4%, transparent),
+    0 8px 24px -22px color-mix(in oklch, black 45%, transparent);
+}
+
+.tool-widget-inline-chip {
+  background: transparent;
+  border: 0;
+}
